@@ -407,6 +407,7 @@ let class_of_let_bindings lbs body =
 %token DOT
 %token DOTDOT
 %token DOWNTO
+%token EFFECT
 %token ELSE
 %token END
 %token EOF
@@ -727,6 +728,8 @@ structure_item:
       { mkstr(Pstr_typext $1) }
   | str_exception_declaration
       { mkstr(Pstr_exception $1) }
+  | effect_declaration
+      { mkstr(Pstr_effect $1) }
   | module_binding
       { mkstr(Pstr_module $1) }
   | rec_module_bindings
@@ -818,6 +821,8 @@ signature_item:
       { mksig(Psig_typext $1) }
   | sig_exception_declaration
       { mksig(Psig_exception $1) }
+  | effect_constructor_declaration
+      { mksig(Psig_effect $1) }
   | module_declaration
       { mksig(Psig_module $1) }
   | module_alias
@@ -1574,6 +1579,8 @@ pattern:
       { mkpat(Ppat_lazy $2) }
   | EXCEPTION pattern %prec prec_constr_appl
       { mkpat(Ppat_exception $2) }
+  | EFFECT simple_pattern simple_pattern
+      { mkpat(Ppat_effect($2, $3)) }
   | pattern attribute
       { Pat.attr $1 $2 }
 ;
@@ -1791,6 +1798,24 @@ sig_exception_declaration:
       { let args, res = $3 in
           Te.decl (mkrhs $2 2) ~args ?res
             ~loc:(symbol_rloc()) ~attrs:($4 @ $5) }
+;
+effect_declaration:
+  | effect_constructor_declaration      { $1 }
+  | effect_constructor_rebind           { $1 }
+;
+effect_constructor_declaration:
+  | EFFECT constr_ident attributes COLON core_type_list MINUSGREATER simple_core_type
+      post_item_attributes
+      { Te.effect_decl (mkrhs $2 1) $7 ~args:(Pcstr_tuple (List.rev $5))
+          ~loc:(symbol_rloc()) ~attrs:($8 @ $3) }
+  | EFFECT constr_ident attributes COLON simple_core_type post_item_attributes
+      { Te.effect_decl (mkrhs $2 1) $5
+          ~loc:(symbol_rloc()) ~attrs:($6 @ $3) }
+;
+effect_constructor_rebind:
+  | EFFECT constr_ident attributes EQUAL constr_longident post_item_attributes
+      { Te.effect_rebind (mkrhs $2 1) (mkrhs $5 4)
+          ~loc:(symbol_rloc()) ~attrs:($6 @ $3) }
 ;
 generalized_constructor_arguments:
     /*empty*/                     { (Pcstr_tuple [],None) }

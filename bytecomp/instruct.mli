@@ -119,6 +119,13 @@ type instruction =
   | Kgetpubmet of int
   | Kgetdynmet
   | Kevent of debug_event
+  | Khandle
+  | Kperform
+  | Kcontinue
+  | Kdiscontinue
+  | Khandleterm of int
+  | Kcontinueterm of int
+  | Kdiscontinueterm of int
   | Kstop
 
 val immed_min: int

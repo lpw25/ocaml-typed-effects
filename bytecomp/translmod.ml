@@ -431,6 +431,11 @@ and transl_structure fields cc rootpath = function
       let path = field_path rootpath id in
       Llet(Strict, id, transl_extension_constructor item.str_env path ext,
            transl_structure (id :: fields) cc rootpath rem)
+  | Tstr_effect ext ->
+      let id = ext.ext_id in
+      let path = field_path rootpath id in
+      Llet(Strict, id, transl_extension_constructor item.str_env path ext,
+           transl_structure (id :: fields) cc rootpath rem)
   | Tstr_module mb ->
       let id = mb.mb_id in
       Llet(pure_module mb.mb_expr, id,
@@ -505,6 +510,7 @@ let rec defined_idents = function
       List.map (fun ext -> ext.ext_id) tyext.tyext_constructors
       @ defined_idents rem
     | Tstr_exception ext -> ext.ext_id :: defined_idents rem
+    | Tstr_effect ext -> ext.ext_id :: defined_idents rem
     | Tstr_module mb -> mb.mb_id :: defined_idents rem
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ defined_idents rem
@@ -529,6 +535,7 @@ let rec more_idents = function
     | Tstr_type (_, decls) -> more_idents rem
     | Tstr_typext tyext -> more_idents rem
     | Tstr_exception _ -> more_idents rem
+    | Tstr_effect _ -> more_idents rem
     | Tstr_recmodule decls -> more_idents rem
     | Tstr_modtype _ -> more_idents rem
     | Tstr_open _ -> more_idents rem
@@ -553,6 +560,7 @@ and all_idents = function
       List.map (fun ext -> ext.ext_id) tyext.tyext_constructors
       @ all_idents rem
     | Tstr_exception ext -> ext.ext_id :: all_idents rem
+    | Tstr_effect ext -> ext.ext_id :: all_idents rem
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ all_idents rem
     | Tstr_modtype _ -> all_idents rem
@@ -603,6 +611,12 @@ let transl_store_structure glob map prims str =
       let lam = transl_let rec_flag pat_expr_list (store_idents ids) in
       Lsequence(subst_lambda subst lam,
                 transl_store rootpath (add_idents false ids subst) rem)
+  | Tstr_effect ext ->
+      let id = ext.ext_id in
+      let path = field_path rootpath id in
+      let lam = transl_extension_constructor item.str_env path ext in
+      Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
+                transl_store rootpath (add_ident false id subst) rem)
   | Tstr_primitive descr ->
       record_primitive descr.val_val;
       transl_store rootpath subst rem
@@ -833,6 +847,9 @@ let transl_toplevel_item item =
           (make_sequence toploop_setvalue_id idents)
   | Tstr_exception ext ->
       set_toplevel_unique_name ext.ext_id;
+      toploop_setvalue ext.ext_id
+        (transl_extension_constructor item.str_env None ext)
+  | Tstr_effect ext ->
       toploop_setvalue ext.ext_id
         (transl_extension_constructor item.str_env None ext)
   | Tstr_module {mb_id=id; mb_expr=modl} ->

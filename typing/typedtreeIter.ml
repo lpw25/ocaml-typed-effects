@@ -120,7 +120,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
       List.iter iter_binding list;
       Iter.leave_bindings rec_flag
 
-    and iter_case {c_lhs; c_guard; c_rhs} =
+    and iter_case {c_lhs; c_cont; c_guard; c_rhs} =
       iter_pattern c_lhs;
       may_iter iter_expression c_guard;
       iter_expression c_rhs
@@ -139,6 +139,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tstr_type (rf, list) -> iter_type_declarations rf list
         | Tstr_typext tyext -> iter_type_extension tyext
         | Tstr_exception ext -> iter_extension_constructor ext
+        | Tstr_effect ext -> iter_extension_constructor ext
         | Tstr_module x -> iter_module_binding x
         | Tstr_recmodule list -> List.iter iter_module_binding list
         | Tstr_modtype mtd -> iter_module_type_declaration mtd
@@ -275,13 +276,15 @@ module MakeIterator(Iter : IteratorArgument) : sig
                   None -> ()
                 | Some exp -> iter_expression exp
             ) list
-        | Texp_match (exp, list1, list2, _) ->
+        | Texp_match (exp, list1, list2, list3, _) ->
             iter_expression exp;
             iter_cases list1;
             iter_cases list2;
-        | Texp_try (exp, list) ->
+            iter_cases list3
+        | Texp_try (exp, list1, list2) ->
             iter_expression exp;
-            iter_cases list
+            iter_cases list1;
+            iter_cases list2
         | Texp_tuple list ->
             List.iter iter_expression list
         | Texp_construct (_, _, args) ->
@@ -367,6 +370,8 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tsig_type (rf, list) ->
             iter_type_declarations rf list
         | Tsig_exception ext ->
+            iter_extension_constructor ext
+        | Tsig_effect ext ->
             iter_extension_constructor ext
         | Tsig_typext tyext ->
             iter_type_extension tyext

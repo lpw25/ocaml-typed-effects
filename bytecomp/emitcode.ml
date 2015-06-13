@@ -274,6 +274,13 @@ let emit_instr = function
   | Kgetpubmet tag -> out opGETPUBMET; out_int tag; out_int 0
   | Kgetdynmet -> out opGETDYNMET
   | Kevent ev -> record_event ev
+  | Khandle -> out opHANDLE
+  | Kperform -> out opPERFORM
+  | Kcontinue -> out opCONTINUE
+  | Kdiscontinue -> out opDISCONTINUE
+  | Khandleterm n -> out opHANDLETERM; out_int n
+  | Kcontinueterm n -> out opCONTINUETERM; out_int n
+  | Kdiscontinueterm n -> out opDISCONTINUETERM; out_int n
   | Kstop -> out opSTOP
 
 (* Emission of a list of instructions. Include some peephole optimization. *)

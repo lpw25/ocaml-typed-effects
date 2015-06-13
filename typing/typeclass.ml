@@ -959,6 +959,7 @@ and class_expr cl_num val_env met_env scl =
       let partial =
         Typecore.check_partial val_env pat.pat_type pat.pat_loc
           [{c_lhs=pat;
+            c_cont=None;
             c_guard=None;
             c_rhs = (* Dummy expression *)
             {exp_desc = Texp_constant (Asttypes.Const_int 1);

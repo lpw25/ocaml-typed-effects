@@ -109,6 +109,7 @@ let structure_item sub {str_desc; str_loc; str_env} =
         Tstr_type (rec_flag, list)
     | Tstr_typext te -> Tstr_typext (sub.type_extension sub te)
     | Tstr_exception ext -> Tstr_exception (sub.extension_constructor sub ext)
+    | Tstr_effect ext -> Tstr_effect (sub.extension_constructor sub ext)
     | Tstr_module mb -> Tstr_module (sub.module_binding sub mb)
     | Tstr_recmodule list ->
         Tstr_recmodule (List.map (sub.module_binding sub) list)
@@ -233,17 +234,19 @@ let expr sub x =
           sub.expr sub exp,
           List.map (tuple3 id (opt (sub.expr sub)) id) list
         )
-    | Texp_match (exp, cases, exn_cases, p) ->
+    | Texp_match (exp, cases, exn_cases, eff_cases, p) ->
         Texp_match (
           sub.expr sub exp,
           sub.cases sub cases,
           sub.cases sub exn_cases,
+          sub.cases sub eff_cases,
           p
         )
-    | Texp_try (exp, cases) ->
+    | Texp_try (exp, exn_cases, eff_cases) ->
         Texp_try (
           sub.expr sub exp,
-          sub.cases sub cases
+          sub.cases sub exn_cases,
+          sub.cases sub eff_cases
         )
     | Texp_tuple list ->
         Texp_tuple (List.map (sub.expr sub) list)
@@ -354,6 +357,8 @@ let signature_item sub x =
         Tsig_typext (sub.type_extension sub te)
     | Tsig_exception ext ->
         Tsig_exception (sub.extension_constructor sub ext)
+    | Tsig_effect ext ->
+        Tsig_effect (sub.extension_constructor sub ext)
     | Tsig_module x ->
         Tsig_module (sub.module_declaration sub x)
     | Tsig_recmodule list ->
@@ -613,9 +618,10 @@ let value_bindings sub (rec_flag, list) =
 let cases sub l =
   List.map (sub.case sub) l
 
-let case sub {c_lhs; c_guard; c_rhs} =
+let case sub {c_lhs; c_cont; c_guard; c_rhs} =
   {
     c_lhs = sub.pat sub c_lhs;
+    c_cont = c_cont;
     c_guard = opt (sub.expr sub) c_guard;
     c_rhs = sub.expr sub c_rhs;
   }

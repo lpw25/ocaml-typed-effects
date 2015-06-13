@@ -286,6 +286,8 @@ let compunit_name = ref ""
 
 let max_stack_used = ref 0
 
+let check_stack sz =
+  if sz > !max_stack_used then max_stack_used := sz
 
 (* Sequence of string tests *)
 
@@ -300,7 +302,7 @@ let comp_bint_primitive bi suff args =
                 | Pint64 -> "caml_int64_" in
   Kccall(pref ^ suff, List.length args)
 
-let comp_primitive p args =
+let comp_primitive p sz args =
   match p with
     Pgetglobal id -> Kgetglobal id
   | Psetglobal id -> Ksetglobal id
@@ -312,6 +314,9 @@ let comp_primitive p args =
   | Psetfloatfield n -> Ksetfloatfield n
   | Pduprecord _ -> Kccall("caml_obj_dup", 1)
   | Pccall p -> Kccall(p.prim_name, p.prim_arity)
+  | Pperform ->
+      check_stack (sz + 2);
+      Kperform
   | Pnegint -> Knegint
   | Paddint -> Kaddint
   | Psubint -> Ksubint
@@ -638,13 +643,38 @@ let rec comp_expr env exp sz cont =
                  (Kmakeblock(List.length args, 0) ::
                   Kccall("caml_make_array", 1) :: cont)
       end
+  | Lprim(Phandle, args) ->
+      let nargs = List.length args - 1 in
+      if is_tailcall cont then
+        comp_args env args sz
+          (Khandleterm(sz + nargs) :: discard_dead_code cont)
+      else
+        comp_args env args sz (Khandle :: cont)
+  | Lprim(Pcontinue, args) ->
+      let nargs = List.length args - 1 in
+      check_stack (sz + nargs + 2);
+      if is_tailcall cont then
+        comp_args env args sz
+          (Kcontinueterm(sz + nargs) :: discard_dead_code cont)
+      else
+        comp_args env args sz (Kcontinue :: cont)
+  | Lprim(Pdiscontinue, args) ->
+      let nargs = List.length args - 1 in
+      check_stack (sz + nargs + 2);
+      if is_tailcall cont then
+        comp_args env args sz
+          (Kdiscontinueterm(sz + nargs) :: discard_dead_code cont)
+      else
+        comp_args env args sz (Kdiscontinue :: cont)
 (* Integer first for enabling futher optimization (cf. emitcode.ml)  *)
   | Lprim (Pintcomp c, [arg ; (Lconst _ as k)]) ->
       let p = Pintcomp (commute_comparison c)
       and args = [k ; arg] in
-      comp_args env args sz (comp_primitive p args :: cont)
+      let nargs = List.length args - 1 in
+      comp_args env args sz (comp_primitive p (sz + nargs - 1) args :: cont)
   | Lprim(p, args) ->
-      comp_args env args sz (comp_primitive p args :: cont)
+      let nargs = List.length args - 1 in
+      comp_args env args sz (comp_primitive p (sz + nargs - 1) args :: cont)
   | Lstaticcatch (body, (i, vars) , handler) ->
       let nvars = List.length vars in
       let branch1, cont1 = make_branch cont in

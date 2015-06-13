@@ -2287,7 +2287,7 @@ let mk_failaction_pos partial seen ctx defs  =
       | _  -> scan_def ((List.map fst now,idef)::env) later rem in
 
   let fail_pats = complete_pats_constrs seen in
-  if List.length fail_pats < 32 then begin 
+  if List.length fail_pats < 32 then begin
     let fail,jmps =
       scan_def
         []
@@ -2305,7 +2305,7 @@ let mk_failaction_pos partial seen ctx defs  =
     let fail,jumps =  mk_failaction_neg partial ctx defs in
     if dbg then
       eprintf "FAIL: %s\n"
-        (match fail with 
+        (match fail with
         | None -> "<none>"
         | Some lam -> string_of_lam lam) ;
     fail,[],jumps
@@ -3008,10 +3008,24 @@ let partial_function loc () =
 let for_function loc repr param pat_act_list partial =
   compile_matching loc repr (partial_function loc) param pat_act_list partial
 
-(* In the following two cases, exhaustiveness info is not available! *)
+(* In the following three cases, exhaustiveness info is not available! *)
 let for_trywith param pat_act_list =
   compile_matching Location.none None
     (fun () -> Lprim(Praise Raise_reraise, [param]))
+    param pat_act_list Partial
+
+let for_handler param cont pat_act_list =
+  let id_exn = Ident.create "exn" in
+  let id_val = Ident.create "val" in
+  let static_exception_id = next_negative_raise_count () in
+  let delegate =
+    Lstaticcatch
+      (Ltrywith (Lstaticraise (static_exception_id, [Lprim (Pperform, [param])]),
+                 id_exn, Lprim (Pdiscontinue, [cont; (Lvar id_exn)])),
+       (static_exception_id, [id_val]),
+       Lprim(Pcontinue, [cont; (Lvar id_val)]))
+  in
+  compile_matching Location.none None (fun () -> delegate)
     param pat_act_list Partial
 
 let for_let loc param pat body =

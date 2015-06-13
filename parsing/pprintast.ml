@@ -393,6 +393,8 @@ class printer  ()= object(self:'self)
         pp f "@[<2>(lazy@;%a)@]" self#pattern1 p
     | Ppat_exception p ->
         pp f "@[<2>exception@;%a@]" self#pattern1 p
+    | Ppat_effect(p1, p2) ->
+        pp f "@[<2>effect@;%a@;%a@]" self#pattern1 p1 self#pattern1 p2
     | Ppat_extension e -> self#extension f e
     | _ -> self#paren true self#pattern f x
 
@@ -714,6 +716,9 @@ class printer  ()= object(self:'self)
   method exception_declaration f ext =
     pp f "@[<hov2>exception@ %a@]" self#extension_constructor ext
 
+  method effect_declaration f ext =
+    pp f "@[<hov2>effect@ %a@]" self#effect_constructor ext
+
   method class_signature f { pcsig_self = ct; pcsig_fields = l ;_} =
     let class_type_field f x =
       match x.pctf_desc with
@@ -938,6 +943,8 @@ class printer  ()= object(self:'self)
         self#type_extension f te
     | Psig_exception ed ->
         self#exception_declaration f ed
+    | Psig_effect ed ->
+        self#effect_declaration f ed
     | Psig_class l ->
         let class_description kwd f ({pci_params=ls;pci_name={txt;_};_} as x) =
           pp f "@[<2>%s %a%a%s@;:@;%a@]%a" kwd
@@ -1103,6 +1110,7 @@ class printer  ()= object(self:'self)
         pp f "@[<2>%a@]" self#bindings (rf,l)
     | Pstr_typext te -> self#type_extension f te
     | Pstr_exception ed -> self#exception_declaration f ed
+    | Pstr_effect ed -> self#effect_declaration f ed
     | Pstr_module x ->
         let rec module_helper me =
           match me.pmod_desc with
@@ -1337,6 +1345,15 @@ class printer  ()= object(self:'self)
     | Pext_rebind li ->
         pp f "%s%a@;=@;%a" x.pext_name.txt
           self#attributes x.pext_attributes
+          self#longident_loc li
+
+  method effect_constructor f x =
+    match x.peff_kind with
+    | Peff_decl(l, r) ->
+        self#constructor_declaration f (x.peff_name.txt, l, Some r, x.peff_attributes)
+    | Peff_rebind li ->
+        pp f "%s%a@;=@;%a" x.peff_name.txt
+          self#attributes x.peff_attributes
           self#longident_loc li
 
   method case_list f l : unit =
