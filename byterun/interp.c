@@ -66,11 +66,20 @@ sp is a local copy of the global variable caml_extern_sp. */
 #define Setup_for_gc \
   { sp -= 2; sp[0] = accu; sp[1] = env; caml_extern_sp = sp; }
 #define Restore_after_gc \
-  { accu = sp[0]; env = sp[1]; sp += 2; }
+  { sp = caml_extern_sp; accu = sp[0]; env = sp[1]; sp += 2; }
 #define Setup_for_c_call \
   { saved_pc = pc; *--sp = env; caml_extern_sp = sp; }
 #define Restore_after_c_call \
   { sp = caml_extern_sp; env = *sp++; saved_pc = NULL; }
+
+/* Context switch interface */
+#define Setup_for_context_switch \
+  { sp -= 3; sp[0] = Val_pc(pc); sp[1] = env; \
+    sp[2] = Val_long(extra_args); caml_extern_sp = sp; }
+#define Setup_for_tail_context_switch \
+  { caml_extern_sp = sp + *pc; }
+#define Restore_after_context_switch \
+  { sp = caml_extern_sp; }
 
 /* An event frame must look like accu + a C_CALL frame + a RETURN 1 frame */
 #define Setup_for_event \
@@ -78,13 +87,13 @@ sp is a local copy of the global variable caml_extern_sp. */
     sp[0] = accu; /* accu */ \
     sp[1] = Val_unit; /* C_CALL frame: dummy environment */ \
     sp[2] = Val_unit; /* RETURN frame: dummy local 0 */ \
-    sp[3] = (value) pc; /* RETURN frame: saved return address */ \
+    sp[3] = Val_pc(pc); /* RETURN frame: saved return address */  \
     sp[4] = env; /* RETURN frame: saved environment */ \
     sp[5] = Val_long(extra_args); /* RETURN frame: saved extra args */ \
     caml_extern_sp = sp; }
 #define Restore_after_event \
   { sp = caml_extern_sp; accu = sp[0]; \
-    pc = (code_t) sp[3]; env = sp[4]; extra_args = Long_val(sp[5]); \
+    pc = Pc_val(sp[3]); env = sp[4]; extra_args = Long_val(sp[5]); \
     sp += 6; }
 
 /* Debugger interface */
@@ -209,7 +218,9 @@ value caml_interprete(code_t prog, asize_t prog_size)
   value env;
   intnat extra_args;
   struct longjmp_buffer * initial_external_raise;
-  int initial_sp_offset;
+  int initial_stack_words;
+  value initial_parent_stack;
+  intnat initial_trap_sp_off;
   /* volatile ensures that initial_local_roots and saved_pc
      will keep correct value across longjmp */
   struct caml__roots_block * volatile initial_local_roots;
@@ -237,7 +248,8 @@ value caml_interprete(code_t prog, asize_t prog_size)
   jumptbl_base = Jumptbl_base;
 #endif
   initial_local_roots = caml_local_roots;
-  initial_sp_offset = (char *) caml_stack_high - (char *) caml_extern_sp;
+  initial_parent_stack = caml_parent_stack;
+  initial_stack_words = caml_stack_high - caml_extern_sp;
   initial_external_raise = caml_external_raise;
   caml_callback_depth++;
   saved_pc = NULL;
@@ -253,6 +265,9 @@ value caml_interprete(code_t prog, asize_t prog_size)
   }
   caml_external_raise = &raise_buf;
 
+  caml_trap_sp_off = 1;
+  caml_parent_stack = Val_long(0);
+
   sp = caml_extern_sp;
   pc = prog;
   extra_args = 0;
@@ -263,8 +278,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
 #ifdef DEBUG
  next_instr:
   if (caml_icount-- == 0) caml_stop_here ();
-  Assert(sp >= caml_stack_low);
-  Assert(sp <= caml_stack_high);
+  Assert(sp == caml_stack_high || caml_on_current_stack(sp));
 #endif
   goto *(void *)(jumptbl_base + *pc++); /* Jump to the first instruction */
 #else
@@ -281,8 +295,6 @@ value caml_interprete(code_t prog, asize_t prog_size)
       caml_trace_accu_sp_file(accu,sp,prog,prog_size,stdout);
       fflush(stdout);
     };
-    Assert(sp >= caml_stack_low);
-    Assert(sp <= caml_stack_high);
 #endif
     curr_instr = *pc++;
 
@@ -372,7 +384,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
 
     Instruct(PUSH_RETADDR): {
       sp -= 3;
-      sp[0] = (value) (pc + *pc);
+      sp[0] = Val_pc(pc + *pc);
       sp[1] = env;
       sp[2] = Val_long(extra_args);
       pc++;
@@ -388,7 +400,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
       value arg1 = sp[0];
       sp -= 3;
       sp[0] = arg1;
-      sp[1] = (value)pc;
+      sp[1] = Val_pc(pc);
       sp[2] = env;
       sp[3] = Val_long(extra_args);
       pc = Code_val(accu);
@@ -402,7 +414,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
       sp -= 3;
       sp[0] = arg1;
       sp[1] = arg2;
-      sp[2] = (value)pc;
+      sp[2] = Val_pc(pc);
       sp[3] = env;
       sp[4] = Val_long(extra_args);
       pc = Code_val(accu);
@@ -418,7 +430,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
       sp[0] = arg1;
       sp[1] = arg2;
       sp[2] = arg3;
-      sp[3] = (value)pc;
+      sp[3] = Val_pc(pc);
       sp[4] = env;
       sp[5] = Val_long(extra_args);
       pc = Code_val(accu);
@@ -482,7 +494,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
         pc = Code_val(accu);
         env = accu;
       } else {
-        pc = (code_t)(sp[0]);
+        pc = Pc_val(sp[0]);
         env = sp[1];
         extra_args = Long_val(sp[2]);
         sp += 3;
@@ -510,9 +522,9 @@ value caml_interprete(code_t prog, asize_t prog_size)
         Alloc_small(accu, num_args + 2, Closure_tag);
         Field(accu, 1) = env;
         for (i = 0; i < num_args; i++) Field(accu, i + 2) = sp[i];
-        Code_val(accu) = pc - 3; /* Point to the preceding RESTART instr. */
+        Field(accu, 0) = Val_bytecode(pc - 3); /* Point to the preceding RESTART instr. */
         sp += num_args;
-        pc = (code_t)(sp[0]);
+        pc = Pc_val(sp[0]);
         env = sp[1];
         extra_args = Long_val(sp[2]);
         sp += 3;
@@ -533,11 +545,12 @@ value caml_interprete(code_t prog, asize_t prog_size)
         /* caml_alloc_shr and caml_initialize never trigger a GC,
            so no need to Setup_for_gc */
         accu = caml_alloc_shr(1 + nvars, Closure_tag);
-        for (i = 0; i < nvars; i++) caml_initialize(&Field(accu, i + 1), sp[i]);
+        for (i = 0; i < nvars; i++)
+          caml_initialize(&Field(accu, i + 1), sp[i]);
       }
       /* The code pointer is not in the heap, so no need to go through
          caml_initialize. */
-      Code_val(accu) = pc + *pc;
+      Field(accu,0) = Val_bytecode(pc + *pc);
       pc++;
       sp += nvars;
       Next;
@@ -546,35 +559,34 @@ value caml_interprete(code_t prog, asize_t prog_size)
     Instruct(CLOSUREREC): {
       int nfuncs = *pc++;
       int nvars = *pc++;
-      mlsize_t blksize = nfuncs * 2 - 1 + nvars;
-      int i;
-      value * p;
+      int i, field;
+      int var_offset = nfuncs * 2 - 1;
+      int blksize = var_offset + nvars;
       if (nvars > 0) *--sp = accu;
       if (blksize <= Max_young_wosize) {
         Alloc_small(accu, blksize, Closure_tag);
-        p = &Field(accu, nfuncs * 2 - 1);
-        for (i = 0; i < nvars; i++, p++) *p = sp[i];
+        for (i = 0; i < nvars; i++)
+          Field(accu, var_offset + i) = sp[i];
       } else {
         /* PR#6385: must allocate in major heap */
         /* caml_alloc_shr and caml_initialize never trigger a GC,
            so no need to Setup_for_gc */
         accu = caml_alloc_shr(blksize, Closure_tag);
-        p = &Field(accu, nfuncs * 2 - 1);
-        for (i = 0; i < nvars; i++, p++) caml_initialize(p, sp[i]);
+        for (i = 0; i < nvars; i++)
+          caml_initialize(&Field(accu, var_offset + i), sp[i]);
       }
       sp += nvars;
       /* The code pointers and infix headers are not in the heap,
          so no need to go through caml_initialize. */
-      p = &Field(accu, 0);
-      *p = (value) (pc + pc[0]);
+      Field(accu, 0) = Val_bytecode(pc + pc[0]);
       *--sp = accu;
-      p++;
+      field = 1;
       for (i = 1; i < nfuncs; i++) {
-        *p = Make_header(i * 2, Infix_tag, Caml_white);  /* color irrelevant. */
-        p++;
-        *p = (value) (pc + pc[i]);
-        *--sp = (value) p;
-        p++;
+        Field(accu, field) = Make_header(i * 2, Infix_tag, Caml_white);  /* color irrelevant. */
+        field++;
+        Field(accu, field) = Val_bytecode (pc + pc[i]);
+        *--sp = (value) (Op_val(accu) + field);
+        field++;
       }
       pc += nfuncs;
       Next;
@@ -814,11 +826,11 @@ value caml_interprete(code_t prog, asize_t prog_size)
 
     Instruct(PUSHTRAP):
       sp -= 4;
-      Trap_pc(sp) = pc + *pc;
-      Trap_link(sp) = caml_trapsp;
+      Trap_pc(sp) = Val_pc(pc + *pc);
+      Trap_link(sp) = Val_long(caml_trap_sp_off);
       sp[2] = env;
       sp[3] = Val_long(extra_args);
-      caml_trapsp = sp;
+      caml_trap_sp_off = sp - caml_stack_high;
       pc++;
       Next;
 
@@ -830,47 +842,63 @@ value caml_interprete(code_t prog, asize_t prog_size)
         pc--; /* restart the POPTRAP after processing the signal */
         goto process_signal;
       }
-      caml_trapsp = Trap_link(sp);
+      caml_trap_sp_off = Long_val(Trap_link(sp));
       sp += 4;
       Next;
 
     Instruct(RAISE_NOTRACE):
-      if (caml_trapsp >= caml_trap_barrier) caml_debugger(TRAP_BARRIER);
+      if (caml_trap_sp_off >= caml_trap_barrier_off) caml_debugger(TRAP_BARRIER);
       goto raise_notrace;
 
     Instruct(RERAISE):
-      if (caml_trapsp >= caml_trap_barrier) caml_debugger(TRAP_BARRIER);
+      if (caml_trap_sp_off >= caml_trap_barrier_off) caml_debugger(TRAP_BARRIER);
       if (caml_backtrace_active) caml_stash_backtrace(accu, pc, sp, 1);
       goto raise_notrace;
 
     Instruct(RAISE):
     raise_exception:
-      if (caml_trapsp >= caml_trap_barrier) caml_debugger(TRAP_BARRIER);
+      if (caml_trap_sp_off >= caml_trap_barrier_off) caml_debugger(TRAP_BARRIER);
       if (caml_backtrace_active) caml_stash_backtrace(accu, pc, sp, 0);
     raise_notrace:
-      if ((char *) caml_trapsp
-          >= (char *) caml_stack_high - initial_sp_offset) {
-        caml_external_raise = initial_external_raise;
-        caml_extern_sp = (value *) ((char *) caml_stack_high
-                                    - initial_sp_offset);
-        caml_callback_depth--;
-        return Make_exception_result(accu);
+      if (caml_trap_sp_off > 0) {
+        if (caml_parent_stack == Val_long(0)) {
+          caml_external_raise = initial_external_raise;
+          caml_parent_stack = initial_parent_stack;
+          caml_trap_sp_off = initial_trap_sp_off;
+          caml_extern_sp = caml_stack_high - initial_stack_words;
+          caml_callback_depth--;
+          return Make_exception_result(accu);
+        } else {
+          value cont;
+          Setup_for_context_switch
+          cont = caml_finish_exception(accu);
+          Restore_after_context_switch
+          extra_args = Long_val(sp[0]);
+          sp += 1;
+          pc = Code_val(cont);
+          env = cont;
+          goto check_stacks;
+        }
+      } else {
+        sp = caml_stack_high + caml_trap_sp_off;
+        pc = Pc_val(Trap_pc(sp));
+        caml_trap_sp_off = Long_val(Trap_link(sp));
+        env = sp[2];
+        extra_args = Long_val(sp[3]);
+        sp += 4;
       }
-      sp = caml_trapsp;
-      pc = Trap_pc(sp);
-      caml_trapsp = Trap_link(sp);
-      env = sp[2];
-      extra_args = Long_val(sp[3]);
-      sp += 4;
       Next;
 
 /* Stack checks */
 
     check_stacks:
       if (sp < caml_stack_threshold) {
+        value saved[] = {env, accu};
         caml_extern_sp = sp;
-        caml_realloc_stack(Stack_threshold / sizeof(value));
+        caml_realloc_stack(Stack_threshold / sizeof(value), saved, 2);
         sp = caml_extern_sp;
+        env = saved[0];
+        accu = saved[1];
       }
       /* Fall through CHECK_SIGNALS */
 
@@ -1115,6 +1143,8 @@ value caml_interprete(code_t prog, asize_t prog_size)
 
     Instruct(STOP):
       caml_external_raise = initial_external_raise;
+      caml_parent_stack = initial_parent_stack;
+      caml_trap_sp_off = initial_trap_sp_off;
       caml_extern_sp = sp;
       caml_callback_depth--;
       return accu;
@@ -1132,6 +1162,137 @@ value caml_interprete(code_t prog, asize_t prog_size)
       caml_debugger(BREAKPOINT);
       Restore_after_debugger;
       Restart_curr_instr;
+
+/* Context switching */
+
+    Instruct(HANDLE): {
+      value hval, hexn, heff;
+      value cont;
+
+      hval = sp[0];
+      hexn = sp[1];
+      heff = sp[2];
+      sp += 3;
+
+      Setup_for_context_switch
+      cont = caml_handle(accu, hval, hexn, heff, 0);
+      Restore_after_context_switch
+
+      pc = Code_val(cont);
+      env = cont;
+      extra_args = 0;
+      goto check_stacks;
+    }
+
+    Instruct(HANDLETERM): {
+      value hval, hexn, heff;
+      value cont;
+
+      hval = sp[0];
+      hexn = sp[1];
+      heff = sp[2];
+
+      Setup_for_tail_context_switch
+      cont = caml_handle(accu, hval, hexn, heff, extra_args);
+      Restore_after_context_switch
+
+      pc = Code_val(cont);
+      env = cont;
+      extra_args = 0;
+      goto check_stacks;
+    }
+
+    Instruct(PERFORM): {
+      value cont;
+      if (caml_parent_stack == Val_long(0)) {
+        accu = Field(caml_global_data, UNHANDLED_EXN);
+        goto raise_exception;
+      } else {
+        Setup_for_context_switch
+        cont = caml_perform(accu);
+        Restore_after_context_switch
+
+        extra_args = Long_val(sp[0]) + 1;
+        sp += 1;
+
+        pc = Code_val(cont);
+        env = cont;
+        goto check_stacks;
+      }
+    }
+
+    Instruct(CONTINUE): {
+      value ret;
+
+      ret = sp[0];
+      sp += 1;
+
+      Setup_for_context_switch
+      accu = caml_continue(accu, ret, 0);
+      Restore_after_context_switch
+
+      pc = Pc_val(sp[0]);
+      env = sp[1];
+      extra_args = Long_val(sp[2]);
+      sp += 3;
+      Next;
+    }
+
+    Instruct(CONTINUETERM): {
+      value ret;
+
+      ret = sp[0];
+
+      Setup_for_tail_context_switch
+      accu = caml_continue(accu, ret, extra_args);
+      Restore_after_context_switch
+
+      pc = Pc_val(sp[0]);
+      env = sp[1];
+      extra_args = Long_val(sp[2]);
+      sp += 3;
+      Next;
+    }
+
+    Instruct(DISCONTINUE): {
+      value ret;
+
+      ret = sp[0];
+      sp += 1;
+
+      Setup_for_context_switch
+      accu = caml_continue(accu, ret, 0);
+      Restore_after_context_switch
+
+      goto raise_exception;
+    }
+
+    Instruct(DISCONTINUETERM): {
+      value ret;
+
+      ret = sp[0];
+
+      Setup_for_tail_context_switch
+      accu = caml_continue(accu, ret, extra_args);
+      Restore_after_context_switch
+
+      goto raise_exception;
+    }
+
+    Instruct(FINISH): {
+      value cont;
+
+      Setup_for_context_switch
+      cont = caml_finish(accu);
+      Restore_after_context_switch
+
+      extra_args = Long_val(sp[0]);
+      sp += 1;
+
+      pc = Code_val(cont);
+      env = cont;
+      goto check_stacks;
+    }
 
 #ifndef THREADED_CODE
     default:

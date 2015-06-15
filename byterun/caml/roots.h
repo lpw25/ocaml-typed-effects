@@ -23,7 +23,7 @@ void caml_oldify_local_roots (void);
 void caml_darken_all_roots (void);
 void caml_do_roots (scanning_action);
 #ifndef NATIVE_CODE
-CAMLextern void caml_do_local_roots (scanning_action, value *, value *,
+CAMLextern void caml_do_local_roots (scanning_action,
                                      struct caml__roots_block *);
 #else
 CAMLextern void caml_do_local_roots(scanning_action f, char * bottom_of_stack,
