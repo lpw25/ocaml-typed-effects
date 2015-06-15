@@ -266,6 +266,8 @@ CAMLprim value caml_backtrace_status(value vunit)
 
 void caml_stash_backtrace(value exn, code_t pc, value * sp, int reraise)
 {
+  code_t end_code = (code_t) ((char *) caml_start_code + caml_code_size);
+
   if (pc != NULL) pc = pc - 1;
   if (exn != caml_backtrace_last_exn || !reraise) {
     caml_backtrace_pos = 0;
@@ -285,11 +287,13 @@ void caml_stash_backtrace(value exn, code_t pc, value * sp, int reraise)
 
   /* Traverse the stack and put all values pointing into bytecode
      into the backtrace buffer. */
-  for (/*nothing*/; sp < caml_trapsp; sp++) {
-    code_t p = (code_t) *sp;
-    if (caml_backtrace_pos >= BACKTRACE_BUFFER_SIZE) break;
-    if (find_debug_info(p) != NULL)
-      caml_backtrace_buffer[caml_backtrace_pos++] = p;
+  for (/*nothing*/; sp < caml_stack_high + caml_trap_sp_off; sp++) {
+    code_t p = Pc_val(*sp);
+    if (Is_long(*sp) && Pc_val(*sp) >= caml_start_code && Pc_val(*sp) < end_code) {
+      if (caml_backtrace_pos >= BACKTRACE_BUFFER_SIZE) break;
+      if (find_debug_info(p) != NULL)
+        caml_backtrace_buffer[caml_backtrace_pos++] = p;
+    }
   }
 }
 
@@ -308,17 +312,22 @@ void caml_stash_backtrace(value exn, code_t pc, value * sp, int reraise)
    updates *sp to point to the following one, and *trapsp to the next
    trap frame, which we will skip when we reach it  */
 
-code_t caml_next_frame_pointer(value ** sp, value ** trapsp)
+code_t caml_next_frame_pointer(value ** sp, intnat * trap_spoff)
 {
+  code_t end_code = (code_t) ((char *) caml_start_code + caml_code_size);
+
   while (*sp < caml_stack_high) {
-    code_t *p = (code_t*) (*sp)++;
-    if(&Trap_pc(*trapsp) == p) {
-      *trapsp = Trap_link(*trapsp);
+    value *p = (*sp)++;
+    if(&Trap_pc(caml_stack_high + *trap_spoff) == p) {
+      *trap_spoff = Trap_link(caml_stack_high + *trap_spoff);
       continue;
     }
-
-    if (find_debug_info(*p) != NULL)
-      return *p;
+    if (Is_long(*p) &&
+        Pc_val(*p) >= caml_start_code &&
+        Pc_val(*p) < end_code &&
+        find_debug_info((code_t)*p)) {
+      return Pc_val(*p);
+    }
   }
   return NULL;
 }
@@ -342,10 +351,10 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
   /* first compute the size of the trace */
   {
     value * sp = caml_extern_sp;
-    value * trapsp = caml_trapsp;
+    intnat trap_spoff = caml_trap_sp_off;
 
     for (trace_size = 0; trace_size < max_frames; trace_size++) {
-      code_t p = caml_next_frame_pointer(&sp, &trapsp);
+      code_t p = caml_next_frame_pointer(&sp, &trap_spoff);
       if (p == NULL) break;
     }
   }
@@ -355,11 +364,11 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
   /* then collect the trace */
   {
     value * sp = caml_extern_sp;
-    value * trapsp = caml_trapsp;
+    intnat trap_spoff = caml_trap_sp_off;
     uintnat trace_pos;
 
     for (trace_pos = 0; trace_pos < trace_size; trace_pos++) {
-      code_t p = caml_next_frame_pointer(&sp, &trapsp);
+      code_t p = caml_next_frame_pointer(&sp, &trap_spoff);
       Assert(p != NULL);
       Field(trace, trace_pos) = Val_Codet(p);
     }

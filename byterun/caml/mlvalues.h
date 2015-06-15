@@ -196,13 +196,25 @@ CAMLextern value caml_get_public_method (value obj, value tag);
    Note however that tags being hashed, same tag does not necessarily mean
    same method name. */
 
+#define Val_ptr(p) (Assert(((value)(p) & 1) == 0), (value)(p) + 1)
+#define Ptr_val(val) (Assert(val & 1),  (void*)(val - 1))
+
+#define Val_pc(pc) Val_ptr(pc)
+#define Pc_val(val) ((code_t)Ptr_val(val))
+
 /* Special case of tuples of fields: closures */
 #define Closure_tag 247
-#define Code_val(val) (((code_t *) (val)) [0])     /* Also an l-value. */
+#define Bytecode_val(val) (Pc_val(val))
+#define Val_bytecode(code) (Val_pc(code))
+#define Code_val(val) Bytecode_val(Field((val), 0)) /* Also, an l-value. */
 
 /* This tag is used (with Forward_tag) to implement lazy values.
    See major_gc.c and stdlib/lazy.ml. */
 #define Lazy_tag 246
+
+/* Tag used for fiber stacks (see stacks.c) */
+#define Stack_tag 245
+
 
 /* Another special case: variants */
 CAMLextern value caml_hash_variant(char const * tag);

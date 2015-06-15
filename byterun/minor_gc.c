@@ -25,6 +25,7 @@
 #include "caml/roots.h"
 #include "caml/signals.h"
 #include "caml/weak.h"
+#include "caml/stacks.h"
 
 asize_t caml_minor_heap_wsz;
 static void *caml_young_base = NULL;
@@ -34,6 +35,9 @@ CAMLexport value *caml_young_ptr = NULL, *caml_young_limit = NULL;
 CAMLexport struct caml_ref_table
   caml_ref_table = { NULL, NULL, NULL, NULL, NULL, 0, 0},
   caml_weak_ref_table = { NULL, NULL, NULL, NULL, NULL, 0, 0};
+
+static struct caml_ref_table
+  caml_stack_table = {NULL, NULL, NULL, NULL, NULL, 0, 0};
 
 int caml_in_minor_collection = 0;
 
@@ -129,18 +133,26 @@ void caml_oldify_one (value v, value *p)
         sz = Wosize_hd (hd);
         result = caml_alloc_shr (sz, tag);
         *p = result;
-        field0 = Field (v, 0);
-        Hd_val (v) = 0;            /* Set forward flag */
-        Field (v, 0) = result;     /*  and forward pointer. */
-        if (sz > 1){
-          Field (result, 0) = field0;
-          Field (result, 1) = oldify_todo_list;    /* Add this block */
-          oldify_todo_list = v;                    /*  to the "to do" list. */
-        }else{
-          Assert (sz == 1);
-          p = &Field (result, 0);
-          v = field0;
-          goto tail_call;
+        if (tag == Stack_tag) {
+          memcpy((void*)result, (void*)v, sizeof(value) * sz);
+          Hd_val (v) = 0;
+          Op_val(v)[0] = result;
+          Op_val(v)[1] = oldify_todo_list;
+          oldify_todo_list = v;
+        } else {
+          field0 = Field (v, 0);
+          Hd_val (v) = 0;            /* Set forward flag */
+          Field (v, 0) = result;     /*  and forward pointer. */
+          if (sz > 1){
+            Field (result, 0) = field0;
+            Field (result, 1) = oldify_todo_list;    /* Add this block */
+            oldify_todo_list = v;                    /*  to the "to do" list. */
+          }else{
+            Assert (sz == 1);
+            p = &Field (result, 0);
+            v = field0;
+            goto tail_call;
+          }
         }
       }else if (tag >= No_scan_tag){
         sz = Wosize_hd (hd);
@@ -204,22 +216,29 @@ void caml_oldify_mopup (void)
     v = oldify_todo_list;                /* Get the head. */
     Assert (Hd_val (v) == 0);            /* It must be forwarded. */
     new_v = Field (v, 0);                /* Follow forward pointer. */
-    oldify_todo_list = Field (new_v, 1); /* Remove from list. */
+    if (Tag_val(new_v) == Stack_tag) {
+      oldify_todo_list = Field (v,1);   /* Remove from list (stack). */
+      caml_scan_stack(caml_oldify_one, new_v);
+    } else {
+      oldify_todo_list = Field (new_v, 1); /* Remove from list (non-stack). */
 
-    f = Field (new_v, 0);
-    if (Is_block (f) && Is_young (f)){
-      caml_oldify_one (f, &Field (new_v, 0));
-    }
-    for (i = 1; i < Wosize_val (new_v); i++){
-      f = Field (v, i);
+      f = Field (new_v, 0);
       if (Is_block (f) && Is_young (f)){
-        caml_oldify_one (f, &Field (new_v, i));
-      }else{
-        Field (new_v, i) = f;
+        caml_oldify_one (f, &Field (new_v, 0));
+      }
+      for (i = 1; i < Wosize_val (new_v); i++){
+        f = Field (v, i);
+        if (Is_block (f) && Is_young (f)){
+          caml_oldify_one (f, &Field (new_v, i));
+        }else{
+          Field (new_v, i) = f;
+        }
       }
     }
   }
 }
+
+static void clean_stacks (void);
 
 /* Make sure the minor heap is empty by performing a minor collection
    if needed.
@@ -227,6 +246,10 @@ void caml_oldify_mopup (void)
 void caml_empty_minor_heap (void)
 {
   value **r;
+
+  caml_save_stack_gc ();
+
+  clean_stacks ();
 
   if (caml_young_ptr != caml_young_end){
     caml_in_minor_collection = 1;
@@ -255,6 +278,8 @@ void caml_empty_minor_heap (void)
     caml_in_minor_collection = 0;
   }
   caml_final_empty_young ();
+
+  caml_restore_stack_gc ();
 #ifdef DEBUG
   {
     value *p;
@@ -323,4 +348,27 @@ void caml_realloc_ref_table (struct caml_ref_table *tbl)
     tbl->ptr = tbl->base + cur_ptr;
     tbl->limit = tbl->end;
   }
+}
+
+CAMLexport void caml_remember_stack (value stack)
+{
+  Assert (Is_block(stack) && !Is_young(stack));
+  if (caml_stack_table.ptr >= caml_stack_table.limit) {
+    CAMLassert (caml_stack_table.ptr == caml_stack_table.limit);
+    caml_realloc_ref_table (&caml_stack_table);
+  }
+  //FIXME KC: abusive cast
+  *caml_stack_table.ptr++ = (value*)stack;
+}
+
+static void clean_stacks (void)
+{
+  value **r;
+  for (r = caml_stack_table.base; r < caml_stack_table.ptr; r++) {
+    //FIXME KC: abusive cast
+    value stack = (value)*r;
+    caml_scan_stack (&caml_oldify_one, stack);
+    caml_clean_stack (stack);
+  }
+  clear_table (&caml_stack_table);
 }

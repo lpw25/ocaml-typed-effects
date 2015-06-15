@@ -23,6 +23,20 @@
 #include "caml/roots.h"
 #include "caml/stacks.h"
 
+#ifdef NATIVE_CODE
+#include "frame_descriptors.h"
+
+/* Communication with [caml_start_program] and [caml_call_gc]. */
+
+char * caml_top_of_stack;
+char * caml_bottom_of_stack = NULL; /* no stack initially */
+uintnat caml_last_return_address = 1; /* not in OCaml code initially */
+value * caml_gc_regs;
+intnat caml_globals_inited = 0;
+static intnat caml_globals_scanned = 0;
+
+#endif
+
 CAMLexport struct caml__roots_block *caml_local_roots = NULL;
 
 CAMLexport void (*caml_scan_roots_hook) (scanning_action f) = NULL;
@@ -33,14 +47,14 @@ CAMLexport void (*caml_scan_roots_hook) (scanning_action f) = NULL;
    heap. */
 void caml_oldify_local_roots (void)
 {
-  register value * sp;
   struct caml__roots_block *lr;
   intnat i, j;
+  value * sp;
 
-  /* The stack */
-  for (sp = caml_extern_sp; sp < caml_stack_high; sp++) {
-    caml_oldify_one (*sp, sp);
-  }
+  /* The stacks */
+  caml_oldify_one (caml_current_stack, &caml_current_stack);
+  caml_oldify_one (caml_parent_stack, &caml_parent_stack);
+
   /* Local C roots */  /* FIXME do the old-frame trick ? */
   for (lr = caml_local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){
@@ -70,7 +84,7 @@ void caml_do_roots (scanning_action f)
   /* Global variables */
   f(caml_global_data, &caml_global_data);
   /* The stack and the local C roots */
-  caml_do_local_roots(f, caml_extern_sp, caml_stack_high, caml_local_roots);
+  caml_do_local_roots(f, caml_local_roots);
   /* Global C roots */
   caml_scan_global_roots(f);
   /* Finalised values */
@@ -79,17 +93,16 @@ void caml_do_roots (scanning_action f)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
 }
 
-CAMLexport void caml_do_local_roots (scanning_action f, value *stack_low,
-                                     value *stack_high,
+CAMLexport void caml_do_local_roots (scanning_action f,
                                      struct caml__roots_block *local_roots)
 {
-  register value * sp;
   struct caml__roots_block *lr;
   int i, j;
+  value * sp;
 
-  for (sp = stack_low; sp < stack_high; sp++) {
-    f (*sp, sp);
-  }
+  f (caml_current_stack, &caml_current_stack);
+  f (caml_parent_stack, &caml_parent_stack);
+
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){
       for (j = 0; j < lr->nitems; j++){
