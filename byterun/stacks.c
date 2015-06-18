@@ -21,6 +21,7 @@
 #include "caml/stacks.h"
 #include "caml/instruct.h"
 #include "caml/alloc.h"
+#include "caml/fix_code.h"
 
 /* One word at the base of the stack is used to store the stack pointer */
 #define Stack_ctx_words 5
@@ -30,10 +31,6 @@
 #define Stack_handle_value(stk) (*(Op_val(stk) + 1))
 #define Stack_handle_exception(stk) (*(Op_val(stk) + 2))
 #define Stack_handle_effect(stk) (*(Op_val(stk) + 3))
-/* A dirty stack is one which is in not in the minor heap, and which has run in
- * the current minor gc cycle. Such stacks need to be scanned since they might
- * have pointers to the minor heap. We use this field to remember that this
- * stack has already been added to the remembered set. */
 #define Stack_dirty(stk) (*(Op_val(stk) + 4))
 
 CAMLexport value caml_current_stack;
@@ -77,7 +74,10 @@ static void load_stack(value newstack)
 
 static opcode_t finish_code[] = { FINISH };
 
-
+void caml_init_finish_code (void)
+{
+  caml_thread_code(finish_code, sizeof(finish_code));
+}
 
 #define Fiber_stack_wosize ((Stack_threshold / sizeof(value)) *2)
 
@@ -306,6 +306,7 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
                    (uintnat) size * sizeof(value) / 1024);
 
   new_stack = caml_alloc(Stack_ctx_words + size, Stack_tag);
+
   memcpy(Stack_high(new_stack) - stack_used,
          Stack_high(old_stack) - stack_used,
          stack_used * sizeof(value));

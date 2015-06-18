@@ -47,6 +47,7 @@ void caml_clean_stack(value stack);
 #define Trap_pc(tp) ((tp)[0])
 #define Trap_link(tp) ((tp)[1])
 
+void caml_init_finish_code (void);
 void caml_init_stack (uintnat initial_max_size);
 void caml_realloc_stack (asize_t required_size, value* save, int nsave);
 void caml_change_max_stack_size (uintnat new_max_size);
