@@ -371,7 +371,7 @@ intnat caml_major_collection_slice (intnat howmuch)
   double p, dp;
   intnat computed_work;
 
-  caml_save_stack_gc ();
+  caml_save_stack_gc (0);
   /*
      Free memory at the start of the GC cycle (garbage + free list) (assumed):
                  FM = caml_stat_heap_wsz * caml_percent_free
@@ -478,7 +478,7 @@ intnat caml_major_collection_slice (intnat howmuch)
 */
 void caml_finish_major_cycle (void)
 {
-  caml_save_stack_gc ();
+  caml_save_stack_gc (0);
   if (caml_gc_phase == Phase_idle) start_cycle ();
   while (caml_gc_phase == Phase_mark) mark_slice (LONG_MAX);
   Assert (caml_gc_phase == Phase_sweep);

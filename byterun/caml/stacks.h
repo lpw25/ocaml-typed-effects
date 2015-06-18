@@ -40,7 +40,7 @@ value caml_finish(value ret);
 value caml_finish_exception(value exn);
 
 void caml_scan_stack(scanning_action, value stack);
-void caml_save_stack_gc();
+void caml_save_stack_gc (int mark_dirty);
 void caml_restore_stack_gc();
 void caml_clean_stack(value stack);
 

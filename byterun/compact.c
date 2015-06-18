@@ -400,7 +400,7 @@ void caml_compact_heap (void)
 {
   uintnat target_wsz, live;
 
-  caml_save_stack_gc ();
+  caml_save_stack_gc (0);
 
   do_compaction ();
   /* Compaction may fail to shrink the heap to a reasonable size

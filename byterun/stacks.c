@@ -51,15 +51,21 @@ uintnat caml_max_stack_size;            /* also used in gc_ctrl.c */
 
 static void dirty_stack (value stack);
 
-static value save_stack (void)
+static value save_stack_dirty (int mark_dirty)
 {
   value old_stack = caml_current_stack;
   Stack_sp(old_stack) = caml_extern_sp - caml_stack_high;
   Assert(caml_stack_threshold == Stack_base(old_stack) + Stack_threshold / sizeof(value));
   Assert(caml_stack_high == Stack_high(old_stack));
   Assert(caml_extern_sp == caml_stack_high + Stack_sp(old_stack));
-  dirty_stack(old_stack);
+  if (mark_dirty)
+    dirty_stack(old_stack);
   return old_stack;
+}
+
+static value save_stack (void)
+{
+  return save_stack_dirty(1);
 }
 
 static void load_stack(value newstack)
@@ -352,10 +358,10 @@ void caml_change_max_stack_size (uintnat new_max_size)
 
 static int stack_is_saved = 0;
 
-void caml_save_stack_gc()
+void caml_save_stack_gc (int mark_dirty)
 {
   Assert(!stack_is_saved);
-  save_stack();
+  save_stack_dirty (mark_dirty);
   stack_is_saved = 1;
 }
 

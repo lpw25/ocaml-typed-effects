@@ -247,7 +247,7 @@ void caml_empty_minor_heap (void)
 {
   value **r;
 
-  caml_save_stack_gc ();
+  caml_save_stack_gc (1);
 
   clean_stacks ();
 
