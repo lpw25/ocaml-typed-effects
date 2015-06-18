@@ -76,7 +76,7 @@ static opcode_t finish_code[] = { FINISH };
 
 void caml_init_finish_code (void)
 {
-#ifdef THREADED
+#ifdef THREADED_CODE
   caml_thread_code(finish_code, sizeof(finish_code));
 #endif
 }
