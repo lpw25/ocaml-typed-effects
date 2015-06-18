@@ -76,7 +76,9 @@ static opcode_t finish_code[] = { FINISH };
 
 void caml_init_finish_code (void)
 {
+#ifdef THREADED
   caml_thread_code(finish_code, sizeof(finish_code));
+#endif
 }
 
 #define Fiber_stack_wosize ((Stack_threshold / sizeof(value)) *2)
