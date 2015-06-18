@@ -457,9 +457,10 @@ intnat caml_major_collection_slice (intnat howmuch)
     caml_gc_message (0x02, "$", 0);
   }
 
+  caml_restore_stack_gc ();
+
   if (caml_gc_phase == Phase_idle) caml_compact_heap_maybe ();
 
-  caml_restore_stack_gc ();
 
   caml_stat_major_words += caml_allocated_words;
   caml_allocated_words = 0;

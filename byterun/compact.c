@@ -24,6 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "caml/weak.h"
+#include "caml/stacks.h"
 
 extern uintnat caml_percent_free;                   /* major_gc.c */
 extern void caml_shrink_heap (char *);              /* memory.c */
@@ -399,6 +400,8 @@ void caml_compact_heap (void)
 {
   uintnat target_wsz, live;
 
+  caml_save_stack_gc ();
+
   do_compaction ();
   /* Compaction may fail to shrink the heap to a reasonable size
      because it deals in complete chunks: if a very large chunk
@@ -457,6 +460,8 @@ void caml_compact_heap (void)
     Assert (Chunk_next (caml_heap_start) == NULL);
     Assert (caml_stat_heap_wsz == Wsize_bsize (Chunk_size (chunk)));
   }
+
+  caml_restore_stack_gc ();
 }
 
 void caml_compact_heap_maybe (void)
