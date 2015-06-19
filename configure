@@ -1417,6 +1417,7 @@ echo "PTHREAD_CAML_LINK=$pthread_caml_link" >> Makefile
 
 # Determine if the bytecode thread library is supported
 
+# FIXME KC
 if false \
 && test "$has_select" = "yes" \
 && test "$has_setitimer" = "yes" \
