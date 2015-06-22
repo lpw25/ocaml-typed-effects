@@ -23,20 +23,6 @@
 #include "caml/roots.h"
 #include "caml/stacks.h"
 
-#ifdef NATIVE_CODE
-#include "frame_descriptors.h"
-
-/* Communication with [caml_start_program] and [caml_call_gc]. */
-
-char * caml_top_of_stack;
-char * caml_bottom_of_stack = NULL; /* no stack initially */
-uintnat caml_last_return_address = 1; /* not in OCaml code initially */
-value * caml_gc_regs;
-intnat caml_globals_inited = 0;
-static intnat caml_globals_scanned = 0;
-
-#endif
-
 CAMLexport struct caml__roots_block *caml_local_roots = NULL;
 
 CAMLexport void (*caml_scan_roots_hook) (scanning_action f) = NULL;
