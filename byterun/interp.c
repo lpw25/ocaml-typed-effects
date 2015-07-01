@@ -298,8 +298,6 @@ value caml_interprete(code_t prog, asize_t prog_size)
       fflush(stdout);
     };
 #endif
-    if (caml_trace_level>0)
-      caml_disasm_instr(pc);
 
     curr_instr = *pc++;
 
