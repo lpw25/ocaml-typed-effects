@@ -238,7 +238,28 @@ void caml_oldify_mopup (void)
   }
 }
 
-static void clean_stacks (void);
+CAMLexport void caml_remember_stack (value stack)
+{
+  Assert (Is_block(stack) && !Is_young(stack));
+  if (caml_stack_table.ptr >= caml_stack_table.limit) {
+    CAMLassert (caml_stack_table.ptr == caml_stack_table.limit);
+    caml_realloc_ref_table (&caml_stack_table);
+  }
+  //FIXME KC: abusive cast
+  *caml_stack_table.ptr++ = (value*)stack;
+}
+
+static void clean_stacks (void)
+{
+  value **r;
+  for (r = caml_stack_table.base; r < caml_stack_table.ptr; r++) {
+    //FIXME KC: abusive cast
+    value stack = (value)*r;
+    caml_scan_stack (&caml_oldify_one, stack);
+    caml_clean_stack (stack);
+  }
+  clear_table (&caml_stack_table);
+}
 
 /* Make sure the minor heap is empty by performing a minor collection
    if needed.
@@ -350,25 +371,4 @@ void caml_realloc_ref_table (struct caml_ref_table *tbl)
   }
 }
 
-CAMLexport void caml_remember_stack (value stack)
-{
-  Assert (Is_block(stack) && !Is_young(stack));
-  if (caml_stack_table.ptr >= caml_stack_table.limit) {
-    CAMLassert (caml_stack_table.ptr == caml_stack_table.limit);
-    caml_realloc_ref_table (&caml_stack_table);
-  }
-  //FIXME KC: abusive cast
-  *caml_stack_table.ptr++ = (value*)stack;
-}
 
-static void clean_stacks (void)
-{
-  value **r;
-  for (r = caml_stack_table.base; r < caml_stack_table.ptr; r++) {
-    //FIXME KC: abusive cast
-    value stack = (value)*r;
-    caml_scan_stack (&caml_oldify_one, stack);
-    caml_clean_stack (stack);
-  }
-  clear_table (&caml_stack_table);
-}

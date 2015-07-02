@@ -1470,6 +1470,8 @@ let rec transl = function
           transl_prim_2 p arg1 arg2 dbg
       | (p, [arg1; arg2; arg3]) ->
           transl_prim_3 p arg1 arg2 arg3 dbg
+      | (p, [arg1; arg2; arg3; arg4]) ->
+          transl_prim_4 p arg1 arg2 arg3 arg4 dbg
       | (_, _) ->
           fatal_error "Cmmgen.transl:prim"
       end
@@ -1679,6 +1681,9 @@ and transl_prim_1 p arg dbg =
       tag_int (Cop(Cextcall("caml_bswap16_direct", typ_int, false,
                             Debuginfo.none),
                    [untag_int (transl arg)]))
+  | Pperform ->
+      (* CR mshinwell: add implementation *)
+      Ctuple []
   | _ ->
       fatal_error "Cmmgen.transl_prim_1"
 
@@ -1921,6 +1926,11 @@ and transl_prim_2 p arg1 arg2 dbg =
   | Pbintcomp(bi, cmp) ->
       tag_int (Cop(Ccmpi(transl_comparison cmp),
                      [transl_unbox_int bi arg1; transl_unbox_int bi arg2]))
+  | Phandle
+  | Pcontinue
+  | Pdiscontinue ->
+      (* CR mshinwell: add implementation *)
+      Ctuple []
   | _ ->
       fatal_error "Cmmgen.transl_prim_2"
 
@@ -2053,6 +2063,17 @@ and transl_prim_3 p arg1 arg2 arg3 dbg =
 
   | _ ->
     fatal_error "Cmmgen.transl_prim_3"
+
+and transl_prim_4 prim arg1 arg2 arg3 arg4 dbg =
+  match prim with
+  | Phandle ->
+      (* CR mshinwell: add implementation *)
+      Ctuple []
+  | prim ->
+      let (_ : string) = Format.flush_str_formatter () in
+      Printlambda.primitive Format.str_formatter prim;
+      fatal_error (Printf.sprintf "Cmmgen.transl_prim_4 %s"
+          (Format.flush_str_formatter ()))
 
 and transl_unbox_float = function
     Uconst(Uconst_ref(_, Uconst_float f)) -> Cconst_float f
