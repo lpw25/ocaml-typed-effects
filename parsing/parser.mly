@@ -1804,11 +1804,10 @@ effect_declaration:
   | effect_constructor_rebind           { $1 }
 ;
 effect_constructor_declaration:
-  | EFFECT constr_ident attributes COLON core_type_list MINUSGREATER simple_core_type
+  | EFFECT constr_ident attributes COLON constructor_arguments MINUSGREATER simple_core_type_no_attr
       post_item_attributes
-      { Te.effect_decl (mkrhs $2 1) $7 ~args:(Pcstr_tuple (List.rev $5))
-          ~loc:(symbol_rloc()) ~attrs:($8 @ $3) }
-  | EFFECT constr_ident attributes COLON simple_core_type post_item_attributes
+      { Te.effect_decl (mkrhs $2 1) $7 ~args:$5 ~loc:(symbol_rloc()) ~attrs:($8 @ $3) }
+  | EFFECT constr_ident attributes COLON simple_core_type_no_attr post_item_attributes
       { Te.effect_decl (mkrhs $2 1) $5
           ~loc:(symbol_rloc()) ~attrs:($6 @ $3) }
 ;

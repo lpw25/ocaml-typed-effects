@@ -224,16 +224,11 @@ let make_effect_constructor loc env type_param sargs sret =
   let args, targs =
     transl_constructor_arguments loc env false sargs
   in
-  let targsl =
-    match targs with
-    | Cstr_tuple l -> l
-    | _ -> failwith "make_effect_constructor: FIXME"
-  in
   let tret = transl_simple_type env false sret in
   Ctype.unify_var env (Ctype.instance env type_param) tret.ctyp_type;
   let ret_type = Ctype.newconstr type_path [tret.ctyp_type] in
   let tret_type =
-    { ctyp_desc = Ttyp_constr (type_path, type_lid, targsl);
+    { ctyp_desc = Ttyp_constr (type_path, type_lid, [tret]);
       ctyp_type = ret_type; ctyp_env = env;
       ctyp_loc = {sret.ptyp_loc with Location.loc_ghost = true};
       ctyp_attributes = [] }
