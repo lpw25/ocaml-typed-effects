@@ -268,7 +268,6 @@ value caml_interprete(code_t prog, asize_t prog_size)
   caml_external_raise = &raise_buf;
 
   caml_trap_sp_off = 1;
-  caml_parent_stack = Val_long(0);
 
   sp = caml_extern_sp;
   pc = prog;
