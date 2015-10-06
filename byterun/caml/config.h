@@ -128,7 +128,7 @@ typedef uint64_t uintnat;
 #define Stack_size (4096 * sizeof(value))
 
 /* Minimum free size of stack (bytes); below that, it is reallocated. */
-#define Stack_threshold (256 * sizeof(value))
+#define Stack_threshold (16 * sizeof(value))
 
 /* Default maximum size of the stack (words). */
 #define Max_stack_def (1024 * 1024)
