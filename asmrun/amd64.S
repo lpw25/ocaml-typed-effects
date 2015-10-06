@@ -467,7 +467,7 @@ CFI_ENDPROC
 /* Start the OCaml program */
 
 FUNCTION(G(caml_start_program))
-       CFI_STARTPROC
+        CFI_STARTPROC
     /* Save callee-save registers */
         PUSH_CALLEE_SAVE_REGS
     /* Initial entry point is G(caml_program) */
