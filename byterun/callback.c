@@ -26,7 +26,7 @@
 #include "caml/interp.h"
 #include "caml/instruct.h"
 #include "caml/fix_code.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 CAMLexport int caml_callback_depth = 0;
 

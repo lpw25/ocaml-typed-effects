@@ -270,7 +270,7 @@
 /* **** asmrun/signals.c */
 #define garbage_collection caml_garbage_collection
 
-/* **** stacks.c */
+/* **** fiber.c */
 #define stack_low caml_stack_low
 #define stack_high caml_stack_high
 #define stack_threshold caml_stack_threshold

@@ -46,7 +46,7 @@
 #include "caml/mlvalues.h"
 #include "caml/osdeps.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 #include "caml/gc_ctrl.h"
 

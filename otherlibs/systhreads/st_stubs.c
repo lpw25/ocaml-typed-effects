@@ -26,7 +26,7 @@
 #ifdef NATIVE_CODE
 #include "stack.h"
 #else
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #endif
 #include "caml/sys.h"
 #include "threads.h"

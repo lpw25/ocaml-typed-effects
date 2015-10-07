@@ -28,7 +28,7 @@
 #include "caml/mlvalues.h"
 #include "caml/prims.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/startup_aux.h"
 
 /* Registers for the abstract machine:

@@ -18,7 +18,7 @@
 #include "caml/fail.h"
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/instruct.h"
 #include "caml/alloc.h"
 #include "caml/fix_code.h"
@@ -353,7 +353,7 @@ void caml_change_max_stack_size (uintnat new_max_size)
 /*
   Root scanning.
 
-  Used by the GC to find roots on the stacks of running or runnable fibers.
+  Used by the GC to find roots on the fiber.of running or runnable fibers.
 */
 
 static int stack_is_saved = 0;

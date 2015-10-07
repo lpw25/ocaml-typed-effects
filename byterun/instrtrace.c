@@ -24,7 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/opnames.h"
 #include "caml/prims.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/startup_aux.h"
 
 extern code_t caml_start_code;

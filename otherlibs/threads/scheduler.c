@@ -29,7 +29,7 @@
 #include "caml/printexc.h"
 #include "caml/roots.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 
 #if ! (defined(HAS_SELECT) && \

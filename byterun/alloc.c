@@ -22,7 +22,7 @@
 #include "caml/major_gc.h"
 #include "caml/memory.h"
 #include "caml/mlvalues.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 #define Setup_for_gc
 #define Restore_after_gc

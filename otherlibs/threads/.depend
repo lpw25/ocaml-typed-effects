@@ -9,7 +9,7 @@ scheduler.o: scheduler.c ../../byterun/caml/alloc.h \
   ../../byterun/caml/freelist.h ../../byterun/caml/minor_gc.h \
   ../../byterun/caml/address_class.h ../../byterun/caml/printexc.h \
   ../../byterun/caml/roots.h ../../byterun/caml/signals.h \
-  ../../byterun/caml/stacks.h ../../byterun/caml/sys.h
+  ../../byterun/caml/fiber.h ../../byterun/caml/sys.h
 condition.cmi : mutex.cmi
 event.cmi :
 marshal.cmi :

@@ -70,7 +70,7 @@ void caml_debugger_cleanup_fork(void)
 #include "caml/intext.h"
 #include "caml/io.h"
 #include "caml/mlvalues.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 
 static int sock_domain;         /* Socket domain for the debugger */

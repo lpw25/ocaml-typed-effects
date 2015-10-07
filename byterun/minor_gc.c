@@ -25,7 +25,7 @@
 #include "caml/roots.h"
 #include "caml/signals.h"
 #include "caml/weak.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 asize_t caml_minor_heap_wsz;
 static void *caml_young_base = NULL;

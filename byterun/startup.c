@@ -48,7 +48,7 @@
 #include "caml/printexc.h"
 #include "caml/reverse.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 #include "caml/startup.h"
 #include "caml/startup_aux.h"

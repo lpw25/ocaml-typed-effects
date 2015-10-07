@@ -10,7 +10,7 @@ st_stubs.o: st_stubs.c ../../byterun/caml/alloc.h \
  ../../byterun/caml/minor_gc.h ../../byterun/caml/misc.h \
  ../../byterun/caml/mlvalues.h ../../byterun/caml/printexc.h \
  ../../byterun/caml/roots.h ../../byterun/caml/memory.h \
- ../../byterun/caml/signals.h ../../byterun/caml/stacks.h \
+ ../../byterun/caml/signals.h ../../byterun/caml/fiber.h \
  ../../byterun/caml/sys.h threads.h st_posix.h
 condition.cmi : mutex.cmi
 event.cmi :

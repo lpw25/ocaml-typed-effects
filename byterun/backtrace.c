@@ -33,7 +33,7 @@
 #include "caml/fix_code.h"
 #include "caml/memory.h"
 #include "caml/startup.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 #include "caml/backtrace.h"
 #include "caml/fail.h"

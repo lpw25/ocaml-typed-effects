@@ -25,11 +25,11 @@
 #ifdef NATIVE_CODE
 #include "stack.h"
 #else
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #endif
 
 #ifndef NATIVE_CODE
-extern uintnat caml_max_stack_size;    /* defined in stacks.c */
+extern uintnat caml_max_stack_size;    /* defined in fiber.c */
 #endif
 
 double caml_stat_minor_words = 0.0,

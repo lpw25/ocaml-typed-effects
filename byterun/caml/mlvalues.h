@@ -212,7 +212,7 @@ CAMLextern value caml_get_public_method (value obj, value tag);
    See major_gc.c and stdlib/lazy.ml. */
 #define Lazy_tag 246
 
-/* Tag used for fiber stacks (see stacks.c) */
+/* Tag used for fiber stacks (see fiber.c) */
 #define Stack_tag 245
 
 

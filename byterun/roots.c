@@ -21,7 +21,7 @@
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 CAMLexport struct caml__roots_block *caml_local_roots = NULL;
 

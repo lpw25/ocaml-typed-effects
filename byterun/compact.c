@@ -24,7 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "caml/weak.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 extern uintnat caml_percent_free;                   /* major_gc.c */
 extern void caml_shrink_heap (char *);              /* memory.c */
