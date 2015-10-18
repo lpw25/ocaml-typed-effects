@@ -367,7 +367,7 @@ static void clean_stacks (void)
   for (r = caml_stack_table.base; r < caml_stack_table.ptr; r++) {
     //FIXME KC: abusive cast
     value stack = (value)*r;
-    caml_scan_stack (&caml_oldify_one, stack);
+    caml_scan_dirty_stack (&caml_oldify_one, stack);
     caml_clean_stack (stack);
   }
   clear_table (&caml_stack_table);

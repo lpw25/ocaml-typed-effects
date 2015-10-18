@@ -84,7 +84,7 @@ CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
   sp[0] = Val_long(1); /* trapsp ?? */
 
   Stack_sp(stack) = sp - high;
-  Stack_dirty(stack) = 0;
+  Stack_dirty(stack) = Val_long(0);
   Stack_handle_value(stack) = hval;
   Stack_handle_exception(stack) = hexn;
   Stack_handle_effect(stack) = heff;
@@ -109,7 +109,7 @@ void caml_init_main_stack(uintnat initial_max_size)
      which cannot trigger it */
   stack = caml_alloc_shr(Stack_size/sizeof(value), Stack_tag);
   Stack_sp(stack) = 0;
-  Stack_dirty(stack) = 0;
+  Stack_dirty(stack) = Val_long(0);
   Stack_handle_value(stack) = Val_long(0);
   Stack_handle_exception(stack) = Val_long(0);
   Stack_handle_effect(stack) = Val_long(0);
@@ -166,9 +166,8 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
     if (size >= caml_max_stack_size) caml_raise_stack_overflow();
     size *= 2;
   } while (size < stack_used + required_space);
-  caml_gc_message (0x08, "Growing stack to %"
-                         ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
-                   (uintnat) size * sizeof(value) / 1024);
+  caml_gc_log (0x08, "Growing stack to %" ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
+               (uintnat) size * sizeof(value) / 1024);
 
   new_stack = caml_alloc(Stack_ctx_words + size, Stack_tag);
   memcpy(Stack_high(new_stack) - stack_used,
@@ -180,9 +179,9 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
   Stack_handle_exception(new_stack) = Stack_handle_exception(old_stack);
   Stack_handle_effect(new_stack) = Stack_handle_effect(old_stack);
   Stack_parent(new_stack) = Stack_parent(old_stack);
-  Stack_dirty(new_stack) = 0;
+  Stack_dirty(new_stack) = Val_long(0);
 
-  if (Stack_dirty(old_stack)) {
+  if (Stack_dirty(old_stack) == Val_long(1)) {
     dirty_stack(new_stack);
   }
 
@@ -190,7 +189,7 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
 
   /* Reset old stack */
   Stack_sp(old_stack) = 0;
-  Stack_dirty(old_stack) = 0;
+  Stack_dirty(old_stack) = Val_long(0);
   Stack_handle_value(old_stack) = Val_long(0);
   Stack_handle_exception(old_stack) = Val_long(0);
   Stack_handle_effect(old_stack) = Val_long(0);
@@ -214,8 +213,8 @@ void caml_change_max_stack_size (uintnat new_max_size)
 
   if (new_max_size < size) new_max_size = size;
   if (new_max_size != caml_max_stack_size) {
-    caml_gc_message (0x08, "Changing stack limit to %luk bytes\n",
-                     new_max_size * sizeof (value) / 1024);
+    caml_gc_log (0x08, "Changing stack limit to %luk bytes\n",
+                 new_max_size * sizeof (value) / 1024);
   }
   caml_max_stack_size = new_max_size;
 }
@@ -246,15 +245,14 @@ static void dirty_stack(value stack)
   if(Is_young(stack) || Stack_dirty(stack) == Val_long(1))
     return;
 
-  Stack_dirty(stack) = 1;
+  Stack_dirty(stack) = Val_long(1);
   caml_remember_stack (stack);
 }
 
 void caml_clean_stack(value stack)
 {
   Assert(Tag_val(stack) == Stack_tag);
-  Assert(Stack_dirty(stack) == 1);
-  Stack_dirty(stack) = 0;
+  Stack_dirty(stack) = Val_long(0);
 }
 
 void caml_scan_stack(scanning_action f, value stack)
@@ -271,6 +269,13 @@ void caml_scan_stack(scanning_action f, value stack)
   low = high + Stack_sp(stack);
   for (sp = low; sp < high; sp++) {
     f(*sp, sp);
+  }
+}
+
+void caml_scan_dirty_stack(scanning_action f, value stack)
+{
+  if (Stack_dirty(stack) == Val_long(1)) {
+    caml_scan_stack(f, stack);
   }
 }
 
