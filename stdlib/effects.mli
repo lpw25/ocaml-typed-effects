@@ -1,3 +1,4 @@
+(*
 (** [perform e] performs an effect [e].
 
     @raises Unhandled if there is no active handler. *)
@@ -37,3 +38,4 @@ val discontinue: ('a, 'b) continuation -> exn -> 'b
     very common case: it is what you should do with effects that
     you don't handle. *)
 val delegate: 'a eff -> ('a, 'b) continuation -> 'b
+*)

@@ -51,7 +51,7 @@ color_t caml_allocation_color (void *hp);
 /* void caml_shrink_heap (char *);        Only used in compact.c */
 
 /* <private> */
-  
+
 #ifdef DEBUG
 #define DEBUG_clear(result, wosize) do{ \
   uintnat caml__DEBUG_i; \
@@ -259,7 +259,7 @@ CAMLextern struct caml__roots_block *caml_local_roots;  /* defined in roots.c */
 
 
 #define CAMLdrop caml_local_roots = caml__frame
-  
+
 #define CAMLreturn0 do{ \
   CAMLdrop; \
   return; \
@@ -365,6 +365,7 @@ CAMLextern struct caml__roots_block *caml_local_roots;  /* defined in roots.c */
 
 #define End_roots() caml_local_roots = caml__roots_block.next; }
 
+typedef struct caml_root_private* caml_root;
 
 /* [caml_register_global_root] registers a global C variable as a memory root
    for the duration of the program, or until [caml_remove_global_root] is
