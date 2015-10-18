@@ -53,7 +53,6 @@ void caml_oldify_local_roots (void)
 
   /* The stacks */
   caml_oldify_one (caml_current_stack, &caml_current_stack);
-  caml_oldify_one (caml_parent_stack, &caml_parent_stack);
 
   /* Local C roots */  /* FIXME do the old-frame trick ? */
   for (lr = caml_local_roots; lr != NULL; lr = lr->next) {
@@ -101,7 +100,6 @@ CAMLexport void caml_do_local_roots (scanning_action f,
   value * sp;
 
   f (caml_current_stack, &caml_current_stack);
-  f (caml_parent_stack, &caml_parent_stack);
 
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){

@@ -326,7 +326,7 @@ CAMLexport void caml_main(char **argv)
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free);
-  caml_init_stack (caml_init_max_stack_wsz);
+  caml_init_main_stack (caml_init_max_stack_wsz);
   caml_init_atom_table();
   /* Initialize the interpreter */
   caml_interprete(NULL, 0);
@@ -409,7 +409,7 @@ CAMLexport void caml_startup_code(
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free);
-  caml_init_stack (caml_init_max_stack_wsz);
+  caml_init_main_stack (caml_init_max_stack_wsz);
   caml_init_atom_table();
   /* Initialize the interpreter */
   caml_interprete(NULL, 0);
