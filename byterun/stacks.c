@@ -167,7 +167,7 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
     size *= 2;
   } while (size < stack_used + required_space);
   caml_gc_message (0x08, "Growing stack to %"
-                         ARCH_INTNAT_PRINTF_FORMAT "uk bytes",
+                         ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
                    (uintnat) size * sizeof(value) / 1024);
 
   new_stack = caml_alloc(Stack_ctx_words + size, Stack_tag);
@@ -214,7 +214,7 @@ void caml_change_max_stack_size (uintnat new_max_size)
 
   if (new_max_size < size) new_max_size = size;
   if (new_max_size != caml_max_stack_size) {
-    caml_gc_message (0x08, "Changing stack limit to %luk bytes",
+    caml_gc_message (0x08, "Changing stack limit to %luk bytes\n",
                      new_max_size * sizeof (value) / 1024);
   }
   caml_max_stack_size = new_max_size;
