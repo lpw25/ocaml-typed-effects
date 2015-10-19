@@ -1470,8 +1470,6 @@ let rec transl = function
           transl_prim_2 p arg1 arg2 dbg
       | (p, [arg1; arg2; arg3]) ->
           transl_prim_3 p arg1 arg2 arg3 dbg
-      | (p, [arg1; arg2; arg3; arg4]) ->
-          transl_prim_4 p arg1 arg2 arg3 arg4 dbg
       | (_, _) ->
           fatal_error "Cmmgen.transl:prim"
       end
@@ -1926,9 +1924,7 @@ and transl_prim_2 p arg1 arg2 dbg =
   | Pbintcomp(bi, cmp) ->
       tag_int (Cop(Ccmpi(transl_comparison cmp),
                      [transl_unbox_int bi arg1; transl_unbox_int bi arg2]))
-  | Phandle
-  | Pcontinue
-  | Pdiscontinue ->
+  | Pdelegate ->
       (* CR mshinwell: add implementation *)
       Ctuple []
   | _ ->
@@ -2060,20 +2056,11 @@ and transl_prim_3 p arg1 arg2 arg3 dbg =
           check_bound unsafe dbg (sub_int (Cop(Cload Word,[field_address ba 5]))
                                           (Cconst_int 7)) idx
                       (unaligned_set_64 ba_data idx newval))))))
-
-  | _ ->
-    fatal_error "Cmmgen.transl_prim_3"
-
-and transl_prim_4 prim arg1 arg2 arg3 arg4 dbg =
-  match prim with
-  | Phandle ->
+  | Presume ->
       (* CR mshinwell: add implementation *)
       Ctuple []
-  | prim ->
-      let (_ : string) = Format.flush_str_formatter () in
-      Printlambda.primitive Format.str_formatter prim;
-      fatal_error (Printf.sprintf "Cmmgen.transl_prim_4 %s"
-          (Format.flush_str_formatter ()))
+  | _ ->
+    fatal_error "Cmmgen.transl_prim_3"
 
 and transl_unbox_float = function
     Uconst(Uconst_ref(_, Uconst_float f)) -> Cconst_float f
