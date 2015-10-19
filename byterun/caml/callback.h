@@ -25,6 +25,8 @@
 extern "C" {
 #endif
 
+void caml_init_callbacks (void);
+
 CAMLextern value caml_callback (value closure, value arg);
 CAMLextern value caml_callback2 (value closure, value arg1, value arg2);
 CAMLextern value caml_callback3 (value closure, value arg1, value arg2,
