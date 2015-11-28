@@ -1680,8 +1680,7 @@ and transl_prim_1 p arg dbg =
                             Debuginfo.none),
                    [untag_int (transl arg)]))
   | Pperform ->
-      (* CR mshinwell: add implementation *)
-      Ctuple []
+      Cop (Cperform, [transl arg])
   | _ ->
       fatal_error "Cmmgen.transl_prim_1"
 

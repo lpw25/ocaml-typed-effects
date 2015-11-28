@@ -199,6 +199,8 @@ method class_of_operation op =
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Ifloatofint | Iintoffloat -> Op_pure
   | Ispecific _ -> Op_other
+  | Iperform -> assert false                  (* treated specially *)
+                                              (* XXX KC? *)
 
 (* Operations that are so cheap that it isn't worth factoring them. *)
 
@@ -247,6 +249,9 @@ method private cse n i =
          is an example of such a value (a derived pointer into a
          block).  In the absence of more precise typing information,
          we just forget everything. *)
+       {i with next = self#cse empty_numbering i.next}
+  | Iop (Iperform) ->
+      (* XXX KC: perform is like a function call? *)
        {i with next = self#cse empty_numbering i.next}
   | Iop op ->
       begin match self#class_of_operation op with
