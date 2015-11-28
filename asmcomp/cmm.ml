@@ -82,6 +82,8 @@ type operation =
   | Craise of Lambda.raise_kind * Debuginfo.t
   | Ccheckbound of Debuginfo.t
   | Cperform
+  | Cresume
+  | Cdelegate
 
 type expression =
     Cconst_int of int

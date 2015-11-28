@@ -653,8 +653,8 @@ let emit_instr fallthrough i =
       I.sqrtsd (arg i 0) (res i 0)
   | Lop(Ispecific(Ifloatsqrtf addr)) ->
       I.sqrtsd (addressing addr REAL8 i 0) (res i 0)
-  | Lop(Iperform) -> (* XXX KC: TODO *)
-      ()
+  | Lop(Iperform | Iresume | Idelegate) -> (* XXX KC: TODO *)
+      I.nop ()
   | Lreloadretaddr ->
       ()
   | Lreturn ->

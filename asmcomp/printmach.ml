@@ -140,6 +140,8 @@ let operation op arg ppf res =
   | Ispecific op ->
       Arch.print_specific_operation reg op ppf arg
   | Iperform -> fprintf ppf "perform %a" regs arg
+  | Iresume -> fprintf ppf "resume %a" regs arg
+  | Idelegate -> fprintf ppf "delegate %a" regs arg
 
 let rec instr ppf i =
   if !print_live then begin

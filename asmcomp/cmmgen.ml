@@ -1924,8 +1924,7 @@ and transl_prim_2 p arg1 arg2 dbg =
       tag_int (Cop(Ccmpi(transl_comparison cmp),
                      [transl_unbox_int bi arg1; transl_unbox_int bi arg2]))
   | Pdelegate ->
-      (* CR mshinwell: add implementation *)
-      Ctuple []
+      Cop (Cdelegate, [transl arg1; transl arg2])
   | _ ->
       fatal_error "Cmmgen.transl_prim_2"
 
@@ -2056,8 +2055,7 @@ and transl_prim_3 p arg1 arg2 arg3 dbg =
                                           (Cconst_int 7)) idx
                       (unaligned_set_64 ba_data idx newval))))))
   | Presume ->
-      (* CR mshinwell: add implementation *)
-      Ctuple []
+      Cop (Cresume, [transl arg1; transl arg2; transl arg3])
   | _ ->
     fatal_error "Cmmgen.transl_prim_3"
 
