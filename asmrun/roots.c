@@ -127,6 +127,7 @@ void caml_init_frame_descriptors(void)
 
 char * caml_top_of_stack;
 char * caml_bottom_of_stack = NULL; /* no stack initially */
+char * caml_stack_threshold = NULL;
 uintnat caml_last_return_address = 1; /* not in OCaml code initially */
 value * caml_gc_regs;
 intnat caml_globals_inited = 0;
