@@ -384,6 +384,7 @@ LBL(caml_call_realloc_stack):
 #else
         pushq   %rbp; CFI_ADJUST(8);
 #endif
+        subq    $8, %rsp; CFI_ADJUST (8)        /* stack 16-aligned */
         pushq   %r11; CFI_ADJUST (8);
         pushq   %r10; CFI_ADJUST (8);
         pushq   %r13; CFI_ADJUST (8);
@@ -455,6 +456,7 @@ LBL(caml_call_realloc_stack):
         popq    %r13; CFI_ADJUST(-8)
         popq    %r10; CFI_ADJUST(-8)
         popq    %r11; CFI_ADJUST(-8)
+        addq    $8, %rsp; CFI_ADJUST (-8);
 #ifdef WITH_FRAME_POINTERS
         LEAVE_FUNCTION
 #else
