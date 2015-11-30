@@ -50,13 +50,6 @@ let delegate e k =
   | v -> continue k v
   | exception e -> discontinue k e
 
-effect E : int
-
-let perform_effect e =
-  match perform e with
-  | v -> v
-  | effect E k -> continue k 10
-
 (* Composition operators *)
 
 external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
