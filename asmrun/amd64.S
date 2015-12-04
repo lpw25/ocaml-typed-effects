@@ -271,13 +271,6 @@ FUNCTION(G(caml_call_gc))
         CFI_STARTPROC
         RECORD_STACK_FRAME(0)
 LBL(caml_call_gc):
-#if !defined(SYS_mingw64) && !defined(SYS_cygwin)
-    /* Touch the stack to trigger a recoverable segfault
-       if insufficient space remains */
-        subq    $32768, %rsp
-        movq    %rax, 0(%rsp)
-        addq    $32768, %rsp
-#endif
     /* Build array of registers, save it into caml_gc_regs */
 #ifdef WITH_FRAME_POINTERS
         ENTER_FUNCTION          ;
@@ -368,16 +361,6 @@ FUNCTION(G(caml_call_realloc_stack))
         CFI_STARTPROC
         RECORD_STACK_FRAME(0)
 LBL(caml_call_realloc_stack):
-#if 0 && !defined(SYS_mingw64) && !defined(SYS_cygwin)
-    /* XXX KC: Disabled! We are here exactly because we dont have stack space.
-     * Hence, the following trick is unsafe.  But I don't know the purpose of
-     * this trick. */
-    /* Touch the stack to trigger a recoverable segfault
-       if insufficient space remains */
-        subq    $32768, %rsp
-        movq    %rax, 0(%rsp)
-        addq    $32768, %rsp
-#endif
     /* Build array of registers, save it into caml_gc_regs */
 #ifdef WITH_FRAME_POINTERS
         ENTER_FUNCTION          ;
