@@ -154,10 +154,10 @@ let load_symbol_addr s arg =
 
 (* Output a label *)
 
-let emit_label lbl =
+let emit_label ?(mark="") lbl =
   match system with
-  | S_win64 -> "L" ^ string_of_int lbl
-  | _ -> ".L" ^ string_of_int lbl
+  | S_win64 -> "L" ^ mark ^ string_of_int lbl
+  | _ -> ".L" ^ mark ^ string_of_int lbl
 
 let emit_data_label lbl =
   match system with
@@ -166,7 +166,7 @@ let emit_data_label lbl =
 
 let label s = sym (emit_label s)
 
-let def_label s = D.label (emit_label s)
+let def_label ?(mark="") s = D.label (emit_label ~mark s)
 
 let emit_Llabel fallthrough lbl =
   if not fallthrough && !fastcode_flag then D.align 4;
@@ -822,6 +822,14 @@ let fundecl fundecl =
     I.sub (int n) rsp;
     cfi_adjust_cfa_offset n;
   end;
+
+  load_symbol_addr "caml_stack_threshold" r11;
+  I.mov (mem64 QWORD 0 R11) r11;
+  I.add (int (frame_size ())) r11;
+  I.cmp rsp r11;
+  I.jb (label !tailrec_entry_point);
+  emit_call "caml_call_realloc_stack";
+
   def_label !tailrec_entry_point;
   emit_all true fundecl.fun_body;
   List.iter emit_call_gc !call_gc_sites;
@@ -870,7 +878,9 @@ let begin_assembly() =
     D.extrn "caml_young_ptr" QWORD;
     D.extrn "caml_young_limit" QWORD;
     D.extrn "caml_exception_pointer" QWORD;
+    D.extrn "caml_stack_threshold" QWORD;
     D.extrn "caml_call_gc" NEAR;
+    D.extrn "caml_call_realloc_stack" NEAR;
     D.extrn "caml_c_call" NEAR;
     D.extrn "caml_allocN" NEAR;
     D.extrn "caml_alloc1" NEAR;
