@@ -55,8 +55,9 @@ type operation =
   | Ifloatofint | Iintoffloat
   | Ispecific of Arch.specific_operation
   | Iperform
-  | Iresume
-  | Idelegate
+  | Iresume_ind
+  | Itail_resume_ind
+  | Itail_delegate
 
 type instruction =
   { desc: instruction_desc;

@@ -290,8 +290,8 @@ method select_operation op args =
   | (Cintoffloat, _) -> (Iintoffloat, args)
   | (Ccheckbound _, _) -> self#select_arith Icheckbound args
   | (Cperform, _) -> (Iperform, args)
-  | (Cresume, _) -> (Iresume, args)
-  | (Cdelegate, _) -> (Idelegate, args)
+  | (Cresume, _) -> (Iresume_ind, args)
+  | (Cdelegate, _) -> (Itail_delegate, args)
   | _ -> fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -775,7 +775,26 @@ method emit_tail env exp =
                 self#insert(Iop(Istackoffset(-stack_ofs))) [||] [||];
                 self#insert Ireturn loc_res [||]
               end
-          | _ -> fatal_error "Selection.emit_tail"
+          | _ -> fatal_error "Selection.emit_tail: call"
+      end
+  | Cop ((Cresume | Cdelegate) as op, args) ->
+      begin match self#emit_parts_list env args with
+      | None -> ()
+      | Some (simple_args, env) ->
+          let (new_op, new_args) = self#select_operation op simple_args in
+          let r1 = self#emit_tuple env new_args in
+          let rarg = Array.sub r1 1 (Array.length r1 - 1) in
+          let (loc_arg, stack_ofs) = Proc.loc_arguments rarg in
+          assert (stack_ofs = 0);
+          self#insert_moves rarg loc_arg;
+          match new_op with
+          | Iresume_ind ->
+              self#insert (Iop Itail_resume_ind)
+                          (Array.append [|r1.(0)|] loc_arg) [||]
+          | Itail_delegate ->
+              self#insert (Iop Itail_delegate)
+                          (Array.append [|r1.(0)|] loc_arg) [||]
+          | _ -> fatal_error "Selection.emit_tail: effects"
       end
   | Csequence(e1, e2) ->
       begin match self#emit_expr env e1 with

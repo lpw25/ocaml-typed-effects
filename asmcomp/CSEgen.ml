@@ -199,7 +199,7 @@ method class_of_operation op =
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Ifloatofint | Iintoffloat -> Op_pure
   | Ispecific _ -> Op_other
-  | Iperform | Iresume | Idelegate ->
+  | Iperform | Itail_resume_ind | Itail_delegate | Iresume_ind ->
       assert false                            (* treated specially *)
                                               (* XXX KC? *)
 
@@ -251,7 +251,7 @@ method private cse n i =
          block).  In the absence of more precise typing information,
          we just forget everything. *)
        {i with next = self#cse empty_numbering i.next}
-  | Iop (Iperform | Iresume | Idelegate) ->
+  | Iop (Iperform | Iresume_ind | Itail_delegate | Itail_resume_ind) ->
       (* XXX KC: perform is like a function call? *)
        {i with next = self#cse empty_numbering i.next}
   | Iop op ->
