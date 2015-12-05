@@ -26,7 +26,7 @@
 
   typedef greg_t context_reg;
   #define CONTEXT_PC (context->uc_mcontext.gregs[REG_RIP])
-  #define CONTEXT_EXCEPTION_POINTER (context->uc_mcontext.gregs[REG_R14])
+  #define CONTEXT_EXCEPTION_PTR_OFFSET (context->uc_mcontext.gregs[REG_R14])
   #define CONTEXT_YOUNG_PTR (context->uc_mcontext.gregs[REG_R15])
   #define CONTEXT_FAULTING_ADDRESS ((char *)context->uc_mcontext.gregs[REG_CR2])
 

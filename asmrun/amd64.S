@@ -176,6 +176,17 @@
         leaq    G(label)(%rip), dst
 #endif
 
+/* Store [caml_top_of_stack - %rsp] into %r14. %r14 is an offset. Clobbers
+ * %r11. */
+#define SAVE_EXN_HANDLER \
+        LOAD_VAR(caml_top_of_stack, %r14); \
+        sub %rsp, %r14
+
+/* Load [caml_top_of_stack - %r14] into %rsp. %r14 is an offset. Clobbers %r11. */
+#define RESTORE_EXN_HANDLER \
+        LOAD_VAR(caml_top_of_stack, %rsp); \
+        sub %r14, %rsp
+
 /* Save and restore all callee-save registers on stack.
    Keep the stack 16-aligned. */
 
@@ -290,9 +301,9 @@ LBL(caml_call_gc):
         pushq   %rbx; CFI_ADJUST (8);
         pushq   %rax; CFI_ADJUST (8);
         STORE_VAR(%rsp, caml_gc_regs)
-    /* Save caml_young_ptr, caml_exception_pointer */
+    /* Save caml_young_ptr, caml_exception_ptr_offset */
         STORE_VAR(%r15, caml_young_ptr)
-        STORE_VAR(%r14, caml_exception_pointer)
+        STORE_VAR(%r14, caml_exception_ptr_offset)
     /* Save floating-point registers */
         subq    $(16*8), %rsp; CFI_ADJUST (16*8);
         movsd   %xmm0, 0*8(%rsp)
@@ -315,9 +326,9 @@ LBL(caml_call_gc):
         PREPARE_FOR_C_CALL
         call    GCALL(caml_garbage_collection)
         CLEANUP_AFTER_C_CALL
-    /* Restore caml_young_ptr, caml_exception_pointer */
+    /* Restore caml_young_ptr, caml_exception_ptr_offset */
         LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_pointer, %r14)
+        LOAD_VAR(caml_exception_ptr_offset, %r14)
     /* Restore all regs used by the code generator */
         movsd   0*8(%rsp), %xmm0
         movsd   1*8(%rsp), %xmm1
@@ -381,9 +392,9 @@ LBL(caml_call_realloc_stack):
         pushq   %rbx; CFI_ADJUST (8);
         pushq   %rax; CFI_ADJUST (8);
         STORE_VAR(%rsp, caml_gc_regs)
-    /* Save caml_young_ptr, caml_exception_pointer */
+    /* Save caml_young_ptr, caml_exception_ptr_offset */
         STORE_VAR(%r15, caml_young_ptr)
-        STORE_VAR(%r14, caml_exception_pointer)
+        STORE_VAR(%r14, caml_exception_ptr_offset)
     /* Save floating-point registers */
         subq    $(16*8), %rsp; CFI_ADJUST (16*8);
         movsd   %xmm0, 0*8(%rsp)
@@ -406,9 +417,9 @@ LBL(caml_call_realloc_stack):
         PREPARE_FOR_C_CALL
         call    GCALL(caml_realloc_stack)
         CLEANUP_AFTER_C_CALL
-    /* Restore caml_young_ptr, caml_exception_pointer */
+    /* Restore caml_young_ptr, caml_exception_ptr_offset */
         LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_pointer, %r14)
+        LOAD_VAR(caml_exception_ptr_offset, %r14)
     /* Restore all regs used by the code generator */
         movsd   0*8(%rsp), %xmm0
         movsd   1*8(%rsp), %xmm1
@@ -534,16 +545,9 @@ LBL(caml_c_call):
         STORE_VAR(%r12, caml_last_return_address)
         STORE_VAR(%rsp, caml_bottom_of_stack)
         subq    $8, %rsp; CFI_ADJUST(8) /* equivalent to pushq %r12 */
-#if !defined(SYS_mingw64) && !defined(SYS_cygwin)
-    /* Touch the stack to trigger a recoverable segfault
-       if insufficient space remains */
-        subq    $32768, %rsp
-        movq    %rax, 0(%rsp)
-        addq    $32768, %rsp
-#endif
     /* Make the exception handler and alloc ptr available to the C code */
         STORE_VAR(%r15, caml_young_ptr)
-        STORE_VAR(%r14, caml_exception_pointer)
+        STORE_VAR(%r14, caml_exception_ptr_offset)
     /* Call the function (address in %rax) */
     /* No need to PREPARE_FOR_C_CALL since the caller already
        reserved the stack space if needed (cf. amd64/proc.ml) */
@@ -567,13 +571,13 @@ LBL(caml_start_program):
         PUSH_VAR(caml_bottom_of_stack)
     /* Setup alloc ptr and exception ptr */
         LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_pointer, %r14)
+        LOAD_VAR(caml_exception_ptr_offset, %r14)
     /* Build an exception handler */
         lea     LBL(108)(%rip), %r13
         pushq   %r13; CFI_ADJUST(8)
         pushq   %r14; CFI_ADJUST(8)
         CFI_ADJUST(16)
-        movq    %rsp, %r14
+        SAVE_EXN_HANDLER
     /* Call the OCaml code */
         call    *%r12
 LBL(107):
@@ -584,7 +588,7 @@ LBL(107):
 LBL(109):
     /* Update alloc ptr and exception ptr */
         STORE_VAR(%r15,caml_young_ptr)
-        STORE_VAR(%r14,caml_exception_pointer)
+        STORE_VAR(%r14,caml_exception_ptr_offset)
     /* Pop the callback link, restoring the global variables */
         POP_VAR(caml_bottom_of_stack)
         POP_VAR(caml_last_return_address)
@@ -621,7 +625,7 @@ FUNCTION(G(caml_raise_exn))
 CFI_STARTPROC
         TESTL_VAR($1, caml_backtrace_active)
         jne     LBL(110)
-        movq    %r14, %rsp
+        RESTORE_EXN_HANDLER
         popq    %r14
         ret
 LBL(110):
@@ -643,7 +647,7 @@ LBL(111):
         PREPARE_FOR_C_CALL            /* no need to cleanup after */
         call    GCALL(caml_stash_backtrace)
         movq    %r12, %rax            /* Recover exception bucket */
-        movq    %r14, %rsp
+        RESTORE_EXN_HANDLER
         popq    %r14
         ret
 CFI_ENDPROC
@@ -652,7 +656,7 @@ FUNCTION(G(caml_reraise_exn))
 CFI_STARTPROC
         TESTL_VAR($1, caml_backtrace_active)
         jne     LBL(111)
-        movq    %r14, %rsp
+        RESTORE_EXN_HANDLER
         popq    %r14
         ret
 CFI_ENDPROC
@@ -664,7 +668,8 @@ CFI_STARTPROC
         TESTL_VAR($1, caml_backtrace_active)
         jne     LBL(112)
         movq    C_ARG_1, %rax
-        LOAD_VAR(caml_exception_pointer, %rsp)  /* Cut stack */
+        LOAD_VAR(caml_exception_ptr_offset, %r14)
+        RESTORE_EXN_HANDLER            /* Cut stack */
         popq    %r14                   /* Recover previous exception handler */
         LOAD_VAR(caml_young_ptr, %r15) /* Reload alloc ptr */
         ret
@@ -676,14 +681,15 @@ LBL(112):
                                       /* arg 1: exception bucket */
         LOAD_VAR(caml_last_return_address,C_ARG_2)   /* arg 2: pc of raise */
         LOAD_VAR(caml_bottom_of_stack,C_ARG_3)       /* arg 3: sp of raise */
-        LOAD_VAR(caml_exception_pointer,C_ARG_4)     /* arg 4: sp of handler */
+        LOAD_VAR(caml_exception_ptr_offset,C_ARG_4)     /* arg 4: sp of handler */
 #ifndef WITH_FRAME_POINTERS
         subq    $8, %rsp              /* PR#5700: maintain stack alignment */
 #endif
         PREPARE_FOR_C_CALL            /* no need to cleanup after */
         call    GCALL(caml_stash_backtrace)
         movq    %r12, %rax            /* Recover exception bucket */
-        LOAD_VAR(caml_exception_pointer,%rsp)
+        LOAD_VAR(caml_exception_ptr_offset,%r14)
+        RESTORE_EXN_HANDLER           /* Cut stack */
         popq    %r14                  /* Recover previous exception handler */
         LOAD_VAR(caml_young_ptr,%r15) /* Reload alloc ptr */
         ret
@@ -697,7 +703,7 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_stack_overflow))
         LEA_VAR(caml_exn_Stack_overflow, %rax)
-        movq    %r14, %rsp            /* cut the stack */
+        RESTORE_EXN_HANDLER           /* cut the stack */
         popq    %r14                  /* recover previous exn handler */
         ret                           /* jump to handler's code */
 

@@ -50,12 +50,12 @@ extern caml_generated_constant
 
 extern void caml_raise_exception (value bucket) Noreturn;
 
-char * caml_exception_pointer = NULL;
+uintnat caml_exception_ptr_offset = 0;
 
 void caml_raise(value v)
 {
   Unlock_exn();
-  if (caml_exception_pointer == NULL) caml_fatal_uncaught_exception(v);
+  if (caml_exception_ptr_offset == 0) caml_fatal_uncaught_exception(v);
 
 #ifndef Stack_grows_upwards
 #define PUSHED_AFTER <
@@ -63,7 +63,7 @@ void caml_raise(value v)
 #define PUSHED_AFTER >
 #endif
   while (caml_local_roots != NULL &&
-         (char *) caml_local_roots PUSHED_AFTER caml_exception_pointer) {
+         (char *) caml_local_roots PUSHED_AFTER caml_top_of_stack - caml_exception_ptr_offset) {
     caml_local_roots = caml_local_roots->next;
   }
 #undef PUSHED_AFTER

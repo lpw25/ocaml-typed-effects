@@ -743,7 +743,9 @@ let emit_instr fallthrough i =
       cfi_adjust_cfa_offset 8;
       I.push r14;
       cfi_adjust_cfa_offset 8;
-      I.mov rsp r14;
+      load_symbol_addr "caml_top_of_stack" r11;
+      I.mov (mem64 QWORD 0 R11) r14;
+      I.sub rsp r14;
       stack_offset := !stack_offset + 16
   | Lpoptrap ->
       I.pop r14;
