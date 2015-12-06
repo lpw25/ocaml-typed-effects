@@ -49,7 +49,6 @@ val op_is_pure: Mach.operation -> bool
 (* Info for laying out the stack frame *)
 val num_stack_slots: int array
 val contains_calls: bool ref
-val threshold_size: int
 
 (* Calling the assembler *)
 val assemble_file: string -> string -> int

@@ -106,13 +106,6 @@ let register_class r =
 
 let num_available_registers = [| 13; 16 |]
 
-let threshold_size =
-  let sz =
-    num_available_registers.(0) * size_addr +
-    num_available_registers.(1) * size_float
-  in
-  Misc.align sz 16
-
 let first_available_register = [| 0; 100 |]
 
 let register_name r =
