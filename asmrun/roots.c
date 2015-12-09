@@ -125,12 +125,11 @@ void caml_init_frame_descriptors(void)
 
 /* Communication with [caml_start_program] and [caml_call_gc]. */
 
-char * caml_top_of_stack;
-char * caml_bottom_of_stack = NULL; /* no stack initially */
-char * caml_stack_threshold = NULL;
-char * caml_current_stack = NULL;
-uintnat caml_last_return_address = 1; /* not in OCaml code initially */
-value * caml_gc_regs;
+value caml_current_stack;
+char *caml_system_sp;
+char *caml_system_top_of_stack;
+value **caml_gc_regs_slot;
+
 intnat caml_globals_inited = 0;
 static intnat caml_globals_scanned = 0;
 static link * caml_dyn_globals = NULL;
@@ -179,55 +178,8 @@ void caml_oldify_local_roots (void)
   }
 
   /* The stack and local roots */
-  if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
-  sp = caml_bottom_of_stack;
-  retaddr = caml_last_return_address;
-  regs = caml_gc_regs;
-  if (sp != NULL) {
-    while (1) {
-      /* Find the descriptor corresponding to the return address */
-      h = Hash_retaddr(retaddr);
-      while(1) {
-        d = caml_frame_descriptors[h];
-        if (d->retaddr == retaddr) break;
-        h = (h+1) & caml_frame_descriptors_mask;
-      }
-      if (d->frame_size != 0xFFFF) {
-        /* Scan the roots in this frame */
-        for (p = d->live_ofs, n = d->num_live; n > 0; n--, p++) {
-          ofs = *p;
-          if (ofs & 1) {
-            root = regs + (ofs >> 1);
-          } else {
-            root = (value *)(sp + ofs);
-          }
-          Oldify (root);
-        }
-        /* Move to next frame */
-#ifndef Stack_grows_upwards
-        sp += (d->frame_size & 0xFFFC);
-#else
-        sp -= (d->frame_size & 0xFFFC);
-#endif
-        retaddr = Saved_return_address(sp);
-#ifdef Already_scanned
-        /* Stop here if the frame has been scanned during earlier GCs  */
-        if (Already_scanned(sp, retaddr)) break;
-        /* Mark frame as already scanned */
-        Mark_scanned(sp, retaddr);
-#endif
-      } else {
-        /* This marks the top of a stack chunk for an ML callback.
-           Skip C portion of stack and continue with next ML stack chunk. */
-        struct caml_context * next_context = Callback_link(sp);
-        sp = next_context->bottom_of_stack;
-        retaddr = next_context->last_retaddr;
-        regs = next_context->gc_regs;
-        /* A null sp means no more ML stack chunks; stop here. */
-        if (sp == NULL) break;
-      }
-    }
-  }
+  Oldify (&caml_current_stack);
+
   /* Local C roots */
   for (lr = caml_local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){
@@ -275,8 +227,7 @@ void caml_do_roots (scanning_action f)
 
   /* The stack and local roots */
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
-  caml_do_local_roots(f, caml_bottom_of_stack, caml_last_return_address,
-                      caml_gc_regs, caml_local_roots);
+  caml_do_local_roots(f, caml_local_roots);
   /* Global C roots */
   caml_scan_global_roots(f);
   /* Finalised values */
@@ -285,69 +236,14 @@ void caml_do_roots (scanning_action f)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
 }
 
-void caml_do_local_roots(scanning_action f, char * bottom_of_stack,
-                         uintnat last_retaddr, value * gc_regs,
+void caml_do_local_roots(scanning_action f,
                          struct caml__roots_block * local_roots)
 {
-  char * sp;
-  uintnat retaddr;
-  value * regs;
-  frame_descr * d;
-  uintnat h;
-  int i, j, n, ofs;
-#ifdef Stack_grows_upwards
-  short * p;  /* PR#4339: stack offsets are negative in this case */
-#else
-  unsigned short * p;
-#endif
-  value * root;
   struct caml__roots_block *lr;
+  int i,j;
+  value *root;
 
-  sp = bottom_of_stack;
-  retaddr = last_retaddr;
-  regs = gc_regs;
-  if (sp != NULL) {
-    while (1) {
-      /* Find the descriptor corresponding to the return address */
-      h = Hash_retaddr(retaddr);
-      while(1) {
-        d = caml_frame_descriptors[h];
-        if (d->retaddr == retaddr) break;
-        h = (h+1) & caml_frame_descriptors_mask;
-      }
-      if (d->frame_size != 0xFFFF) {
-        /* Scan the roots in this frame */
-        for (p = d->live_ofs, n = d->num_live; n > 0; n--, p++) {
-          ofs = *p;
-          if (ofs & 1) {
-            root = regs + (ofs >> 1);
-          } else {
-            root = (value *)(sp + ofs);
-          }
-          f (*root, root);
-        }
-        /* Move to next frame */
-#ifndef Stack_grows_upwards
-        sp += (d->frame_size & 0xFFFC);
-#else
-        sp -= (d->frame_size & 0xFFFC);
-#endif
-        retaddr = Saved_return_address(sp);
-#ifdef Mask_already_scanned
-        retaddr = Mask_already_scanned(retaddr);
-#endif
-      } else {
-        /* This marks the top of a stack chunk for an ML callback.
-           Skip C portion of stack and continue with next ML stack chunk. */
-        struct caml_context * next_context = Callback_link(sp);
-        sp = next_context->bottom_of_stack;
-        retaddr = next_context->last_retaddr;
-        regs = next_context->gc_regs;
-        /* A null sp means no more ML stack chunks; stop here. */
-        if (sp == NULL) break;
-      }
-    }
-  }
+  f (caml_current_stack, &caml_current_stack);
   /* Local C roots */
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){
@@ -357,15 +253,4 @@ void caml_do_local_roots(scanning_action f, char * bottom_of_stack,
       }
     }
   }
-}
-
-uintnat (*caml_stack_usage_hook)(void) = NULL;
-
-uintnat caml_stack_usage (void)
-{
-  uintnat sz;
-  sz = (value *) caml_top_of_stack - (value *) caml_bottom_of_stack;
-  if (caml_stack_usage_hook != NULL)
-    sz += (*caml_stack_usage_hook)();
-  return sz;
 }

@@ -20,15 +20,15 @@
 
 #ifdef TARGET_sparc
 #define Saved_return_address(sp) *((intnat *)((sp) + 92))
-#define Callback_link(sp) ((struct caml_context *)((sp) + 104))
+#define Callback_link(sp) ((struct caml_context *)((sp) + 104)) //FIXME KC
 #endif
 
 #ifdef TARGET_i386
 #define Saved_return_address(sp) *((intnat *)((sp) - 4))
 #ifndef SYS_win32
-#define Callback_link(sp) ((struct caml_context *)((sp) + 16))
+#define Callback_link(sp) ((struct caml_context *)((sp) + 16)) //FIXME KC
 #else
-#define Callback_link(sp) ((struct caml_context *)((sp) + 8))
+#define Callback_link(sp) ((struct caml_context *)((sp) + 8)) //FIXME KC
 #endif
 #endif
 
@@ -43,30 +43,30 @@
 #else
 #define Trap_frame_size 16
 #endif
-#define Callback_link(sp) ((struct caml_context *)((sp) + Trap_frame_size))
+#define Callback_link(sp) ((struct caml_context *)((sp) + Trap_frame_size)) //FIXME KC
 #endif
 
 #ifdef TARGET_arm
 #define Saved_return_address(sp) *((intnat *)((sp) - 4))
-#define Callback_link(sp) ((struct caml_context *)((sp) + 8))
+#define Callback_link(sp) ((struct caml_context *)((sp) + 8)) //FIXME KC
 #endif
 
 #ifdef TARGET_amd64
 #define Saved_return_address(sp) *((intnat *)((sp) - 8))
-#define Callback_link(sp) ((struct caml_context *)((sp) + 16))
+#define Callback_link(sp) ((value *)((sp) + 16))
 #endif
 
 #ifdef TARGET_arm64
 #define Saved_return_address(sp) *((intnat *)((sp) - 8))
-#define Callback_link(sp) ((struct caml_context *)((sp) + 16))
+#define Callback_link(sp) ((struct caml_context *)((sp) + 16)) //FIXME KC
 #endif
 
 /* Structure of OCaml callback contexts */
 
 struct caml_context {
-  char * bottom_of_stack;       /* beginning of OCaml stack chunk */
-  uintnat last_retaddr;         /* last return address in OCaml code */
+  uintnat exception_ptr_offset; /* exception pointer offset from top of stack */
   value * gc_regs;              /* pointer to register block */
+  uintnat callback_offset;      /* Offset of callback link from OCaml part of stack. */
 };
 
 /* Structure of frame descriptors */
@@ -95,13 +95,33 @@ extern uintnat (*caml_stack_usage_hook)(void);
 
 /* Declaration of variables used in the asm code */
 extern char * caml_top_of_stack;
-extern char * caml_bottom_of_stack;
 extern char * caml_stack_threshold;
+
+extern value  caml_current_stack;
+extern char * caml_system_sp;
+extern char * caml_system_top_of_stack;
+
 extern uintnat caml_last_return_address;
-extern value * caml_gc_regs;
+
+/* The address of the gc_regs slot in the caml_context at the bottom of the
+ * OCaml stack. During allocation and GC, the gc_regs structure is built after
+ * the context is built. We use this address to update the gc_regs slot in the
+ * context after the regs table is built. */
+extern value ** caml_gc_regs_slot;
+
 extern uintnat caml_exception_ptr_offset;
 extern value caml_globals[];
 extern intnat caml_globals_inited;
 extern intnat * caml_frametable[];
+
+#define Stack_ctx_words 6 /* Must be consistent with amd64.S:LOAD_OCAML_STACK */
+#define Stack_base(stk) ((char*)(Op_val(stk) + Stack_ctx_words))
+#define Stack_high(stk) ((char*)(Op_val(stk) + Wosize_val(stk)))
+#define Stack_sp(stk) (*(long*)(Op_val(stk) + 0))
+#define Stack_dirty(stk) (*(Op_val(stk) + 1))
+#define Stack_handle_value(stk) (*(Op_val(stk) + 2))
+#define Stack_handle_exception(stk) (*(Op_val(stk) + 3))
+#define Stack_handle_effect(stk) (*(Op_val(stk) + 4))
+#define Stack_parent(stk) (*(Op_val(stk) + 5))
 
 #endif /* CAML_STACK_H */

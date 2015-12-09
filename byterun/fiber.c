@@ -279,8 +279,6 @@ void caml_scan_dirty_stack(scanning_action f, value stack)
   }
 }
 
-#ifndef NATIVE_CODE
-
 CAMLexport uintnat (*caml_stack_usage_hook)(void) = NULL;
 
 uintnat caml_stack_usage(void)
@@ -291,5 +289,3 @@ uintnat caml_stack_usage(void)
     sz += (*caml_stack_usage_hook)();
   return sz;
 }
-
-#endif

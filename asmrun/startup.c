@@ -109,7 +109,7 @@ void caml_main(char **argv)
 #ifdef DEBUG
   caml_verb_gc = 63;
 #endif
-  caml_top_of_stack = &tos;
+  caml_system_top_of_stack = &tos;
   caml_parse_ocamlrunparam();
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
