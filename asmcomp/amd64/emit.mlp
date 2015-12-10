@@ -154,10 +154,10 @@ let load_symbol_addr s arg =
 
 (* Output a label *)
 
-let emit_label ?(mark="") lbl =
+let emit_label lbl =
   match system with
-  | S_win64 -> "L" ^ mark ^ string_of_int lbl
-  | _ -> ".L" ^ mark ^ string_of_int lbl
+  | S_win64 -> "L" ^ string_of_int lbl
+  | _ -> ".L" ^ string_of_int lbl
 
 let emit_data_label lbl =
   match system with
@@ -166,7 +166,7 @@ let emit_data_label lbl =
 
 let label s = sym (emit_label s)
 
-let def_label ?(mark="") s = D.label (emit_label ~mark s)
+let def_label s = D.label (emit_label s)
 
 let emit_Llabel fallthrough lbl =
   if not fallthrough && !fastcode_flag then D.align 4;
@@ -795,7 +795,6 @@ let emit_profile () =
 let fundecl fundecl =
   function_name := fundecl.fun_name;
   fastcode_flag := fundecl.fun_fast;
-  tailrec_entry_point := new_label();
   stack_offset := 0;
   call_gc_sites := [];
   bound_error_sites := [];
@@ -825,6 +824,7 @@ let fundecl fundecl =
     cfi_adjust_cfa_offset n;
   end;
 
+  tailrec_entry_point := record_frame_label Reg.Set.empty Debuginfo.none;
   load_symbol_addr "caml_stack_threshold" r11;
   I.mov (mem64 QWORD 0 R11) r11;
   I.add (int (frame_size ())) r11;
