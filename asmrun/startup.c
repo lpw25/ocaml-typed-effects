@@ -110,6 +110,9 @@ void caml_main(char **argv)
   caml_verb_gc = 63;
 #endif
   caml_system_top_of_stack = &tos;
+  /* Ceil 16-byte align caml_system_top_of_stack */
+  caml_system_top_of_stack =
+    (char*)((((uintnat)caml_system_top_of_stack + 16) >> 4) << 4);
   caml_parse_ocamlrunparam();
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
