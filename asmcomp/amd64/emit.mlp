@@ -879,7 +879,7 @@ let begin_assembly() =
   if system = S_win64 then begin
     D.extrn "caml_young_ptr" QWORD;
     D.extrn "caml_young_limit" QWORD;
-    D.extrn "caml_exception_pointer" QWORD;
+    D.extrn "caml_exception_ptr_offset" QWORD;
     D.extrn "caml_stack_threshold" QWORD;
     D.extrn "caml_call_gc" NEAR;
     D.extrn "caml_call_realloc_stack" NEAR;
