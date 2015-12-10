@@ -60,10 +60,10 @@ static void load_stack(value newstack)
 }
 
 static int stack_is_saved = 0;
-void caml_save_stack_gc()
+void caml_save_stack_gc(int mark_dirty)
 {
   Assert(!stack_is_saved);
-  save_stack();
+  save_stack_dirty (mark_dirty);
   stack_is_saved = 1;
 }
 
