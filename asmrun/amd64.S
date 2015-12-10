@@ -202,7 +202,6 @@
         pushq   %r11; CFI_ADJUST(8); \
         movq	  GREL(caml_current_stack)(%rip), %r11; \
         movq	  (%r11), %r11; \
-        cmpq    $0, %r11; \
         movq	  -8(%r11), REG; \
         shrq	  $10, REG; \
         leaq	  (%r11,REG,8), REG; \
@@ -417,7 +416,6 @@ FUNCTION(G(caml_call_realloc_stack))
 #else
         pushq   %rbp; CFI_ADJUST(8);
 #endif
-        subq    $8, %rsp; CFI_ADJUST (8)        /* stack 16-aligned */
         pushq   %r11; CFI_ADJUST (8);
         pushq   %r10; CFI_ADJUST (8);
         pushq   %r13; CFI_ADJUST (8);
@@ -490,7 +488,6 @@ FUNCTION(G(caml_call_realloc_stack))
         popq    %r13; CFI_ADJUST(-8)
         popq    %r10; CFI_ADJUST(-8)
         popq    %r11; CFI_ADJUST(-8)
-        addq    $8, %rsp; CFI_ADJUST (-8);
 #ifdef WITH_FRAME_POINTERS
         LEAVE_FUNCTION
 #else
