@@ -142,17 +142,7 @@ void caml_register_dyn_global(void *v) {
    heap. */
 void caml_oldify_local_roots (void)
 {
-  char * sp;
-  uintnat retaddr;
-  value * regs;
-  frame_descr * d;
-  uintnat h;
-  int i, j, n, ofs;
-#ifdef Stack_grows_upwards
-  short * p;  /* PR#4339: stack offsets are negative in this case */
-#else
-  unsigned short * p;
-#endif
+  int i, j;
   value glob;
   value * root;
   struct caml__roots_block *lr;

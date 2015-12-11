@@ -140,7 +140,7 @@ static void thread_scan_roots(scanning_action action)
   /* Don't scan curr_thread->sp, this has already been done.
      Don't scan local roots either, for the same reason. */
   for (th = start->next; th != start; th = th->next) {
-    do_local_roots(action, th->sp, th->stack_high, NULL);
+    do_local_roots(action, NULL);
   }
   /* Hook */
   if (prev_scan_roots_hook != NULL) (*prev_scan_roots_hook)(action);
@@ -161,6 +161,7 @@ value thread_initialize(value unit)       /* ML */
   curr_thread =
     (caml_thread_t) alloc_shr(sizeof(struct caml_thread_struct)
                               / sizeof(value), 0);
+#if 0
   curr_thread->ident = next_ident;
   next_ident = Val_int(Int_val(next_ident) + 1);
   curr_thread->next = curr_thread;
@@ -182,6 +183,7 @@ value thread_initialize(value unit)       /* ML */
   curr_thread->joining = NO_JOINING;
   curr_thread->waitpid = NO_WAITPID;
   curr_thread->retval = Val_unit;
+#endif
   /* Initialize GC */
   prev_scan_roots_hook = scan_roots_hook;
   scan_roots_hook = thread_scan_roots;
@@ -302,6 +304,7 @@ static value schedule_thread(void)
   if (callback_depth > 1) return curr_thread->retval;
 
   /* Save the status of the current thread */
+#if 0
   curr_thread->stack_low = stack_low;
   curr_thread->stack_high = stack_high;
   curr_thread->stack_threshold = stack_threshold;
@@ -310,6 +313,7 @@ static value schedule_thread(void)
   curr_thread->backtrace_pos = Val_int(backtrace_pos);
   curr_thread->backtrace_buffer = backtrace_buffer;
   caml_modify (&curr_thread->backtrace_last_exn, backtrace_last_exn);
+#endif
 
 try_again:
   /* Find if a thread is runnable.
@@ -494,6 +498,7 @@ try_again:
   run_thread->waitpid = NO_WAITPID;
 
   /* Activate the thread */
+#if 0
   curr_thread = run_thread;
   stack_low = curr_thread->stack_low;
   stack_high = curr_thread->stack_high;
@@ -503,6 +508,7 @@ try_again:
   backtrace_pos = Int_val(curr_thread->backtrace_pos);
   backtrace_buffer = curr_thread->backtrace_buffer;
   backtrace_last_exn = curr_thread->backtrace_last_exn;
+#endif
   return curr_thread->retval;
 }
 

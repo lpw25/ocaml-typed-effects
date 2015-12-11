@@ -45,11 +45,6 @@ static value save_stack_dirty (int mark_dirty)
   return old_stack;
 }
 
-static value save_stack (void)
-{
-  return save_stack_dirty(1);
-}
-
 static void load_stack(value newstack)
 {
   Assert(sizeof(newstack) == sizeof(caml_current_stack));
@@ -183,13 +178,13 @@ void caml_scan_stack (scanning_action f, value stack)
   value * regs;
   frame_descr * d;
   uintnat h;
-  int i, j, n, ofs;
+  int n, ofs;
 #ifdef Stack_grows_upwards
   short * p;  /* PR#4339: stack offsets are negative in this case */
 #else
   unsigned short * p;
 #endif
-  value *root, *self;
+  value *root;
   struct caml_context* context;
 
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
