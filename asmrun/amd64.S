@@ -177,11 +177,13 @@
 
 /* Switch from OCaml to C stack. Clobbers REG. TODO non-pic. */
 #define SWITCH_OCAML_TO_C(OFFSET,REG) \
+    /* Build caml_context at the bottom of the stack */ \
         pushq   $OFFSET; CFI_ADJUST(8); \
         pushq   $0 ; CFI_ADJUST(8); \
         movq    GREL(caml_gc_regs_slot)(%rip), REG; \
         movq    %rsp, (REG); \
         pushq   %r14; CFI_ADJUST(8); \
+    /* Save OCaml SP in the stack slot */ \
         movq    GREL(caml_top_of_stack)(%rip), REG; \
         movq    (REG), REG; \
         subq    %rsp, REG; \
@@ -189,37 +191,45 @@
         movq    GREL(caml_current_stack)(%rip), REG; \
         movq    (REG), REG; \
         popq    (REG); CFI_ADJUST(-8); \
+    /* Make system top-of-stack current top-of-stack */ \
         movq    GREL(caml_system_top_of_stack)(%rip), REG; \
         pushq   (REG); CFI_ADJUST(8) \
         movq    GREL(caml_top_of_stack)(%rip), REG; \
         popq    (REG); CFI_ADJUST(-8) \
+    /* Switch to system stack */ \
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
 
 /* Switch from C to OCaml stack. Clobbers REG. Assert (REG != %r11 || REG !=
  * %r9). TODO non-pic. */
 #define SWITCH_C_TO_OCAML(REG) \
+    /* Save %r9 and %r11 */ \
         pushq   %r9; CFI_ADJUST(8); \
         pushq   %r11; CFI_ADJUST(8); \
+    /* Save OCaml top of stack in REG */ \
         movq	  GREL(caml_current_stack)(%rip), %r11; \
         movq	  (%r11), %r11; \
         movq	  -8(%r11), REG; \
         shrq	  $10, REG; \
         leaq	  (%r11,REG,8), REG; \
+    /* Set caml_top_of_stack to be OCaml top-of-stack */ \
         movq	  GREL(caml_top_of_stack)(%rip), %r9; \
         movq	  REG, (%r9); \
+    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
         subq	  (%r11), REG; \
         addq	  $176, %r11; \
         movq	  GREL(caml_stack_threshold)(%rip), %r9; \
         movq	  %r11, (%r9); \
+    /* Restore %r9 and %r11 */ \
         popq    %r11; CFI_ADJUST(-8); \
         popq    %r9; CFI_ADJUST(-8); \
+    /* Switch to OCaml stack */ \
         movq	  REG, %rsp; \
+    /* Pop the caml_context from the bottom of stack updating the exception pointer offset */ \
         movq    GREL(caml_exception_ptr_offset)(%rip), REG; \
         popq    (REG); CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8)
-
 
 /* Save and restore all callee-save registers on stack.
    Keep the stack 16-aligned. */
@@ -312,6 +322,82 @@ G(caml_system__code_begin):
 
 /* Allocation */
 
+#define SAVE_ALL_REGS_AND_CALL(TARGET_FUN)                                     \
+    /* Build array of registers, save it into caml_gc_regs_slot */             \
+        pushq   %r11; CFI_ADJUST (8);                                          \
+        pushq   %r10; CFI_ADJUST (8);                                          \
+        pushq   %r13; CFI_ADJUST (8);                                          \
+        pushq   %r12; CFI_ADJUST (8);                                          \
+        pushq   %r9; CFI_ADJUST (8);                                           \
+        pushq   %r8; CFI_ADJUST (8);                                           \
+        pushq   %rcx; CFI_ADJUST (8);                                          \
+        pushq   %rdx; CFI_ADJUST (8);                                          \
+        pushq   %rsi; CFI_ADJUST (8);                                          \
+        pushq   %rdi; CFI_ADJUST (8);                                          \
+        pushq   %rbx; CFI_ADJUST (8);                                          \
+        pushq   %rax; CFI_ADJUST (8);                                          \
+    /* Update in OCaml stack's context, the pointer to gc_regs */              \
+        LOAD_VAR(caml_gc_regs_slot, %r11);                                     \
+        movq    %rsp, (%r11);                                                  \
+    /* Save caml_young_ptr, caml_exception_ptr_offset */                       \
+        STORE_VAR(%r15, caml_young_ptr);                                       \
+        STORE_VAR(%r14, caml_exception_ptr_offset);                            \
+    /* Save floating-point registers */                                        \
+        subq    $(16*8), %rsp; CFI_ADJUST (16*8);                              \
+        movsd   %xmm0, 0*8(%rsp);                                              \
+        movsd   %xmm1, 1*8(%rsp);                                              \
+        movsd   %xmm2, 2*8(%rsp);                                              \
+        movsd   %xmm3, 3*8(%rsp);                                              \
+        movsd   %xmm4, 4*8(%rsp);                                              \
+        movsd   %xmm5, 5*8(%rsp);                                              \
+        movsd   %xmm6, 6*8(%rsp);                                              \
+        movsd   %xmm7, 7*8(%rsp);                                              \
+        movsd   %xmm8, 8*8(%rsp);                                              \
+        movsd   %xmm9, 9*8(%rsp);                                              \
+        movsd   %xmm10, 10*8(%rsp);                                            \
+        movsd   %xmm11, 11*8(%rsp);                                            \
+        movsd   %xmm12, 12*8(%rsp);                                            \
+        movsd   %xmm13, 13*8(%rsp);                                            \
+        movsd   %xmm14, 14*8(%rsp);                                            \
+        movsd   %xmm15, 15*8(%rsp);                                            \
+    /* Call the garbage collector */                                           \
+        PREPARE_FOR_C_CALL;                                                    \
+        call    GCALL(TARGET_FUN);                                             \
+        CLEANUP_AFTER_C_CALL;                                                  \
+    /* Restore caml_young_ptr, caml_exception_ptr_offset */                    \
+        LOAD_VAR(caml_young_ptr, %r15);                                        \
+        LOAD_VAR(caml_exception_ptr_offset, %r14);                             \
+    /* Restore all regs used by the code generator */                          \
+        movsd   0*8(%rsp), %xmm0;                                              \
+        movsd   1*8(%rsp), %xmm1;                                              \
+        movsd   2*8(%rsp), %xmm2;                                              \
+        movsd   3*8(%rsp), %xmm3;                                              \
+        movsd   4*8(%rsp), %xmm4;                                              \
+        movsd   5*8(%rsp), %xmm5;                                              \
+        movsd   6*8(%rsp), %xmm6;                                              \
+        movsd   7*8(%rsp), %xmm7;                                              \
+        movsd   8*8(%rsp), %xmm8;                                              \
+        movsd   9*8(%rsp), %xmm9;                                              \
+        movsd   10*8(%rsp), %xmm10;                                            \
+        movsd   11*8(%rsp), %xmm11;                                            \
+        movsd   12*8(%rsp), %xmm12;                                            \
+        movsd   13*8(%rsp), %xmm13;                                            \
+        movsd   14*8(%rsp), %xmm14;                                            \
+        movsd   15*8(%rsp), %xmm15;                                            \
+        addq    $(16*8), %rsp; CFI_ADJUST(-16*8);                              \
+        popq    %rax; CFI_ADJUST(-8);                                          \
+        popq    %rbx; CFI_ADJUST(-8);                                          \
+        popq    %rdi; CFI_ADJUST(-8);                                          \
+        popq    %rsi; CFI_ADJUST(-8);                                          \
+        popq    %rdx; CFI_ADJUST(-8);                                          \
+        popq    %rcx; CFI_ADJUST(-8);                                          \
+        popq    %r8; CFI_ADJUST(-8);                                           \
+        popq    %r9; CFI_ADJUST(-8);                                           \
+        popq    %r12; CFI_ADJUST(-8);                                          \
+        popq    %r13; CFI_ADJUST(-8);                                          \
+        popq    %r10; CFI_ADJUST(-8);                                          \
+        popq    %r11; CFI_ADJUST(-8)
+
 FUNCTION(G(caml_call_gc))
         CFI_STARTPROC
         SWITCH_OCAML_TO_C(0,%rax)
@@ -321,90 +407,18 @@ FUNCTION(G(caml_call_gc))
         SWITCH_C_TO_OCAML(%rax)
         ret
 LBL(caml_call_gc):
-    /* Build array of registers, save it into caml_gc_regs_slot */
 #ifdef WITH_FRAME_POINTERS
-        ENTER_FUNCTION          ;
+        ENTER_FUNCTION
 #else
-        pushq   %rbp; CFI_ADJUST(8);
+        pushq   %rbp; CFI_ADJUST(8)
 #endif
-        pushq   %r11; CFI_ADJUST (8);
-        pushq   %r10; CFI_ADJUST (8);
-        pushq   %r13; CFI_ADJUST (8);
-        pushq   %r12; CFI_ADJUST (8);
-        pushq   %r9; CFI_ADJUST (8);
-        pushq   %r8; CFI_ADJUST (8);
-        pushq   %rcx; CFI_ADJUST (8);
-        pushq   %rdx; CFI_ADJUST (8);
-        pushq   %rsi; CFI_ADJUST (8);
-        pushq   %rdi; CFI_ADJUST (8);
-        pushq   %rbx; CFI_ADJUST (8);
-        pushq   %rax; CFI_ADJUST (8);
-    /* Update in OCaml stack's context, the pointer to gc_regs */
-        LOAD_VAR(caml_gc_regs_slot, %r11)
-        movq    %rsp, (%r11)
-    /* Save caml_young_ptr, caml_exception_ptr_offset */
-        STORE_VAR(%r15, caml_young_ptr)
-        STORE_VAR(%r14, caml_exception_ptr_offset)
-    /* Save floating-point registers */
-        subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-        movsd   %xmm0, 0*8(%rsp)
-        movsd   %xmm1, 1*8(%rsp)
-        movsd   %xmm2, 2*8(%rsp)
-        movsd   %xmm3, 3*8(%rsp)
-        movsd   %xmm4, 4*8(%rsp)
-        movsd   %xmm5, 5*8(%rsp)
-        movsd   %xmm6, 6*8(%rsp)
-        movsd   %xmm7, 7*8(%rsp)
-        movsd   %xmm8, 8*8(%rsp)
-        movsd   %xmm9, 9*8(%rsp)
-        movsd   %xmm10, 10*8(%rsp)
-        movsd   %xmm11, 11*8(%rsp)
-        movsd   %xmm12, 12*8(%rsp)
-        movsd   %xmm13, 13*8(%rsp)
-        movsd   %xmm14, 14*8(%rsp)
-        movsd   %xmm15, 15*8(%rsp)
-    /* Call the garbage collector */
-        PREPARE_FOR_C_CALL
-        call    GCALL(caml_garbage_collection)
-        CLEANUP_AFTER_C_CALL
-    /* Restore caml_young_ptr, caml_exception_ptr_offset */
-        LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_ptr_offset, %r14)
-    /* Restore all regs used by the code generator */
-        movsd   0*8(%rsp), %xmm0
-        movsd   1*8(%rsp), %xmm1
-        movsd   2*8(%rsp), %xmm2
-        movsd   3*8(%rsp), %xmm3
-        movsd   4*8(%rsp), %xmm4
-        movsd   5*8(%rsp), %xmm5
-        movsd   6*8(%rsp), %xmm6
-        movsd   7*8(%rsp), %xmm7
-        movsd   8*8(%rsp), %xmm8
-        movsd   9*8(%rsp), %xmm9
-        movsd   10*8(%rsp), %xmm10
-        movsd   11*8(%rsp), %xmm11
-        movsd   12*8(%rsp), %xmm12
-        movsd   13*8(%rsp), %xmm13
-        movsd   14*8(%rsp), %xmm14
-        movsd   15*8(%rsp), %xmm15
-        addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-        popq    %rax; CFI_ADJUST(-8)
-        popq    %rbx; CFI_ADJUST(-8)
-        popq    %rdi; CFI_ADJUST(-8)
-        popq    %rsi; CFI_ADJUST(-8)
-        popq    %rdx; CFI_ADJUST(-8)
-        popq    %rcx; CFI_ADJUST(-8)
-        popq    %r8; CFI_ADJUST(-8)
-        popq    %r9; CFI_ADJUST(-8)
-        popq    %r12; CFI_ADJUST(-8)
-        popq    %r13; CFI_ADJUST(-8)
-        popq    %r10; CFI_ADJUST(-8)
-        popq    %r11; CFI_ADJUST(-8)
+       SAVE_ALL_REGS_AND_CALL(caml_garbage_collection)
 #ifdef WITH_FRAME_POINTERS
-        LEAVE_FUNCTION
+        LEAVE_FUNCTION;
 #else
-        popq    %rbp; CFI_ADJUST(-8);
+        popq    %rbp; CFI_ADJUST(-8)
 #endif
+
     /* Return to caller */
         ret
 CFI_ENDPROC
@@ -412,89 +426,16 @@ CFI_ENDPROC
 FUNCTION(G(caml_call_realloc_stack))
         CFI_STARTPROC
         SWITCH_OCAML_TO_C(0,%r10)
-    /* Build array of registers, save it into caml_gc_regs */
 #ifdef WITH_FRAME_POINTERS
-        ENTER_FUNCTION          ;
+        ENTER_FUNCTION
 #else
-        pushq   %rbp; CFI_ADJUST(8);
+        pushq   %rbp; CFI_ADJUST(8)
 #endif
-        pushq   %r11; CFI_ADJUST (8);
-        pushq   %r10; CFI_ADJUST (8);
-        pushq   %r13; CFI_ADJUST (8);
-        pushq   %r12; CFI_ADJUST (8);
-        pushq   %r9; CFI_ADJUST (8);
-        pushq   %r8; CFI_ADJUST (8);
-        pushq   %rcx; CFI_ADJUST (8);
-        pushq   %rdx; CFI_ADJUST (8);
-        pushq   %rsi; CFI_ADJUST (8);
-        pushq   %rdi; CFI_ADJUST (8);
-        pushq   %rbx; CFI_ADJUST (8);
-        pushq   %rax; CFI_ADJUST (8);
-    /* Update in OCaml stack's context, the pointer to gc_regs */
-        LOAD_VAR(caml_gc_regs_slot, %r11)
-        movq    %rsp, (%r11)
-    /* Save caml_young_ptr, caml_exception_ptr_offset */
-        STORE_VAR(%r15, caml_young_ptr)
-        STORE_VAR(%r14, caml_exception_ptr_offset)
-    /* Save floating-point registers */
-        subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-        movsd   %xmm0, 0*8(%rsp)
-        movsd   %xmm1, 1*8(%rsp)
-        movsd   %xmm2, 2*8(%rsp)
-        movsd   %xmm3, 3*8(%rsp)
-        movsd   %xmm4, 4*8(%rsp)
-        movsd   %xmm5, 5*8(%rsp)
-        movsd   %xmm6, 6*8(%rsp)
-        movsd   %xmm7, 7*8(%rsp)
-        movsd   %xmm8, 8*8(%rsp)
-        movsd   %xmm9, 9*8(%rsp)
-        movsd   %xmm10, 10*8(%rsp)
-        movsd   %xmm11, 11*8(%rsp)
-        movsd   %xmm12, 12*8(%rsp)
-        movsd   %xmm13, 13*8(%rsp)
-        movsd   %xmm14, 14*8(%rsp)
-        movsd   %xmm15, 15*8(%rsp)
-    /* Call the garbage collector */
-        PREPARE_FOR_C_CALL
-        call    GCALL(caml_realloc_stack)
-        CLEANUP_AFTER_C_CALL
-    /* Restore caml_young_ptr, caml_exception_ptr_offset */
-        LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_ptr_offset, %r14)
-    /* Restore all regs used by the code generator */
-        movsd   0*8(%rsp), %xmm0
-        movsd   1*8(%rsp), %xmm1
-        movsd   2*8(%rsp), %xmm2
-        movsd   3*8(%rsp), %xmm3
-        movsd   4*8(%rsp), %xmm4
-        movsd   5*8(%rsp), %xmm5
-        movsd   6*8(%rsp), %xmm6
-        movsd   7*8(%rsp), %xmm7
-        movsd   8*8(%rsp), %xmm8
-        movsd   9*8(%rsp), %xmm9
-        movsd   10*8(%rsp), %xmm10
-        movsd   11*8(%rsp), %xmm11
-        movsd   12*8(%rsp), %xmm12
-        movsd   13*8(%rsp), %xmm13
-        movsd   14*8(%rsp), %xmm14
-        movsd   15*8(%rsp), %xmm15
-        addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-        popq    %rax; CFI_ADJUST(-8)
-        popq    %rbx; CFI_ADJUST(-8)
-        popq    %rdi; CFI_ADJUST(-8)
-        popq    %rsi; CFI_ADJUST(-8)
-        popq    %rdx; CFI_ADJUST(-8)
-        popq    %rcx; CFI_ADJUST(-8)
-        popq    %r8; CFI_ADJUST(-8)
-        popq    %r9; CFI_ADJUST(-8)
-        popq    %r12; CFI_ADJUST(-8)
-        popq    %r13; CFI_ADJUST(-8)
-        popq    %r10; CFI_ADJUST(-8)
-        popq    %r11; CFI_ADJUST(-8)
+        SAVE_ALL_REGS_AND_CALL(caml_realloc_stack)
 #ifdef WITH_FRAME_POINTERS
-        LEAVE_FUNCTION
+        LEAVE_FUNCTION;
 #else
-        popq    %rbp; CFI_ADJUST(-8);
+        popq    %rbp; CFI_ADJUST(-8)
 #endif
         SWITCH_C_TO_OCAML(%r10)
     /* Return to caller */
@@ -598,12 +539,13 @@ LBL(caml_c_call):
     /* Return to OCaml caller */
         ret
 LBL(106):
+    /* Exception in C code */
     /* Prepare for return to OCaml */
         LOAD_VAR(caml_young_ptr, %r15)
     /* Load ocaml stack and restore global variables */
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%r10)
-    /* Return to OCaml caller */
+    /* Raise the exception in OCaml */
         jmp LBL(caml_raise_exn)
 CFI_ENDPROC
 
