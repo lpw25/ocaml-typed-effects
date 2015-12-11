@@ -3,5 +3,7 @@
 
 let rec sum n = if n = 0 then 0 else n + sum (n-1)
 
-let n = int_of_string @@ Sys.argv.(1)
+let n =
+  if Array.length Sys.argv != 2 then 100000
+  else int_of_string @@ Sys.argv.(1)
 let () = Printf.printf "sum(%d) = %d\n" n (sum n)

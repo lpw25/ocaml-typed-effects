@@ -175,7 +175,7 @@
         popq    %r14
 
 
-/* Switch from OCaml to C stack. Clobbers REG. */
+/* Switch from OCaml to C stack. Clobbers REG. TODO non-pic. */
 #define SWITCH_OCAML_TO_C(OFFSET,REG) \
         pushq   $OFFSET; CFI_ADJUST(8); \
         pushq   $0 ; CFI_ADJUST(8); \
@@ -196,7 +196,8 @@
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
 
-/* Switch from C to OCaml stack. Clobbers REG. Assert (REG != %r11 || REG != %r9). */
+/* Switch from C to OCaml stack. Clobbers REG. Assert (REG != %r11 || REG !=
+ * %r9). TODO non-pic. */
 #define SWITCH_C_TO_OCAML(REG) \
         pushq   %r9; CFI_ADJUST(8); \
         pushq   %r11; CFI_ADJUST(8); \

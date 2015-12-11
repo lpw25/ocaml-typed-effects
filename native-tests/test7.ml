@@ -13,7 +13,7 @@ let rec sum n = if n = 0 then 0 else n + sum (n-1)
 let c_to_caml () =
   printf "[Caml] Enter c_to_caml\n%!";
   (* Heap overflow *)
-  let l = mk_list 100000 [] in
+  let l = mk_list 1000 [] in
   Printf.printf "%d\n" (List.hd l);
   (* Stack overflow *)
   Printf.printf "%d\n" (sum 100000);

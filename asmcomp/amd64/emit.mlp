@@ -488,26 +488,36 @@ let emit_instr fallthrough i =
           emit_jump s
         end
       end
-  | Lop(Iextcall(s, alloc)) ->
-      (* XXX TODO *)
+  | Lop(Iextcall(s, alloc, stack_args)) ->
       add_used_symbol s;
-      if alloc then begin
-        load_symbol_addr s rax;
-        emit_call "caml_c_call";
-        record_frame i.live i.dbg;
-        if system <> S_win64 then begin
-          (* TODO: investigate why such a diff.
-             This comes from:
-             http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
+      if alloc then
+        begin
+          load_symbol_addr s rax;
+          emit_call "caml_c_call";
+          record_frame i.live i.dbg;
+          if system <> S_win64 then begin
+            (* TODO: investigate why such a diff.
+                This comes from:
+                http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
 
-             If we do the same for Win64, we probably need to change
-             amd64nt.asm accordingly.
-          *)
-          load_symbol_addr "caml_young_ptr" r11;
-          I.mov (mem64 QWORD 0 R11) r15
-        end;
-      end else
-        emit_call s
+                If we do the same for Win64, we probably need to change
+                amd64nt.asm accordingly.
+            *)
+            load_symbol_addr "caml_young_ptr" r11;
+            I.mov (mem64 QWORD 0 R11) r15
+          end
+        end
+      else begin
+        I.push r12;
+        I.mov rsp r12;
+        load_symbol_addr "caml_system_sp" r11;
+        I.mov (mem64 QWORD 0 R11) rsp;
+        I.sub (int 8) rsp;
+        emit_call s;
+        I.add (int 8) rsp;
+        I.mov r12 rsp;
+        I.pop r12;
+      end
   | Lop(Istackoffset n) ->
       if n < 0
       then I.add (int (-n)) rsp
