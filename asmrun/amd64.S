@@ -636,12 +636,16 @@ FUNCTION(G(caml_start_program))
         movq    $0, %rsi  /* dummy */
     /* Common code for caml_start_program and caml_callback* */
 LBL(caml_start_program):
-    /* Save system SP */
+    /* Save system stack state. System stack is captured unalinged. Hence, any
+     * OCaml to C calls are expected to explicitly align stack using
+     * ENTER_FUNCTION and such. */
+        subq    $8, %rsp; CFI_ADJUST(8)
+        PUSH_VAR(caml_exception_ptr_offset)
         PUSH_VAR(caml_system_sp)
         STORE_VAR(%rsp, caml_system_sp)
-    /* Save current caml_current_stack on the C stack */
+    /* Temporarily push caml_current_stack for context switch */
         PUSH_VAR(caml_current_stack)
-    /* Save callback args. */
+    /* Save callback args */
         pushq   %r12; CFI_ADJUST(8)
         pushq   %rax; CFI_ADJUST(8)
         pushq   %rbx; CFI_ADJUST(8)
@@ -664,12 +668,12 @@ LBL(caml_start_program):
         popq    %r11; CFI_ADJUST(-8)
     /* Switch from C to OCaml stack. */
         SWITCH_C_TO_OCAML(%r10)
-    /* Now we are in OCaml. Save prev caml_current_stack on the OCaml stack. */
+    /* Now we are in OCaml. Save prev caml_current_stack on the OCaml stack so
+     * that GC will know where to find the prev chunk. */
         subq    $8, %rsp
         pushq   %r11; CFI_ADJUST(8)
-    /* Setup alloc ptr and exception ptr */
+    /* Setup alloc ptr */
         LOAD_VAR(caml_young_ptr, %r15)
-        LOAD_VAR(caml_exception_ptr_offset, %r14)
     /* Build an exception handler */
         lea     LBL(108)(%rip), %r13
         pushq   %r13; CFI_ADJUST(8)
@@ -683,16 +687,17 @@ LBL(107):
         popq    %r12; CFI_ADJUST(-8)   /* dummy register */
         CFI_ADJUST(-16)
 LBL(109):
-    /* Update alloc ptr and exception ptr */
+    /* Update alloc ptr */
         STORE_VAR(%r15,caml_young_ptr)
-        STORE_VAR(%r14,caml_exception_ptr_offset)
     /* Load previous caml_current_stack in %r9 */
         popq    %r9; CFI_ADJUST(-8)
     /* Return to C stack. */
         SWITCH_OCAML_TO_C(0,%r10)
-    /* Restore previous caml_current_stack and caml_system_sp */
+    /* Restore previous system stack state */
         STORE_VAR(%r9,caml_current_stack)
         POP_VAR(caml_system_sp)
+        POP_VAR(caml_exception_ptr_offset)
+        addq    $8, %rsp
     /* Restore callee-save registers. */
         POP_CALLEE_SAVE_REGS
     /* Return to caller. */
