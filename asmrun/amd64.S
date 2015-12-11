@@ -664,6 +664,7 @@ LBL(caml_start_program):
     /* Switch from C to OCaml stack. */
         SWITCH_C_TO_OCAML(%r10)
     /* Now we are in OCaml. Save prev caml_current_stack on the OCaml stack. */
+        subq    $8, %rsp
         pushq   %r11; CFI_ADJUST(8)
     /* Setup alloc ptr and exception ptr */
         LOAD_VAR(caml_young_ptr, %r15)

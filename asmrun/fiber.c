@@ -70,9 +70,7 @@ void caml_save_stack_gc(int mark_dirty)
 void caml_restore_stack_gc()
 {
   Assert(stack_is_saved);
-  /* XXX KC: Do not touch the global variables. They will be managed by
-   * SWITCH_* functions in amd64.S */
-  //load_stack(caml_current_stack);
+  load_stack(caml_current_stack);
   stack_is_saved = 0;
 }
 
@@ -186,6 +184,7 @@ void caml_scan_stack (scanning_action f, value stack)
 
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
 
+next_chunk:
   Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
   f(Stack_handle_value(stack), &Stack_handle_value(stack));
   f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
@@ -228,10 +227,15 @@ void caml_scan_stack (scanning_action f, value stack)
       /* XXX KC: disabled already scanned optimization. */
     } else {
       /* This marks the top of an ML stack chunk. */
-      value* next_chunk = Callback_link(sp);
+      value* stackp = Callback_link(sp);
+      stack = *stackp;
       /* Continue with the next stack chunk. */
-      f (*next_chunk, next_chunk);
-      break;
+      f (stack, stackp);
+      if (Is_block(stack) && stack == *stackp) {
+        /* If the previous chunk has not been scanned, scan it. */
+        goto next_chunk;
+      }
+      return;
     }
   }
 }

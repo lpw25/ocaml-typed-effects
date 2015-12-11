@@ -4,7 +4,7 @@ DEBUG=false
 DEBUG_FLAG=
 
 ifeq ($(DEBUG),true)
-	OCAMLOPT=ocamlopt -g -runtime-variant d
+	OCAMLOPT=ocamlopt -g -runtime-variant d -S
 else
 	OCAMLOPT=ocamlopt
 endif

@@ -125,7 +125,7 @@ void caml_init_frame_descriptors(void)
 
 /* Communication with [caml_start_program] and [caml_call_gc]. */
 
-value caml_current_stack;
+value caml_current_stack = Val_unit;
 char *caml_system_sp;
 char *caml_system_top_of_stack;
 value **caml_gc_regs_slot;
