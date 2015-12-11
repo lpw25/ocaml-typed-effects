@@ -824,7 +824,8 @@ let fundecl fundecl =
     cfi_adjust_cfa_offset n;
   end;
 
-  tailrec_entry_point := record_frame_label Reg.Set.empty Debuginfo.none;
+  tailrec_entry_point :=
+    record_frame_label fundecl.fun_body.live Debuginfo.none;
   load_symbol_addr "caml_stack_threshold" r11;
   I.mov (mem64 QWORD 0 R11) r11;
   I.add (int (frame_size ())) r11;

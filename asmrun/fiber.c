@@ -142,8 +142,9 @@ void caml_realloc_stack () {
   CAMLreturn0;
 }
 
-void caml_init_main_stack ()
+void caml_init_main_stack (value* gc_regs)
 {
+  CAMLparamN(gc_regs, 6);
   value stack;
   value* sp;
 
@@ -163,6 +164,8 @@ void caml_init_main_stack ()
   sp[-1] = 0;
   Stack_sp(stack) = 3*sizeof(value);
   caml_current_stack = stack;
+
+  CAMLreturn0;
 }
 
 void caml_scan_stack (scanning_action f, value stack)

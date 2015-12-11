@@ -94,7 +94,7 @@
 
 /* Position-independent operations on global variables. */
 
-/* Store [srcreg] in global [dstlabel].  Clobbers %r11. */
+/* Store [srcreg] in global [dstlabel].  Clobbers %r11. Assert (srcreg != %r11) */
 #define STORE_VAR(srcreg,dstlabel) \
         movq    GREL(dstlabel)(%rip), %r11 ; \
         movq    srcreg, (%r11)
@@ -338,7 +338,8 @@ LBL(caml_call_gc):
         pushq   %rdi; CFI_ADJUST (8);
         pushq   %rbx; CFI_ADJUST (8);
         pushq   %rax; CFI_ADJUST (8);
-        LEA_VAR(caml_gc_regs_slot, %r11)
+    /* Update in OCaml stack's context, the pointer to gc_regs */
+        LOAD_VAR(caml_gc_regs_slot, %r11)
         movq    %rsp, (%r11)
     /* Save caml_young_ptr, caml_exception_ptr_offset */
         STORE_VAR(%r15, caml_young_ptr)
@@ -428,7 +429,8 @@ FUNCTION(G(caml_call_realloc_stack))
         pushq   %rdi; CFI_ADJUST (8);
         pushq   %rbx; CFI_ADJUST (8);
         pushq   %rax; CFI_ADJUST (8);
-        LEA_VAR(caml_gc_regs_slot, %r11)
+    /* Update in OCaml stack's context, the pointer to gc_regs */
+        LOAD_VAR(caml_gc_regs_slot, %r11)
         movq    %rsp, (%r11)
     /* Save caml_young_ptr, caml_exception_ptr_offset */
         STORE_VAR(%r15, caml_young_ptr)
@@ -604,6 +606,21 @@ LBL(106):
         jmp LBL(caml_raise_exn)
 CFI_ENDPROC
 
+/* Registers holding arguments of C functions. */
+
+#if defined(SYS_mingw64) || defined(SYS_cygwin)
+#define C_ARG_1 %rcx
+#define C_ARG_2 %rdx
+#define C_ARG_3 %r8
+#define C_ARG_4 %r9
+#else
+#define C_ARG_1 %rdi
+#define C_ARG_2 %rsi
+#define C_ARG_3 %rdx
+#define C_ARG_4 %rcx
+#endif
+
+
 /* Start the OCaml program */
 
 FUNCTION(G(caml_start_program))
@@ -612,10 +629,14 @@ FUNCTION(G(caml_start_program))
         PUSH_CALLEE_SAVE_REGS
     /* Initial entry point is G(caml_program) */
         LEA_VAR(caml_program, %r12)
+        movq    $0, %rax  /* dummy */
+        movq    $0, %rbx  /* dummy */
+        movq    $0, %rdi  /* dummy */
+        movq    $0, %rsi  /* dummy */
     /* Common code for caml_start_program and caml_callback* */
 LBL(caml_start_program):
-        subq    $8, %rsp; CFI_ADJUST (8)        /* stack 16-aligned */
     /* Save system SP */
+        PUSH_VAR(caml_system_sp)
         STORE_VAR(%rsp, caml_system_sp)
     /* Save current caml_current_stack on the C stack */
         PUSH_VAR(caml_current_stack)
@@ -625,6 +646,9 @@ LBL(caml_start_program):
         pushq   %rbx; CFI_ADJUST(8)
         pushq   %rdi; CFI_ADJUST(8)
         pushq   %rsi; CFI_ADJUST(8)
+    /* Create a register array since caml_init_main_stack may GC? */
+    /* XXX KC: Is this true? */
+        movq    %rsp, C_ARG_1
     /* Create new stack. Updates caml_current_stack. */
         LEA_VAR(caml_init_main_stack, %r12)
         call    *%r12
@@ -660,13 +684,13 @@ LBL(109):
     /* Update alloc ptr and exception ptr */
         STORE_VAR(%r15,caml_young_ptr)
         STORE_VAR(%r14,caml_exception_ptr_offset)
-    /* Load previous caml_current_stack in %r11 */
-        popq    %r11; CFI_ADJUST(-8)
+    /* Load previous caml_current_stack in %r9 */
+        popq    %r9; CFI_ADJUST(-8)
     /* Return to C stack. */
         SWITCH_OCAML_TO_C(0,%r10)
-    /* Restore previous caml_current_stack */
-        STORE_VAR(%r11,caml_current_stack)
-        addq    $8, %rsp; CFI_ADJUST (-8);               /* Stack 16-aligned */
+    /* Restore previous caml_current_stack and caml_system_sp */
+        STORE_VAR(%r9,caml_current_stack)
+        POP_VAR(caml_system_sp)
     /* Restore callee-save registers. */
         POP_CALLEE_SAVE_REGS
     /* Return to caller. */
@@ -678,19 +702,6 @@ LBL(108):
         jmp     LBL(109)
 CFI_ENDPROC
 
-/* Registers holding arguments of C functions. */
-
-#if defined(SYS_mingw64) || defined(SYS_cygwin)
-#define C_ARG_1 %rcx
-#define C_ARG_2 %rdx
-#define C_ARG_3 %r8
-#define C_ARG_4 %r9
-#else
-#define C_ARG_1 %rdi
-#define C_ARG_2 %rsi
-#define C_ARG_3 %rdx
-#define C_ARG_4 %rcx
-#endif
 
 /* Raise an exception from OCaml */
 
@@ -739,6 +750,8 @@ CFI_STARTPROC
         movq    C_ARG_1, %rbx      /* closure */
         movq    C_ARG_2, %rax      /* argument */
         movq    0(%rbx), %r12      /* code pointer */
+        movq    $0, %rdi           /* dummy */
+        movq    $0, %rsi           /* dummy */
         jmp     LBL(caml_start_program)
 CFI_ENDPROC
 
@@ -751,6 +764,7 @@ CFI_STARTPROC
         movq    C_ARG_2, %rax      /* first argument */
         movq    C_ARG_3, %rbx      /* second argument */
         LEA_VAR(caml_apply2, %r12) /* code pointer */
+        movq    $0, %rsi           /* dummy */
         jmp     LBL(caml_start_program)
 CFI_ENDPROC
 
