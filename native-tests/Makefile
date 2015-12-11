@@ -1,5 +1,5 @@
 EXE=test1.native test2.native test3.native test4.native test5.native \
-		test6.native test7.native
+		test6.native test7.native test8.native
 DEBUG=false
 DEBUG_FLAG=
 
@@ -20,6 +20,11 @@ test7.native: test7.ml test7.mli test7.c
 	$(OCAMLOPT) -ccopt -c -o test7_c.o test7.c
 	$(OCAMLOPT) -c test7.mli
 	$(OCAMLOPT) -o test7.native test7_c.o test7.ml -linkall
+
+test8.native: test8.ml test8.mli test8.c
+	$(OCAMLOPT) -ccopt -c -o test8_c.o test8.c
+	$(OCAMLOPT) -c test8.mli
+	$(OCAMLOPT) -o test8.native test8_c.o test8.ml -linkall
 
 %.native: %.ml
 	$(OCAMLOPT) -o $@ $<

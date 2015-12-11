@@ -489,6 +489,7 @@ let emit_instr fallthrough i =
         end
       end
   | Lop(Iextcall(s, alloc)) ->
+      (* XXX TODO *)
       add_used_symbol s;
       if alloc then begin
         load_symbol_addr s rax;
@@ -763,7 +764,9 @@ let emit_instr fallthrough i =
           record_frame Reg.Set.empty i.dbg
       | false, _
       | true, Lambda.Raise_notrace ->
-          I.mov r14 rsp;
+          load_symbol_addr "caml_top_of_stack" r11;
+          I.mov (mem64 QWORD 0 R11) rsp;
+          I.sub r14 rsp;
           I.pop r14;
           I.ret ()
       end

@@ -79,7 +79,8 @@ void caml_restore_stack_gc()
 value caml_alloc_stack (value hval, value hexn, value heff) {
   CAMLparam3(hval, hexn, heff);
   CAMLlocal1(stack);
-  value* sp;
+  char* sp;
+  struct caml_context *ctxt;
 
   stack = caml_alloc(Fiber_stack_wosize, Stack_tag);
   Stack_dirty(stack) = Val_long(0);
@@ -90,9 +91,13 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
 
   /* Setup for initial enter. SWITCH_C_TO_OCAML expects a context at the bottom
    * of stack. So setup a dummy context. */
-  sp = (value*)Stack_high(stack);
-  sp[-1] = 0;
-  Stack_sp(stack) = 3*sizeof(value);
+  sp = Stack_high(stack);
+  sp -= sizeof(struct caml_context);
+  ctxt = (struct caml_context*)sp;
+  ctxt->exception_ptr_offset = 0;
+  ctxt->gc_regs = NULL;
+  ctxt->callback_offset = 0;
+  Stack_sp(stack) = sizeof(struct caml_context);
 
   CAMLreturn (stack);
 }
@@ -144,7 +149,8 @@ void caml_init_main_stack (value* gc_regs)
 {
   CAMLparamN(gc_regs, 6);
   value stack;
-  value* sp;
+  char* sp;
+  struct caml_context *ctxt;
 
   /* Create a stack for the main program.
      The GC is not initialised yet, so we use caml_alloc_shr
@@ -158,11 +164,15 @@ void caml_init_main_stack (value* gc_regs)
 
   /* Setup for initial enter. SWITCH_C_TO_OCAML expects a context at the bottom
    * of stack. So setup a dummy context. */
-  sp = (value*)Stack_high(stack);
-  sp[-1] = 0;
-  Stack_sp(stack) = 3*sizeof(value);
-  caml_current_stack = stack;
+  sp = Stack_high(stack);
+  sp -= sizeof(struct caml_context);
+  ctxt = (struct caml_context*)sp;
+  ctxt->exception_ptr_offset = 0;
+  ctxt->gc_regs = NULL;
+  ctxt->callback_offset = 0;
+  Stack_sp(stack) = sizeof(struct caml_context);
 
+  caml_current_stack = stack;
   CAMLreturn0;
 }
 
