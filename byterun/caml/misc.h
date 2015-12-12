@@ -99,6 +99,12 @@ extern void caml_ext_table_free(struct ext_table * tbl, int free_entries);
 extern uintnat caml_verb_gc;
 void caml_gc_message (int, char *, uintnat);
 
+void caml_gc_log (int, char *, ...)
+#ifdef __GNUC__
+  __attribute__ ((format (printf, 2, 3)))
+#endif
+;
+
 /* Memory routines */
 
 char *caml_aligned_malloc (asize_t bsize, int, void **);

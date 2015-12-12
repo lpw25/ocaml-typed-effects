@@ -124,9 +124,8 @@ char * caml_instr_string (code_t pc)
   case OFFSETREF:
   case OFFSETCLOSURE:
   case PUSHOFFSETCLOSURE:
-  case HANDLETERM:
-  case CONTINUETERM:
-  case DISCONTINUETERM:
+  case RESUMETERM:
+  case DELEGATETERM:
     snprintf(buf, sizeof(buf), "%s %d", nam, pc[0]);
     break;
     /* Instructions with two operands */

@@ -40,6 +40,21 @@ void caml_set_fields (value v, unsigned long start, unsigned long filler)
 
 uintnat caml_verb_gc = 0;
 
+void caml_gc_log (int level, char *msg, ...)
+{
+  va_list args;
+  va_start (args, msg);
+
+  char fmtbuf[512];
+
+  if (level < 0 || (caml_verb_gc & level) != 0){
+    sprintf(fmtbuf, "%s", msg);
+    vfprintf(stderr, fmtbuf, args);
+  }
+
+  va_end (args);
+}
+
 void caml_gc_message (int level, char *msg, uintnat arg)
 {
   if (level < 0 || (caml_verb_gc & level) != 0){
