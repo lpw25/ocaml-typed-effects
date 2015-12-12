@@ -40,7 +40,7 @@ clean:
 	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE) seen.out
 
 test: all
-	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> seen.out; diff expected.out seen.out
+	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> seen.out; diff expected.out seen.out && echo "SUCCESS!"
 
 expected.out: all
 	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> expected.out
