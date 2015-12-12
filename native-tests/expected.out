@@ -1,0 +1,39 @@
+Hello, world!
+Hello, world!
+Hello, world!
+Fatal error: exception Invalid_argument("index out of bounds")
+sum(100000) = 5000050000
+0
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+[Caml] Leave c_to_caml
+[Caml] Return from caml_to_c
+[C] Enter caml_to_c
+[C] Call c_to_caml
+[C] Return from c_to_caml
+[C] Leave caml_to_c
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+0
+5000050000
+[Caml] Leave c_to_caml
+[Caml] Return from caml_to_c
+[C] Enter caml_to_c
+[C] Call c_to_caml
+[C] Return from c_to_caml
+[C] Leave caml_to_c
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+[Caml] c_to_caml: raise exception
+[Caml] Caught exception
+[C] Enter caml_to_c
+[C] Call c_to_caml
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+c_to_caml: n=66
+[Caml] Leave c_to_caml
+[Caml] Return from caml_to_c
+[C] Enter caml_to_c
+[C] Call c_to_caml
+[C] Return from c_to_caml
+[C] Leave caml_to_c

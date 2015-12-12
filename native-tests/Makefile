@@ -34,7 +34,13 @@ test9.native: test9.ml test9.mli test9.c
 %.native: %.ml
 	$(OCAMLOPT) -o $@ $<
 
-.PHONY: clean
+.PHONY: clean test expected
 
 clean:
-	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE)
+	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE) seen.out
+
+test: all
+	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> seen.out; diff expected.out seen.out
+
+expected.out: all
+	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> expected.out

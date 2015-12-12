@@ -488,10 +488,12 @@ let emit_instr fallthrough i =
           emit_jump s
         end
       end
-  | Lop(Iextcall(s, alloc, stack_args)) ->
+  | Lop(Iextcall(s, alloc, stack_off)) ->
       add_used_symbol s;
-      if alloc then
+      if alloc || stack_off > 0 then
         begin
+          I.lea (mem64 QWORD 0 RSP) r13;
+          I.lea (mem64 QWORD stack_off RSP) r12;
           load_symbol_addr s rax;
           emit_call "caml_c_call";
           record_frame i.live i.dbg;
@@ -508,15 +510,13 @@ let emit_instr fallthrough i =
           end
         end
       else begin
-        I.push r12;
-        I.mov rsp r12;
+        I.mov rsp r10;
         load_symbol_addr "caml_system_sp" r11;
         I.mov (mem64 QWORD 0 R11) rsp;
-        I.sub (int 8) rsp;
+        I.push r10;
         emit_call s;
-        I.add (int 8) rsp;
-        I.mov r12 rsp;
-        I.pop r12;
+        I.pop r10;
+        I.mov r10 rsp
       end
   | Lop(Istackoffset n) ->
       if n < 0

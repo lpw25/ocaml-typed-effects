@@ -515,19 +515,33 @@ CFI_ENDPROC
 FUNCTION(G(caml_c_call))
 CFI_STARTPROC
 LBL(caml_c_call):
+    /* Arguments:
+        C arguments         : %rdi, %rsi, %rdx, %rcx, %r8, and %r9
+        C function          : %rax
+        C stack args        : begin=%r13 end=%r12 */
     /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C(0,%r10)
         ENTER_FUNCTION
     /* Build an exception handler */
-        lea     LBL(106)(%rip), %r13
-        push    %r13; CFI_ADJUST(8)
+        lea     LBL(106)(%rip), %r10
+        push    %r10; CFI_ADJUST(8)
         push    %r14; CFI_ADJUST(8)
         SAVE_EXN_HANDLER
     /* Make the exception handler and alloc ptr available to the C code */
         STORE_VAR(%r15, caml_young_ptr)
         STORE_VAR(%r14, caml_exception_ptr_offset)
+    /* Copy arguments from OCaml to C stack */
+LBL(104):
+        subq    $8, %r12; CFI_ADJUST(8)
+        cmpq    %r13,%r12
+        jl      LBL(105)
+        push    (%r12)
+        jmp     LBL(104)
+LBL(105):
     /* Call the function (address in %rax) */
+        PREPARE_FOR_C_CALL
         call    *%rax
+        CLEANUP_AFTER_C_CALL
     /* Pop the exception handler */
         popq    %r14; CFI_ADJUST(-8)
         popq    %r12; CFI_ADJUST(-8)   /* dummy register */
@@ -598,7 +612,9 @@ LBL(caml_start_program):
         movq    %rsp, C_ARG_1
     /* Create new stack. Updates caml_current_stack. */
         LEA_VAR(caml_init_main_stack, %r12)
+        PREPARE_FOR_C_CALL
         call    *%r12
+        CLEANUP_AFTER_C_CALL
     /* Now caml_current_stack corresponds to the new stack. Still on C stack.
      * Restore callback args. */
         popq    %rsi; CFI_ADJUST(-8)
@@ -733,6 +749,8 @@ CFI_ENDPROC
 FUNCTION(G(caml_ml_array_bound_error))
 CFI_STARTPROC
         LEA_VAR(caml_array_bound_error, %rax)
+        movq    %rsp, %r13
+        movq    %rsp, %r12
         jmp     LBL(caml_c_call)
 CFI_ENDPROC
 

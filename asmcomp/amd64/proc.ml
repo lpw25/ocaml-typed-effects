@@ -260,8 +260,11 @@ let destroyed_at_c_call =
        108;109;110;111;112;113;114;115])
 
 let destroyed_at_oper = function
-    Iop(Icall_ind | Icall_imm _ | Iextcall(_, true, _)) -> all_phys_regs
-  | Iop(Iextcall(_, false, _)) -> destroyed_at_c_call
+    Iop(Icall_ind | Icall_imm _) -> all_phys_regs
+  | Iop(Iextcall(_, alloc, stack_ofs)) ->
+      assert (stack_ofs >= 0);
+      if alloc || stack_ofs > 0 then all_phys_regs
+      else destroyed_at_c_call
   | Iop(Iintop(Idiv | Imod)) | Iop(Iintop_imm((Idiv | Imod), _))
         -> [| rax; rdx |]
   | Iop(Istore(Single, _, _)) -> [| rxmm15 |]
