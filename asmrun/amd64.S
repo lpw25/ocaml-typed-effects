@@ -412,7 +412,7 @@ LBL(caml_call_gc):
 #else
         pushq   %rbp; CFI_ADJUST(8)
 #endif
-       SAVE_ALL_REGS_AND_CALL(caml_garbage_collection)
+        SAVE_ALL_REGS_AND_CALL(caml_garbage_collection)
 #ifdef WITH_FRAME_POINTERS
         LEAVE_FUNCTION;
 #else
