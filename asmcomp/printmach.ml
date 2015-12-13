@@ -111,9 +111,9 @@ let operation op arg ppf res =
   | Icall_imm lbl -> fprintf ppf "call \"%s\" %a" lbl regs arg
   | Itailcall_ind -> fprintf ppf "tailcall %a" regs arg
   | Itailcall_imm lbl -> fprintf ppf "tailcall \"%s\" %a" lbl regs arg
-  | Iextcall(lbl, alloc) ->
-      fprintf ppf "extcall \"%s\" %a%s" lbl regs arg
-      (if alloc then "" else " (noalloc)")
+  | Iextcall(lbl, alloc, stack_args) ->
+      fprintf ppf "extcall \"%s\" %a%s (stackargs=%d)" lbl regs arg
+      (if alloc then "" else " (noalloc)") stack_args
   | Istackoffset n ->
       fprintf ppf "offset stack %i" n
   | Iload(chunk, addr) ->
@@ -139,6 +139,10 @@ let operation op arg ppf res =
   | Iintoffloat -> fprintf ppf "intoffloat %a" reg arg.(0)
   | Ispecific op ->
       Arch.print_specific_operation reg op ppf arg
+  | Iperform -> fprintf ppf "perform %a" regs arg
+  | Iresume_ind -> fprintf ppf "resume %a" regs arg
+  | Itail_resume_ind-> fprintf ppf "tail_resume %a" regs arg
+  | Itail_delegate -> fprintf ppf "tail_delegate %a" regs arg
 
 let rec instr ppf i =
   if !print_live then begin

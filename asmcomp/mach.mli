@@ -43,7 +43,7 @@ type operation =
   | Icall_imm of string
   | Itailcall_ind
   | Itailcall_imm of string
-  | Iextcall of string * bool    (* false = noalloc, true = alloc *)
+  | Iextcall of string * bool * int (* false = noalloc, true = alloc, n = stack args *)
   | Istackoffset of int
   | Iload of Cmm.memory_chunk * Arch.addressing_mode
   | Istore of Cmm.memory_chunk * Arch.addressing_mode * bool
@@ -54,6 +54,10 @@ type operation =
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Ifloatofint | Iintoffloat
   | Ispecific of Arch.specific_operation
+  | Iperform
+  | Iresume_ind
+  | Itail_resume_ind
+  | Itail_delegate
 
 type instruction =
   { desc: instruction_desc;

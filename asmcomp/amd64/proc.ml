@@ -260,8 +260,11 @@ let destroyed_at_c_call =
        108;109;110;111;112;113;114;115])
 
 let destroyed_at_oper = function
-    Iop(Icall_ind | Icall_imm _ | Iextcall(_, true)) -> all_phys_regs
-  | Iop(Iextcall(_, false)) -> destroyed_at_c_call
+    Iop(Icall_ind | Icall_imm _) -> all_phys_regs
+  | Iop(Iextcall(_, alloc, stack_ofs)) ->
+      assert (stack_ofs >= 0);
+      if alloc || stack_ofs > 0 then all_phys_regs
+      else destroyed_at_c_call
   | Iop(Iintop(Idiv | Imod)) | Iop(Iintop_imm((Idiv | Imod), _))
         -> [| rax; rdx |]
   | Iop(Istore(Single, _, _)) -> [| rxmm15 |]
@@ -282,11 +285,11 @@ let destroyed_at_raise = all_phys_regs
 
 
 let safe_register_pressure = function
-    Iextcall(_,_) -> if win64 then if fp then 7 else 8 else 0
+    Iextcall(_,_,_) -> if win64 then if fp then 7 else 8 else 0
   | _ -> if fp then 10 else 11
 
 let max_register_pressure = function
-    Iextcall(_, _) ->
+    Iextcall(_, _, _) ->
       if win64 then
         if fp then [| 7; 10 |]  else [| 8; 10 |]
         else
@@ -305,6 +308,7 @@ let max_register_pressure = function
 let op_is_pure = function
   | Icall_ind | Icall_imm _ | Itailcall_ind | Itailcall_imm _
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _
+  | Itail_resume_ind | Iresume_ind | Iperform | Itail_delegate
   | Iintop(Icheckbound) | Iintop_imm(Icheckbound, _) -> false
   | Ispecific(Ilea _) -> true
   | Ispecific _ -> false

@@ -488,25 +488,36 @@ let emit_instr fallthrough i =
           emit_jump s
         end
       end
-  | Lop(Iextcall(s, alloc)) ->
+  | Lop(Iextcall(s, alloc, stack_off)) ->
       add_used_symbol s;
-      if alloc then begin
-        load_symbol_addr s rax;
-        emit_call "caml_c_call";
-        record_frame i.live i.dbg;
-        if system <> S_win64 then begin
-          (* TODO: investigate why such a diff.
-             This comes from:
-             http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
+      if alloc || stack_off > 0 then
+        begin
+          I.lea (mem64 QWORD 0 RSP) r13;
+          I.lea (mem64 QWORD stack_off RSP) r12;
+          load_symbol_addr s rax;
+          emit_call "caml_c_call";
+          record_frame i.live i.dbg;
+          if system <> S_win64 then begin
+            (* TODO: investigate why such a diff.
+                This comes from:
+                http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
 
-             If we do the same for Win64, we probably need to change
-             amd64nt.asm accordingly.
-          *)
-          load_symbol_addr "caml_young_ptr" r11;
-          I.mov (mem64 QWORD 0 R11) r15
-        end;
-      end else
-        emit_call s
+                If we do the same for Win64, we probably need to change
+                amd64nt.asm accordingly.
+            *)
+            load_symbol_addr "caml_young_ptr" r11;
+            I.mov (mem64 QWORD 0 R11) r15
+          end
+        end
+      else begin
+        I.mov rsp r10;
+        load_symbol_addr "caml_system_sp" r11;
+        I.mov (mem64 QWORD 0 R11) rsp;
+        I.push r10;
+        emit_call s;
+        I.pop r10;
+        I.mov r10 rsp
+      end
   | Lop(Istackoffset n) ->
       if n < 0
       then I.add (int (-n)) rsp
@@ -653,6 +664,8 @@ let emit_instr fallthrough i =
       I.sqrtsd (arg i 0) (res i 0)
   | Lop(Ispecific(Ifloatsqrtf addr)) ->
       I.sqrtsd (addressing addr REAL8 i 0) (res i 0)
+  | Lop(Iperform | Itail_resume_ind | Iresume_ind | Itail_delegate) -> (* XXX KC: TODO *)
+      I.nop ()
   | Lreloadretaddr ->
       ()
   | Lreturn ->
@@ -741,7 +754,9 @@ let emit_instr fallthrough i =
       cfi_adjust_cfa_offset 8;
       I.push r14;
       cfi_adjust_cfa_offset 8;
-      I.mov rsp r14;
+      load_symbol_addr "caml_top_of_stack" r11;
+      I.mov (mem64 QWORD 0 R11) r14;
+      I.sub rsp r14;
       stack_offset := !stack_offset + 16
   | Lpoptrap ->
       I.pop r14;
@@ -759,7 +774,9 @@ let emit_instr fallthrough i =
           record_frame Reg.Set.empty i.dbg
       | false, _
       | true, Lambda.Raise_notrace ->
-          I.mov r14 rsp;
+          load_symbol_addr "caml_top_of_stack" r11;
+          I.mov (mem64 QWORD 0 R11) rsp;
+          I.sub r14 rsp;
           I.pop r14;
           I.ret ()
       end
@@ -791,7 +808,6 @@ let emit_profile () =
 let fundecl fundecl =
   function_name := fundecl.fun_name;
   fastcode_flag := fundecl.fun_fast;
-  tailrec_entry_point := new_label();
   stack_offset := 0;
   call_gc_sites := [];
   bound_error_sites := [];
@@ -820,6 +836,16 @@ let fundecl fundecl =
     I.sub (int n) rsp;
     cfi_adjust_cfa_offset n;
   end;
+
+  tailrec_entry_point :=
+    record_frame_label fundecl.fun_body.live Debuginfo.none;
+  load_symbol_addr "caml_stack_threshold" r11;
+  I.mov (mem64 QWORD 0 R11) r11;
+  I.add (int (frame_size ())) r11;
+  I.cmp rsp r11;
+  I.jb (label !tailrec_entry_point);
+  emit_call "caml_call_realloc_stack";
+
   def_label !tailrec_entry_point;
   emit_all true fundecl.fun_body;
   List.iter emit_call_gc !call_gc_sites;
@@ -867,8 +893,10 @@ let begin_assembly() =
   if system = S_win64 then begin
     D.extrn "caml_young_ptr" QWORD;
     D.extrn "caml_young_limit" QWORD;
-    D.extrn "caml_exception_pointer" QWORD;
+    D.extrn "caml_exception_ptr_offset" QWORD;
+    D.extrn "caml_stack_threshold" QWORD;
     D.extrn "caml_call_gc" NEAR;
+    D.extrn "caml_call_realloc_stack" NEAR;
     D.extrn "caml_c_call" NEAR;
     D.extrn "caml_allocN" NEAR;
     D.extrn "caml_alloc1" NEAR;

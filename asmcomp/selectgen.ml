@@ -42,6 +42,7 @@ let oper_result_type = function
   | Cintoffloat -> typ_int
   | Craise _ -> typ_void
   | Ccheckbound _ -> typ_void
+  | Cperform | Cresume | Cdelegate -> typ_addr (* XXX KC? *)
 
 (* Infer the size in bytes of the result of a simple expression *)
 
@@ -248,8 +249,8 @@ method mark_instr = function
 method select_operation op args =
   match (op, args) with
     (Capply(ty, dbg), Cconst_symbol s :: rem) -> (Icall_imm s, rem)
+  | (Cextcall(s, ty, alloc, dbg), _) -> (Iextcall(s, alloc, -1), args)
   | (Capply(ty, dbg), _) -> (Icall_ind, args)
-  | (Cextcall(s, ty, alloc, dbg), _) -> (Iextcall(s, alloc), args)
   | (Cload chunk, [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in
       (Iload(chunk, addr), [eloc])
@@ -288,6 +289,9 @@ method select_operation op args =
   | (Cfloatofint, _) -> (Ifloatofint, args)
   | (Cintoffloat, _) -> (Iintoffloat, args)
   | (Ccheckbound _, _) -> self#select_arith Icheckbound args
+  | (Cperform, _) -> (Iperform, args)
+  | (Cresume, _) -> (Iresume_ind, args)
+  | (Cdelegate, _) -> (Itail_delegate, args)
   | _ -> fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -526,11 +530,12 @@ method emit_expr env exp =
               self#insert_debug (Iop(Icall_imm lbl)) dbg loc_arg loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
-          | Iextcall(lbl, alloc) ->
+          | Iextcall(lbl, alloc, dummy_ofs) ->
+              assert (dummy_ofs = -1);
               let (loc_arg, stack_ofs) =
                 self#emit_extcall_args env new_args in
               let rd = self#regs_for ty in
-              let loc_res = self#insert_op_debug (Iextcall(lbl, alloc)) dbg
+              let loc_res = self#insert_op_debug (Iextcall(lbl, alloc, stack_ofs)) dbg
                                     loc_arg (Proc.loc_external_results rd) in
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
@@ -771,7 +776,26 @@ method emit_tail env exp =
                 self#insert(Iop(Istackoffset(-stack_ofs))) [||] [||];
                 self#insert Ireturn loc_res [||]
               end
-          | _ -> fatal_error "Selection.emit_tail"
+          | _ -> fatal_error "Selection.emit_tail: call"
+      end
+  | Cop ((Cresume | Cdelegate) as op, args) ->
+      begin match self#emit_parts_list env args with
+      | None -> ()
+      | Some (simple_args, env) ->
+          let (new_op, new_args) = self#select_operation op simple_args in
+          let r1 = self#emit_tuple env new_args in
+          let rarg = Array.sub r1 1 (Array.length r1 - 1) in
+          let (loc_arg, stack_ofs) = Proc.loc_arguments rarg in
+          assert (stack_ofs = 0);
+          self#insert_moves rarg loc_arg;
+          match new_op with
+          | Iresume_ind ->
+              self#insert (Iop Itail_resume_ind)
+                          (Array.append [|r1.(0)|] loc_arg) [||]
+          | Itail_delegate ->
+              self#insert (Iop Itail_delegate)
+                          (Array.append [|r1.(0)|] loc_arg) [||]
+          | _ -> fatal_error "Selection.emit_tail: effects"
       end
   | Csequence(e1, e2) ->
       begin match self#emit_expr env e1 with

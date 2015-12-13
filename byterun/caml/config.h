@@ -127,7 +127,8 @@ typedef uint64_t uintnat;
 /* Initial size of stack (bytes). */
 #define Stack_size (4096 * sizeof(value))
 
-/* Minimum free size of stack (bytes); below that, it is reallocated. */
+/* Minimum free size of stack (bytes); below that, it is reallocated. Must be
+ * consistent with amd64.S:LOAD_OCAML_STACK. */
 #define Stack_threshold (16 * sizeof(value))
 
 /* Default maximum size of the stack (words). */

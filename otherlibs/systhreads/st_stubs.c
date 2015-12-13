@@ -136,13 +136,7 @@ static void caml_thread_scan_roots(scanning_action action)
     (*action)(th->backtrace_last_exn, &th->backtrace_last_exn);
     /* Don't rescan the stack of the current thread, it was done already */
     if (th != curr_thread) {
-#ifdef NATIVE_CODE
-      if (th->bottom_of_stack != NULL)
-        do_local_roots(action, th->bottom_of_stack, th->last_retaddr,
-                       th->gc_regs, th->local_roots);
-#else
-      do_local_roots(action, th->sp, th->stack_high, th->local_roots);
-#endif
+      do_local_roots(action, th->local_roots);
     }
     th = th->next;
   } while (th != curr_thread);
@@ -156,6 +150,7 @@ static void caml_thread_enter_blocking_section(void)
 {
   /* Save the stack-related global variables in the thread descriptor
      of the current thread */
+#if 0
 #ifdef NATIVE_CODE
   curr_thread->bottom_of_stack = caml_bottom_of_stack;
   curr_thread->last_retaddr = caml_last_return_address;
@@ -170,6 +165,7 @@ static void caml_thread_enter_blocking_section(void)
   curr_thread->trapsp = trapsp;
   curr_thread->local_roots = local_roots;
   curr_thread->external_raise = external_raise;
+#endif
 #endif
   curr_thread->backtrace_pos = backtrace_pos;
   curr_thread->backtrace_buffer = backtrace_buffer;
@@ -186,6 +182,7 @@ static void caml_thread_leave_blocking_section(void)
      to the thread currently executing */
   curr_thread = st_tls_get(thread_descriptor_key);
   /* Restore the stack-related global variables */
+#if 0
 #ifdef NATIVE_CODE
   caml_bottom_of_stack= curr_thread->bottom_of_stack;
   caml_last_return_address = curr_thread->last_retaddr;
@@ -200,6 +197,7 @@ static void caml_thread_leave_blocking_section(void)
   trapsp = curr_thread->trapsp;
   local_roots = curr_thread->local_roots;
   external_raise = curr_thread->external_raise;
+#endif
 #endif
   backtrace_pos = curr_thread->backtrace_pos;
   backtrace_buffer = curr_thread->backtrace_buffer;
@@ -457,10 +455,12 @@ CAMLprim value caml_thread_cleanup(value unit)   /* ML */
 
 static void caml_thread_stop(void)
 {
+#if 0
 #ifndef NATIVE_CODE
   /* PR#5188: update curr_thread->stack_low because the stack may have
      been reallocated since the last time we entered a blocking section */
   curr_thread->stack_low = stack_low;
+#endif
 #endif
   /* Signal that the thread has terminated */
   caml_threadstatus_terminate(Terminated(curr_thread->descr));

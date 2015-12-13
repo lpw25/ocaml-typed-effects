@@ -102,6 +102,10 @@ static void check_block (header_t *hp)
     Assert (0);
     break;
 
+  case Stack_tag:
+    /* XXX KC: TODO */
+    break;
+
   default:
     Assert (Tag_hp (hp) < No_scan_tag);
     for (i = 0; i < Wosize_hp (hp); i++){
