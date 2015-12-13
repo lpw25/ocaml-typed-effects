@@ -193,9 +193,9 @@
         popq    (REG); CFI_ADJUST(-8); \
     /* Make system top-of-stack current top-of-stack */ \
         movq    GREL(caml_system_top_of_stack)(%rip), REG; \
-        pushq   (REG); CFI_ADJUST(8) \
+        pushq   (REG); CFI_ADJUST(8); \
         movq    GREL(caml_top_of_stack)(%rip), REG; \
-        popq    (REG); CFI_ADJUST(-8) \
+        popq    (REG); CFI_ADJUST(-8); \
     /* Switch to system stack */ \
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
