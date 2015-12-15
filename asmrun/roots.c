@@ -187,6 +187,7 @@ void caml_oldify_local_roots (void)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one);
 }
 
+
 /* Call [darken] on all roots */
 
 void caml_darken_all_roots (void)
@@ -234,6 +235,10 @@ void caml_do_local_roots(scanning_action f,
   value *root;
 
   f (caml_current_stack, &caml_current_stack);
+  /* Needs to be scanned explicitly. Otherwise, live registers will not be
+   * scanned when the stack is eventually scanned. */
+  caml_scan_stack (f, caml_current_stack);
+
   /* Local C roots */
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){

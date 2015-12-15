@@ -26,4 +26,8 @@ CAMLextern void caml_do_local_roots (scanning_action,
                                      struct caml__roots_block *);
 CAMLextern void (*caml_scan_roots_hook) (scanning_action);
 
+#ifdef DEBUG
+void caml_print_heap (void);
+#endif
+
 #endif /* CAML_ROOTS_H */

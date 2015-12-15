@@ -57,6 +57,7 @@ void caml_oldify_local_roots (void)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one);
 }
 
+
 /* Call [caml_darken] on all roots */
 
 void caml_darken_all_roots (void)

@@ -27,6 +27,24 @@
 #include "caml/roots.h"
 #include "caml/weak.h"
 #include "caml/fiber.h"
+#ifdef DEBUG
+#include "caml/uthash.h"
+#endif
+
+#ifdef DEBUG
+typedef struct __caml_object_map {
+  value pointer;
+  UT_hash_handle hh;
+} caml_object_map;
+
+typedef struct __caml_object_list {
+  value pointer;
+  struct __caml_object_list* next;
+} caml_object_list;
+
+caml_object_map *print_obj_done = NULL;
+caml_object_list *print_obj_todo = NULL;
+#endif
 
 #if defined (NATIVE_CODE) && defined (NO_NAKED_POINTERS)
 #define NATIVE_CODE_AND_NO_NAKED_POINTERS
@@ -111,10 +129,12 @@ void caml_darken (value v, value *p /* not used */)
     CAMLassert (!Is_blue_hd (h));
     if (Is_white_hd (h)){
       if (t < No_scan_tag){
+        caml_gc_log (0x1FF, "caml_darken: v=%p white-->gray\n", (void*)v);
         Hd_val (v) = Grayhd_hd (h);
         *gray_vals_cur++ = v;
         if (gray_vals_cur >= gray_vals_end) realloc_gray_vals ();
       }else{
+        caml_gc_log (0x1FF, "caml_darken: v=%p white-->black\n", (void*)v);
         Hd_val (v) = Blackhd_hd (h);
       }
     }
@@ -126,6 +146,9 @@ static void start_cycle (void)
   Assert (caml_gc_phase == Phase_idle);
   Assert (gray_vals_cur == gray_vals);
   caml_gc_message (0x01, "Starting new major GC cycle\n", 0);
+#if 0 && defined(DEBUG) 
+  caml_print_heap ();
+#endif
   caml_darken_all_roots();
   caml_gc_phase = Phase_mark;
   caml_gc_subphase = Subphase_main;
@@ -562,3 +585,86 @@ void caml_init_major_heap (asize_t heap_size)
   caml_allocated_words = 0;
   caml_extra_heap_resources = 0.0;
 }
+
+#ifdef DEBUG
+
+void caml_print_obj_add_ptr (value v, value *p) {
+  caml_object_map *me = NULL;
+
+  if (Is_block(v) && Is_in_heap(v)) {
+    caml_gc_log (0x1FF, "%p ", (void*)v);
+    HASH_FIND_PTR (print_obj_done, &v, me);
+    if (!me) {
+      caml_object_list *le = (caml_object_list*) malloc (sizeof(caml_object_list));
+      le->pointer = v;
+      le->next = print_obj_todo;
+      print_obj_todo = le;
+    }
+  }
+}
+
+void caml_print_obj (value v, value* p) {
+  caml_object_map *e = NULL;
+  header_t hd;
+  mlsize_t sz, i;
+  tag_t tag;
+
+  if (Is_block(v) && Is_in_heap(v)) {
+    HASH_FIND_PTR (print_obj_done, &v, e);
+    if (!e) {
+      hd = Hd_val(v);
+      tag = Tag_hd (hd);
+      sz = Wosize_hd (hd);
+
+      caml_gc_log (0x1FF, "OBJECT(%p,%lx,%lu)\n", 
+                   (void*)v, hd, sz);
+
+      e = (caml_object_map*) malloc (sizeof(caml_object_map));
+      e->pointer = v;
+      HASH_ADD_PTR (print_obj_done, pointer, e);
+
+      if (tag < Infix_tag) {
+        if (tag == Stack_tag) {
+          caml_scan_stack (caml_print_obj_add_ptr, v);
+        } else {
+          value field;
+          for (i = 0; i < sz; i++) {
+            field = Field (v,i);
+            caml_print_obj_add_ptr(field, &field);
+          }
+        }
+      } else if (tag >= No_scan_tag) {
+      } else if (tag == Infix_tag) {
+        mlsize_t offset = Infix_offset_hd (hd);
+        caml_print_obj (v-offset, p);
+      } else {
+        caml_gc_log (0x1FF, "caml_print_obj: Forward_tag not implemented\n");
+      }
+
+      caml_gc_log (0x1FF, "\n");
+    }
+  }
+}
+
+void caml_print_heap (void) 
+{
+  caml_object_list* le;
+  caml_object_map *me, *tmp;
+
+  print_obj_done = NULL;
+  print_obj_todo = NULL; 
+
+  caml_do_roots (caml_print_obj);
+  while (print_obj_todo != NULL) {
+    le = print_obj_todo;
+    print_obj_todo = print_obj_todo->next;
+    caml_print_obj (le->pointer, &le->pointer);
+    free(le);
+  }
+  HASH_ITER(hh, print_obj_done, me, tmp) {
+    HASH_DEL(print_obj_done, me);  
+    free(me);   
+  }
+}
+
+#endif
