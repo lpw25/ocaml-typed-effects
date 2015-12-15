@@ -219,7 +219,7 @@ void caml_oldify_mopup (void)
     v = oldify_todo_list;                /* Get the head. */
     Assert (Hd_val (v) == 0);            /* It must be forwarded. */
     new_v = Field (v, 0);                /* Follow forward pointer. */
-    caml_gc_log (0x1FF, "caml_oldify_mopup: v=%p new_v=%p\n", 
+    caml_gc_log (0x1FF, "caml_oldify_mopup: v=%p new_v=%p\n",
                  (void*)v, (void*)new_v);
     if (Tag_val(new_v) == Stack_tag) {
       oldify_todo_list = Field (v,1);   /* Remove from list (stack). */

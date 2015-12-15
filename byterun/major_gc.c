@@ -146,7 +146,7 @@ static void start_cycle (void)
   Assert (caml_gc_phase == Phase_idle);
   Assert (gray_vals_cur == gray_vals);
   caml_gc_message (0x01, "Starting new major GC cycle\n", 0);
-#if 0 && defined(DEBUG) 
+#if 0 && defined(DEBUG)
   caml_print_heap ();
 #endif
   caml_darken_all_roots();
@@ -616,7 +616,7 @@ void caml_print_obj (value v, value* p) {
       tag = Tag_hd (hd);
       sz = Wosize_hd (hd);
 
-      caml_gc_log (0x1FF, "OBJECT(%p,%lx,%lu)\n", 
+      caml_gc_log (0x1FF, "OBJECT(%p,%lx,%lu)\n",
                    (void*)v, hd, sz);
 
       e = (caml_object_map*) malloc (sizeof(caml_object_map));
@@ -646,13 +646,13 @@ void caml_print_obj (value v, value* p) {
   }
 }
 
-void caml_print_heap (void) 
+void caml_print_heap (void)
 {
   caml_object_list* le;
   caml_object_map *me, *tmp;
 
   print_obj_done = NULL;
-  print_obj_todo = NULL; 
+  print_obj_todo = NULL;
 
   caml_do_roots (caml_print_obj);
   while (print_obj_todo != NULL) {
@@ -662,8 +662,8 @@ void caml_print_heap (void)
     free(le);
   }
   HASH_ITER(hh, print_obj_done, me, tmp) {
-    HASH_DEL(print_obj_done, me);  
-    free(me);   
+    HASH_DEL(print_obj_done, me);
+    free(me);
   }
 }
 
