@@ -803,6 +803,21 @@ let emit_profile () =
     I.pop r10
   end
 
+(* Calculate stack size requirement of a function *)
+
+let max_stack_size fun_body =
+  let rec chain_size m a i =
+    if i.desc = Lend then m else
+    let s = match i.desc with
+      | Lop(Istackoffset n) -> n
+      | Lpushtrap -> 16
+      | Lpoptrap -> -16
+      | _ -> 0
+    in chain_size (max m (a+s)) (a+s) i.next
+  in
+  let fs = frame_size () in
+  chain_size fs fs fun_body
+
 (* Emission of a function declaration *)
 
 let fundecl fundecl =
@@ -841,7 +856,8 @@ let fundecl fundecl =
     record_frame_label fundecl.fun_body.live Debuginfo.none;
   load_symbol_addr "caml_stack_threshold" r11;
   I.mov (mem64 QWORD 0 R11) r11;
-  I.add (int (frame_size ())) r11;
+  let s = max_stack_size fundecl.fun_body in
+  I.add (int s) r11;
   I.cmp rsp r11;
   I.jb (label !tailrec_entry_point);
   emit_call "caml_call_realloc_stack";

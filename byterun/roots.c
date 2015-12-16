@@ -88,6 +88,13 @@ CAMLexport void caml_do_local_roots (scanning_action f,
 
   f (caml_current_stack, &caml_current_stack);
 
+  /* Needs to be scanned explicitly. Otherwise, live registers will not be
+   * scanned when the stack is eventually scanned. */
+  if (Is_block(caml_current_stack) &&
+      Tag_val(caml_current_stack) == Stack_tag) { /* heap compaction inverts pointers? */
+    caml_scan_stack (f, caml_current_stack);
+  }
+
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){
       for (j = 0; j < lr->nitems; j++){
