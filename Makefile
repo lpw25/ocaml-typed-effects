@@ -550,7 +550,7 @@ partialclean::
 
 #XXX KC ocamlopt.opt: asmrun/libasmrund.a compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
 
-ocamlopt.opt: asmrun/libasmrund.a compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
+ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
 	$(CAMLOPT) $(LINKFLAGS) -o ocamlopt.opt \
 	   compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
