@@ -129,12 +129,12 @@ void caml_darken (value v, value *p /* not used */)
     CAMLassert (!Is_blue_hd (h));
     if (Is_white_hd (h)){
       if (t < No_scan_tag){
-        caml_gc_log (0x1FF, "caml_darken: v=%p white-->gray\n", (void*)v);
+        // caml_gc_log ("caml_darken: v=%p white-->gray\n", (void*)v);
         Hd_val (v) = Grayhd_hd (h);
         *gray_vals_cur++ = v;
         if (gray_vals_cur >= gray_vals_end) realloc_gray_vals ();
       }else{
-        caml_gc_log (0x1FF, "caml_darken: v=%p white-->black\n", (void*)v);
+        // caml_gc_log ("caml_darken: v=%p white-->black\n", (void*)v);
         Hd_val (v) = Blackhd_hd (h);
       }
     }
@@ -155,7 +155,6 @@ static void start_cycle (void)
   markhp = NULL;
 #ifdef DEBUG
   ++ major_gc_counter;
-  caml_heap_check ();
 #endif
 }
 
@@ -592,7 +591,7 @@ void caml_print_obj_add_ptr (value v, value *p) {
   caml_object_map *me = NULL;
 
   if (Is_block(v) && Is_in_heap(v)) {
-    caml_gc_log (0x1FF, "%p ", (void*)v);
+    caml_gc_log ("%p ", (void*)v);
     HASH_FIND_PTR (print_obj_done, &v, me);
     if (!me) {
       caml_object_list *le = (caml_object_list*) malloc (sizeof(caml_object_list));
@@ -616,8 +615,7 @@ void caml_print_obj (value v, value* p) {
       tag = Tag_hd (hd);
       sz = Wosize_hd (hd);
 
-      caml_gc_log (0x1FF, "OBJECT(%p,%lx,%lu)\n",
-                   (void*)v, hd, sz);
+      caml_gc_log ("OBJECT(%p,%lx,%lu)\n", (void*)v, hd, sz);
 
       e = (caml_object_map*) malloc (sizeof(caml_object_map));
       e->pointer = v;
@@ -638,10 +636,10 @@ void caml_print_obj (value v, value* p) {
         mlsize_t offset = Infix_offset_hd (hd);
         caml_print_obj (v-offset, p);
       } else {
-        caml_gc_log (0x1FF, "caml_print_obj: Forward_tag not implemented\n");
+        caml_gc_log ("caml_print_obj: Forward_tag not implemented\n");
       }
 
-      caml_gc_log (0x1FF, "\n");
+      caml_gc_log ("\n");
     }
   }
 }

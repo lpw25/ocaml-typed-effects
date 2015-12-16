@@ -227,6 +227,8 @@ void caml_do_roots (scanning_action f)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
 }
 
+void caml_scan_stack(scanning_action f, value stack);
+
 void caml_do_local_roots(scanning_action f,
                          struct caml__roots_block * local_roots)
 {

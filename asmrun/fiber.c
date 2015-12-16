@@ -108,7 +108,7 @@ void caml_realloc_stack () {
   stack_used = Stack_sp(old_stack);
   size = Stack_high(old_stack) - Stack_base(old_stack);
   size *= 2;
-  caml_gc_log (0x08, "Growing stack to %" ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
+  caml_gc_log ("Growing stack to %" ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
                size / 1024);
 
   new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);

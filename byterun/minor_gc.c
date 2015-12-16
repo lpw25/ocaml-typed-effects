@@ -133,8 +133,8 @@ void caml_oldify_one (value v, value *p)
 
         sz = Wosize_hd (hd);
         result = caml_alloc_shr (sz, tag);
-        caml_gc_log (0x80, "caml_oldify_one: old=%lx:%p new=%lx:%p p=%p\n",
-                     Color_hd(hd), (void*)v, Color_val(result), (void*)result, p);
+        //caml_gc_log ("caml_oldify_one: old=%lx:%p new=%lx:%p p=%p\n",
+        //             Color_hd(hd), (void*)v, Color_val(result), (void*)result, p);
         *p = result;
         if (tag == Stack_tag) {
           memcpy((void*)result, (void*)v, sizeof(value) * sz);
@@ -219,8 +219,7 @@ void caml_oldify_mopup (void)
     v = oldify_todo_list;                /* Get the head. */
     Assert (Hd_val (v) == 0);            /* It must be forwarded. */
     new_v = Field (v, 0);                /* Follow forward pointer. */
-    caml_gc_log (0x1FF, "caml_oldify_mopup: v=%p new_v=%p\n",
-                 (void*)v, (void*)new_v);
+    //caml_gc_log ("caml_oldify_mopup: v=%p new_v=%p\n", (void*)v, (void*)new_v);
     if (Tag_val(new_v) == Stack_tag) {
       oldify_todo_list = Field (v,1);   /* Remove from list (stack). */
       caml_scan_stack(caml_oldify_one, new_v);

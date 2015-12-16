@@ -99,9 +99,9 @@ extern void caml_ext_table_free(struct ext_table * tbl, int free_entries);
 extern uintnat caml_verb_gc;
 void caml_gc_message (int, char *, uintnat);
 
-void caml_gc_log (int, char *, ...)
+void caml_gc_log (char *, ...)
 #ifdef __GNUC__
-  __attribute__ ((format (printf, 2, 3)))
+  __attribute__ ((format (printf, 1, 2)))
 #endif
 ;
 
