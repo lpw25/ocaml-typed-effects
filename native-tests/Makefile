@@ -1,5 +1,6 @@
 EXE=test1.native test2.native test3.native test4.native test5.native \
-		test6.native test7.native test8.native test9.native test10.native
+		test6.native test7.native test8.native test9.native test10.native \
+		test11.native test12.native
 DEBUG=false
 FLAGS=
 OCAMLOPT=ocamlopt

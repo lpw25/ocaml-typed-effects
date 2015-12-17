@@ -42,7 +42,6 @@ let oper_result_type = function
   | Cintoffloat -> typ_int
   | Craise _ -> typ_void
   | Ccheckbound _ -> typ_void
-  | Cperform | Cresume | Cdelegate -> typ_addr (* XXX KC? *)
 
 (* Infer the size in bytes of the result of a simple expression *)
 
@@ -289,9 +288,6 @@ method select_operation op args =
   | (Cfloatofint, _) -> (Ifloatofint, args)
   | (Cintoffloat, _) -> (Iintoffloat, args)
   | (Ccheckbound _, _) -> self#select_arith Icheckbound args
-  | (Cperform, _) -> (Iperform, args)
-  | (Cresume, _) -> (Iresume_ind, args)
-  | (Cdelegate, _) -> (Itail_delegate, args)
   | _ -> fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -521,13 +517,13 @@ method emit_expr env exp =
                           (Array.append [|r1.(0)|] loc_arg) loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
-          | (Icall_imm _ | Iresume_ind | Iperform) as op->
+          | (Icall_imm op)->
               let r1 = self#emit_tuple env new_args in
               let rd = self#regs_for ty in
               let (loc_arg, stack_ofs) = Proc.loc_arguments r1 in
               let loc_res = Proc.loc_results rd in
               self#insert_move_args r1 loc_arg stack_ofs;
-              self#insert_debug (Iop op) dbg loc_arg loc_res;
+              self#insert_debug (Iop(Icall_imm op)) dbg loc_arg loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
           | Iextcall(lbl, alloc, dummy_ofs) ->
@@ -777,22 +773,6 @@ method emit_tail env exp =
                 self#insert Ireturn loc_res [||]
               end
           | _ -> fatal_error "Selection.emit_tail: call"
-      end
-  | Cop ((Cresume | Cdelegate) as op, args) ->
-      begin match self#emit_parts_list env args with
-      | None -> ()
-      | Some (simple_args, env) ->
-          let (new_op, new_args) = self#select_operation op simple_args in
-          let r1 = self#emit_tuple env new_args in
-          let (loc_arg, stack_ofs) = Proc.loc_arguments r1 in
-          assert (stack_ofs = 0); (* XXX KC: TODO for other architectures *)
-          self#insert_moves r1 loc_arg;
-          match new_op with
-          | Iresume_ind ->
-              self#insert (Iop Itail_resume_ind) loc_arg [||]
-          | Itail_delegate ->
-              self#insert (Iop Itail_delegate) loc_arg [||]
-          | _ -> fatal_error "Selection.emit_tail: effects"
       end
   | Csequence(e1, e2) ->
       begin match self#emit_expr env e1 with

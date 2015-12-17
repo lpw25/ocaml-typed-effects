@@ -139,10 +139,6 @@ let operation op arg ppf res =
   | Iintoffloat -> fprintf ppf "intoffloat %a" reg arg.(0)
   | Ispecific op ->
       Arch.print_specific_operation reg op ppf arg
-  | Iperform -> fprintf ppf "perform %a" regs arg
-  | Iresume_ind -> fprintf ppf "resume %a" regs arg
-  | Itail_resume_ind-> fprintf ppf "tail_resume %a" regs arg
-  | Itail_delegate -> fprintf ppf "tail_delegate %a" regs arg
 
 let rec instr ppf i =
   if !print_live then begin

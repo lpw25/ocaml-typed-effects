@@ -664,16 +664,6 @@ let emit_instr fallthrough i =
       I.sqrtsd (arg i 0) (res i 0)
   | Lop(Ispecific(Ifloatsqrtf addr)) ->
       I.sqrtsd (addressing addr REAL8 i 0) (res i 0)
-  | Lop(Iresume_ind) ->
-      emit_call "caml_resume";
-      record_frame i.live i.dbg
-  | Lop(Itail_resume_ind) ->
-      emit_jump "caml_resume"
-  | Lop(Iperform) ->
-      emit_call "caml_perform";
-      record_frame i.live i.dbg
-  | Lop(Itail_delegate) ->
-      emit_jump "caml_delegate"
   | Lreloadretaddr ->
       ()
   | Lreturn ->

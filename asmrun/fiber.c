@@ -82,6 +82,9 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
 
   stack = caml_alloc(Fiber_stack_wosize, Stack_tag);
   Stack_dirty(stack) = Val_long(0);
+  Stack_handle_value(stack) = hval;
+  Stack_handle_exception(stack) = hexn;
+  Stack_handle_effect(stack) = heff;
   Stack_parent(stack) = Val_unit;
 
   sp = Stack_high(stack);
@@ -110,8 +113,11 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
   Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
 
-  caml_gc_log ("caml_alloc_stack: stack=%p high=%p sp=%p used=%ld\n",
+  caml_gc_log ("caml_alloc_stack: stack=%p\thigh=%p\tsp=%p\tused=%ld\n",
                (void*)stack, Stack_high(stack), sp, Stack_sp(stack));
+  caml_gc_log ("                  hval=%p\thexn=%p\theff=%p\n",
+               (void*)hval, (void*)hexn, (void*)heff);
+
   CAMLreturn (stack);
 }
 
@@ -209,6 +215,9 @@ void caml_scan_stack (scanning_action f, value stack)
 
 next_chunk:
   Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
+  f(Stack_handle_value(stack), &Stack_handle_value(stack));
+  f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
+  f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
   f(Stack_parent(stack), &Stack_parent(stack));
 
   sp = Stack_high(stack) - Stack_sp(stack);
