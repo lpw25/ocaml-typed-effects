@@ -929,6 +929,9 @@ let begin_assembly() =
     D.extrn "caml_ml_array_bound_error" NEAR;
     D.extrn "caml_raise_exn" NEAR;
     D.extrn "caml_reraise_exn" NEAR;
+    D.extrn "caml_resume" NEAR;
+    D.extrn "caml_perform" NEAR;
+    D.extrn "caml_delegate" NEAR;
   end;
 
 

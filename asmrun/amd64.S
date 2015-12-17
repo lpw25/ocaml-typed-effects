@@ -253,7 +253,7 @@
     /* Load target stack top in REG */ \
         movq    -8(TGT), REG; \
         shrq    $10, REG; \
-        leaq    (%r11,REG,8), REG; \
+        leaq    (TGT,REG,8), REG; \
     /* Update caml_top_of_stack */ \
         movq    GREL(caml_top_of_stack)(%rip), %r9; \
         movq    REG, (%r9); \

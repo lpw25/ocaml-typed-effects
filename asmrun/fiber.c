@@ -108,8 +108,10 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   ctxt->exception_ptr_offset = 3*sizeof(value);
   ctxt->gc_regs = NULL;
   ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
-  Stack_sp(stack) = sizeof(struct caml_context);
+  Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
 
+  caml_gc_log ("caml_alloc_stack: stack=%p high=%p sp=%p used=%ld\n",
+               (void*)stack, Stack_high(stack), sp, Stack_sp(stack));
   CAMLreturn (stack);
 }
 
