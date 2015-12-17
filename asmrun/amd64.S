@@ -225,9 +225,8 @@
         popq    %r9; CFI_ADJUST(-8); \
     /* Switch to OCaml stack */ \
         movq	  REG, %rsp; \
-    /* Pop the caml_context from the bottom of stack updating the exception pointer offset */ \
-        movq    GREL(caml_exception_ptr_offset)(%rip), REG; \
-        popq    (REG); CFI_ADJUST(-8); \
+    /* Pop the caml_context from the bottom of stack updating %r14 */ \
+        popq    %r14; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8)
 
@@ -261,9 +260,8 @@
     /* Switch to target stack */ \
         subq	  (TGT), REG1; \
         movq    REG1, %rsp; \
-    /* Pop the caml_context from the bottom of stack updating the exception pointer offset */ \
-        movq    GREL(caml_exception_ptr_offset)(%rip), REG1; \
-        popq    (REG1); CFI_ADJUST(-8); \
+    /* Pop the caml_context from the bottom of stack updating %r14 */ \
+        popq    %r14; CFI_ADJUST(-8); \
         popq    REG1; CFI_ADJUST(-8); \
         popq    REG1; CFI_ADJUST(-8); \
     /* Update parent stack */ \

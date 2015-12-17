@@ -37,3 +37,12 @@ c_to_caml: n=66
 [C] Call c_to_caml
 [C] Return from c_to_caml
 [C] Leave caml_to_c
+10
+perform effect (E 0)
+caught effect (E 0). continuting..
+perform returns 1
+done 2
+continue returns 3
+result=4
+in handler. raising X
+10

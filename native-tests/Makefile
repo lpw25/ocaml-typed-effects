@@ -37,10 +37,14 @@ test9.native: test9.ml test9.mli test9.c
 .PHONY: clean test expected
 
 clean:
-	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE) seen.out
+	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE) seen.out dump
 
 test: all
-	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> seen.out; diff expected.out seen.out && echo "SUCCESS!"
+	rm -f seen.out
+	for p in $(EXE); do echo "Running $$p" && bash -c `pwd`/$$p >>seen.out 2>&1; done
+	diff expected.out seen.out && echo "SUCCESS!"
 
 expected.out: all
-	ls $(EXE) | xargs -I {} bash -c `pwd`/{} &> expected.out
+	rm -f expected.out
+	for p in $(EXE); do bash -c `pwd`/$$p >>expected.out 2>&1; done
+
