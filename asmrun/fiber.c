@@ -71,6 +71,9 @@ void caml_restore_stack_gc()
 
 #define Fiber_stack_wosize (((Stack_threshold) * 2) / sizeof(value))
 
+extern void caml_fiber_exn_handler (value) Noreturn;
+extern void caml_fiber_val_handler (value) Noreturn;
+
 value caml_alloc_stack (value hval, value hexn, value heff) {
   CAMLparam3(hval, hexn, heff);
   CAMLlocal1(stack);
@@ -79,19 +82,32 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
 
   stack = caml_alloc(Fiber_stack_wosize, Stack_tag);
   Stack_dirty(stack) = Val_long(0);
-  Stack_handle_value(stack) = hval;
-  Stack_handle_exception(stack) = hexn;
-  Stack_handle_effect(stack) = heff;
   Stack_parent(stack) = Val_unit;
 
-  /* Setup for initial enter. SWITCH_C_TO_OCAML expects a context at the bottom
-   * of stack. So setup a dummy context. */
   sp = Stack_high(stack);
+   /* No previous stack chunk */
+  sp -= sizeof(value);
+  *(value*)sp = Val_unit;
+  /* Fiber exception handler that returns to parent */
+  sp -= sizeof(value);
+  *(value**)sp = (value*)caml_fiber_exn_handler;
+  /* No previous exception frame */
+  sp -= sizeof(value);
+  *(uintnat*)sp = 0;
+  /* Maintain the invariant that any stack is cut such that
+   * (SP + sizeof(value)) % sizeof(value) == 0. */
+  sp -= sizeof(value);
+  /* Value handler that returns to parent */
+  sp -= sizeof(value);
+  *(value**)sp = (value*)caml_fiber_val_handler;
+
+  /* Setup for initial enter. Switching to OCaml expects a context at the
+   * bottom of stack. So setup a dummy context. */
   sp -= sizeof(struct caml_context);
   ctxt = (struct caml_context*)sp;
-  ctxt->exception_ptr_offset = 0;
+  ctxt->exception_ptr_offset = 3*sizeof(value);
   ctxt->gc_regs = NULL;
-  ctxt->callback_offset = 0;
+  ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
   Stack_sp(stack) = sizeof(struct caml_context);
 
   CAMLreturn (stack);
@@ -191,9 +207,6 @@ void caml_scan_stack (scanning_action f, value stack)
 
 next_chunk:
   Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
-  f(Stack_handle_value(stack), &Stack_handle_value(stack));
-  f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
-  f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
   f(Stack_parent(stack), &Stack_parent(stack));
 
   sp = Stack_high(stack) - Stack_sp(stack);
@@ -237,7 +250,8 @@ next_chunk:
       /* Continue with the next stack chunk. */
       f (stack, stackp);
       if (Is_block(stack) && stack == *stackp) {
-        /* If the previous chunk has not been scanned, scan it. */
+        /* If the previous chunk has not been scanned, scan it. XXX KC: Not too
+         * happy with this. */
         goto next_chunk;
       }
       return;

@@ -521,13 +521,13 @@ method emit_expr env exp =
                           (Array.append [|r1.(0)|] loc_arg) loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
-          | Icall_imm lbl ->
+          | (Icall_imm _ | Iresume_ind | Iperform) as op->
               let r1 = self#emit_tuple env new_args in
               let rd = self#regs_for ty in
               let (loc_arg, stack_ofs) = Proc.loc_arguments r1 in
               let loc_res = Proc.loc_results rd in
               self#insert_move_args r1 loc_arg stack_ofs;
-              self#insert_debug (Iop(Icall_imm lbl)) dbg loc_arg loc_res;
+              self#insert_debug (Iop op) dbg loc_arg loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
           | Iextcall(lbl, alloc, dummy_ofs) ->
@@ -784,17 +784,14 @@ method emit_tail env exp =
       | Some (simple_args, env) ->
           let (new_op, new_args) = self#select_operation op simple_args in
           let r1 = self#emit_tuple env new_args in
-          let rarg = Array.sub r1 1 (Array.length r1 - 1) in
-          let (loc_arg, stack_ofs) = Proc.loc_arguments rarg in
-          assert (stack_ofs = 0);
-          self#insert_moves rarg loc_arg;
+          let (loc_arg, stack_ofs) = Proc.loc_arguments r1 in
+          assert (stack_ofs = 0); (* XXX KC: TODO for other architectures *)
+          self#insert_moves r1 loc_arg;
           match new_op with
           | Iresume_ind ->
-              self#insert (Iop Itail_resume_ind)
-                          (Array.append [|r1.(0)|] loc_arg) [||]
+              self#insert (Iop Itail_resume_ind) loc_arg [||]
           | Itail_delegate ->
-              self#insert (Iop Itail_delegate)
-                          (Array.append [|r1.(0)|] loc_arg) [||]
+              self#insert (Iop Itail_delegate) loc_arg [||]
           | _ -> fatal_error "Selection.emit_tail: effects"
       end
   | Csequence(e1, e2) ->

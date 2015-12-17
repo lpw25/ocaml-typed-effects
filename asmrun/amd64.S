@@ -200,8 +200,8 @@
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
 
-/* Switch from C to OCaml stack. Clobbers REG. Assert (REG != %r11 || REG !=
- * %r9). TODO non-pic. */
+/* Switch from C to OCaml stack. Clobbers REG.
+ * Assert (REG != %r11 && REG != %r9). TODO non-pic. */
 #define SWITCH_C_TO_OCAML(REG) \
     /* Save %r9 and %r11 */ \
         pushq   %r9; CFI_ADJUST(8); \
@@ -225,6 +225,47 @@
         popq    %r9; CFI_ADJUST(-8); \
     /* Switch to OCaml stack */ \
         movq	  REG, %rsp; \
+    /* Pop the caml_context from the bottom of stack updating the exception pointer offset */ \
+        movq    GREL(caml_exception_ptr_offset)(%rip), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8)
+
+/* Switch OCaml stacks. Target is in register TGT. Clobbers REG, TGT.
+ * Assert (TGT != REG && REG != %r9). TODO non-pic. */
+#define SWITCH_OCAML_STACKS(OFFSET,TGT,REG) \
+    /* Build caml_context at the bottom of the stack */ \
+        pushq   $OFFSET; CFI_ADJUST(8); \
+        pushq   $0 ; CFI_ADJUST(8); \
+        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
+        movq    %rsp, (REG); \
+        pushq   %r14; CFI_ADJUST(8); \
+    /* Save OCaml SP in the stack slot */ \
+        movq    GREL(caml_top_of_stack)(%rip), REG; \
+        movq    (REG), REG; \
+        subq    %rsp, REG; \
+        pushq   REG; CFI_ADJUST(8); \
+        movq    GREL(caml_current_stack)(%rip), REG; \
+        movq    (REG), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+    /* Save %r9 */ \
+        pushq   %r9; CFI_ADJUST(8); \
+    /* Load target stack top in REG */ \
+        movq    -8(TGT), REG; \
+        shrq    $10, REG; \
+        leaq    (%r11,REG,8), REG; \
+    /* Update caml_top_of_stack */ \
+        movq    GREL(caml_top_of_stack)(%rip), %r9; \
+        movq    REG, (%r9); \
+    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
+        subq	  (TGT), REG; \
+        addq	  $176, TGT; \
+        movq	  GREL(caml_stack_threshold)(%rip), %r9; \
+        movq	  TGT, (%r9); \
+    /* Restore %r9. */ \
+        popq    %r9; CFI_ADJUST(-8); \
+    /* Switch to target stack */ \
+        movq    REG, %rsp; \
     /* Pop the caml_context from the bottom of stack updating the exception pointer offset */ \
         movq    GREL(caml_exception_ptr_offset)(%rip), REG; \
         popq    (REG); CFI_ADJUST(-8); \
@@ -754,6 +795,88 @@ CFI_STARTPROC
         jmp     LBL(caml_c_call)
 CFI_ENDPROC
 
+/* Fibers */
+
+FUNCTION(G(caml_fiber_exn_handler))
+CFI_STARTPROC
+    /* In handler. %rax has exception */
+        LOAD_VAR(caml_current_stack, %rdi)
+        movq    $0, (%rdi)        /* zero SP */
+        movq    24(%rdi), %rdx    /* exception handler */
+        movq    40(%rdi), %rcx    /* parent stack. Never NULL here. */
+    /* Reset stack */
+        movq    $1, 8(%rdi)
+        movq    $1, 16(%rdi)
+        movq    $1, 24(%rdi)
+        movq    $1, 32(%rdi)
+        SWITCH_OCAML_STACKS(0,%rcx,%r11)
+        jmp     *%rdx
+CFI_ENDPROC
+
+FUNCTION(G(caml_fiber_val_handler))
+CFI_STARTPROC
+LBL(caml_fiber_val_handler):
+    /* In handler. %rax has value. */
+        LOAD_VAR(caml_current_stack, %rdi)
+        movq    $0, (%rdi)        /* zero SP */
+        movq    16(%rdi), %rdx    /* value handler */
+        movq    40(%rdi), %rcx    /* Parent stack. Never NULL here. */
+    /* Reset stack */
+        movq    $1, 8(%rdi)
+        movq    $1, 16(%rdi)
+        movq    $1, 24(%rdi)
+        movq    $1, 32(%rdi)
+        SWITCH_OCAML_STACKS(0,%rcx,%r11)
+        jmp     *%rdx
+CFI_ENDPROC
+
+FUNCTION(G(caml_perform))
+CFI_STARTPROC
+    /* In handler. %rax has effect. Load current stack in %rbx. */
+        LOAD_VAR(caml_current_stack, %rbx)
+        movq    32(%rbx), %rdx    /* effect handler */
+        movq    40(%rdi), %rcx    /* Parent stack. Never NULL here. */
+        SWITCH_OCAML_STACKS(0,%rcx,%r11)
+        jmp     *%rdx
+CFI_ENDPROC
+
+FUNCTION(G(caml_delegate))
+CFI_STARTPROC
+    /* %rax -> effect, %rbx -> performer */
+        LOAD_VAR(caml_current_stack, %rdi)
+        movq    40(%rdi), %rsi  /* Parent stack */
+        cmpq    $1, %rsi        /* Parent is Null? */
+        je      LBL(110)
+        movq    %rbx, 40(%rdi)  /* Set performer as parent */
+        movq    %rdi, %rbx      /* Load current stack in %rbx for jmp */
+        movq    32(%rdi), %rdx  /* effect handler */
+        SWITCH_OCAML_STACKS(0,%rsi,%r11)
+        jmp     *%rdx
+LBL(110):
+    /* No parent stack. Raise Unhandled. */
+        LOAD_VAR(caml_exn_Unhandled, %rax)
+        jmp LBL(caml_raise_exn)
+CFI_ENDPROC
+
+FUNCTION(G(caml_resume))
+CFI_STARTPROC
+    /* %rax -> tail of stack list, %rbx -> fun, %rdi -> arg */
+        LEA_VAR(caml_current_stack, %rsi)
+        movq	  (%rsi), %rcx
+    /* Rewind parent pointers to find the performer */
+LBL(111):
+        movq	  %rax, %rsi
+        movq	  40(%rsi), %rax
+        movq	  %rcx, 40(%rsi)
+        cmpq	  $1, %rax
+        movq	  %rsi, %rcx
+        jne	LBL(111)
+    /* %rcx now has the desired head of stack list */
+        SWITCH_OCAML_STACKS(0,%rsi,%r11)
+        movq    %rdi, %rax
+        jmp     *%rbx
+CFI_ENDPROC
+
         .globl  G(caml_system__code_end)
 G(caml_system__code_end):
 
@@ -761,10 +884,14 @@ G(caml_system__code_end):
         .globl  G(caml_system__frametable)
         .align  EIGHT_ALIGN
 G(caml_system__frametable):
-        .quad   1           /* one descriptor */
+        .quad   2           /* two descriptors */
         .quad   LBL(107)    /* return address into callback */
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
+        .align  EIGHT_ALIGN
+        .quad   LBL(caml_fiber_val_handler)
+        .value  -1
+        .value  0
         .align  EIGHT_ALIGN
 
 #if defined(SYS_macosx)
