@@ -1,8 +1,11 @@
 effect Foo : int -> int
 
+let f () = (perform (Foo 3)) (* 3 + 1 *)
+         + (perform (Foo 3)) (* 3 + 1 *)
+
 let r =
   try
-    perform (Foo 3)
+    f ()
   with effect (Foo i) k ->
     (* continuation called outside try/with *)
     try

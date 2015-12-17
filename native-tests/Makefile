@@ -1,6 +1,6 @@
 EXE=test1.native test2.native test3.native test4.native test5.native \
 		test6.native test7.native test8.native test9.native test10.native \
-		test11.native test12.native
+		test11.native test12.native test13.native test14.native
 DEBUG=false
 FLAGS=
 OCAMLOPT=ocamlopt
@@ -37,7 +37,7 @@ test9.native: test9.ml test9.mli test9.c
 .PHONY: clean test expected
 
 clean:
-	rm -f *.cmi *.cmx *.s *~ *.o op $(EXE) seen.out dump
+	rm -f *.cmi *.cmx *.s *~ *.o op *.native seen.out dump
 
 test: all
 	rm -f seen.out

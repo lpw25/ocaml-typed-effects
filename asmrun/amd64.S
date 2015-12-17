@@ -251,25 +251,22 @@
         shrq    $10, REG1; \
         leaq    (TGT,REG1,8), REG1; \
     /* Update caml_top_of_stack */ \
-        movq    GREL(caml_top_of_stack)(%rip), %r9; \
-        movq    REG1, (%r9); \
-    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
-        leaq    176(TGT), REG2; \
-        movq	  GREL(caml_stack_threshold)(%rip), %r9; \
-        movq	  REG2, (%r9); \
+        movq    GREL(caml_top_of_stack)(%rip), REG2; \
+        movq    REG1, (REG2); \
     /* Switch to target stack */ \
         subq	  (TGT), REG1; \
         movq    REG1, %rsp; \
+    /* Update current stack global variable */ \
+        movq    GREL(caml_current_stack)(%rip), REG1; \
+        movq    TGT, (REG1); \
+    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
+        leaq    176(TGT), REG1; \
+        movq	  GREL(caml_stack_threshold)(%rip), REG2; \
+        movq	  REG1, (REG2); \
     /* Pop the caml_context from the bottom of stack updating %r14 */ \
         popq    %r14; CFI_ADJUST(-8); \
         popq    REG1; CFI_ADJUST(-8); \
-        popq    REG1; CFI_ADJUST(-8); \
-    /* Update parent stack */ \
-        movq    GREL(caml_current_stack)(%rip), REG1; \
-        movq    (REG1), REG2; \
-        movq    REG2, 40(TGT); \
-    /* Update current stack global variable */ \
-        movq    TGT, (REG1)
+        popq    REG1; CFI_ADJUST(-8)
 
 /* Save and restore all callee-save registers on stack.
    Keep the stack 16-aligned. */
@@ -839,7 +836,8 @@ CFI_STARTPROC
         movq    40(%rbx), %rcx    /* Parent stack. Never NULL here. */
         movq    $1, 40(%rbx)      /* Set parent stack of performer to NULL */
         SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
-        jmp     _caml_apply2
+        LEA_VAR(caml_apply2, %rsi)
+        jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_delegate))
