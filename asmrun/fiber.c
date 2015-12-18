@@ -261,8 +261,11 @@ next_chunk:
       /* Continue with the next stack chunk. */
       f (stack, stackp);
       if (Is_block(stack) && stack == *stackp) {
-        /* If the previous chunk has not been scanned, scan it. XXX KC: Not too
-         * happy with this. */
+        /* If the previous chunk has not been scanned, scan it.  
+         * XXX KC: This is a properly awful predicate. Smells fishy. But this
+         * seems necessary for example with `caml_darken_all_roots` where not
+         * performing the scan explicitly risks not scanning the live
+         * registers. c.f: `caml_do_local_roots` */
         goto next_chunk;
       }
       return;
