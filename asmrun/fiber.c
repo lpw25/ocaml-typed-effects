@@ -37,13 +37,19 @@ static void dirty_stack(value stack)
   caml_remember_stack (stack);
 }
 
-static value save_stack_dirty (int mark_dirty)
+static void save_stack_dirty (int mark_dirty)
 {
-  value old_stack = caml_current_stack;
   if (mark_dirty)
-    dirty_stack(old_stack);
-  return old_stack;
+    dirty_stack(caml_current_stack);
 }
+
+void caml_dirty_stack (void) {
+  save_stack_dirty(1);
+  //FIXME KC: parent_stack update must be aware of colors.
+  //Assert (Color_val(caml_current_stack) == Caml_white ||
+  //        Color_val(Stack_parent(caml_current_stack)) != Caml_white);
+}
+
 
 static void load_stack(value newstack)
 {
@@ -88,6 +94,10 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   Stack_parent(stack) = Val_unit;
 
   sp = Stack_high(stack);
+  /* Maintain the invariant that any stack is cut such that
+   * (SP + sizeof(value)) % sizeof(value) == 0. */
+  sp -= sizeof(value);
+  *(uintnat*)sp = Val_unit; /* dummy. Will never be read. */
    /* No previous stack chunk */
   sp -= sizeof(value);
   *(value*)sp = Val_unit;
@@ -97,26 +107,20 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   /* No previous exception frame */
   sp -= sizeof(value);
   *(uintnat*)sp = 0;
-  /* Maintain the invariant that any stack is cut such that
-   * (SP + sizeof(value)) % sizeof(value) == 0. */
-  sp -= sizeof(value);
   /* Value handler that returns to parent */
   sp -= sizeof(value);
   *(value**)sp = (value*)caml_fiber_val_handler;
 
-  /* Setup for initial enter. Switching to OCaml expects a context at the
-   * bottom of stack. So setup a dummy context. */
+  /* Build a context */
   sp -= sizeof(struct caml_context);
   ctxt = (struct caml_context*)sp;
-  ctxt->exception_ptr_offset = 3*sizeof(value);
+  ctxt->exception_ptr_offset = sizeof(value) + sizeof(struct caml_context);
   ctxt->gc_regs = NULL;
   ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
   Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
 
-  caml_gc_log ("caml_alloc_stack: stack=%p\thigh=%p\tsp=%p\tused=%ld\n",
-               (void*)stack, Stack_high(stack), sp, Stack_sp(stack));
-  caml_gc_log ("                  hval=%p\thexn=%p\theff=%p\n",
-               (void*)hval, (void*)hexn, (void*)heff);
+  caml_gc_log ("Allocate stack=0x%lx of %lu words\n", 
+               stack, Fiber_stack_wosize);
 
   CAMLreturn (stack);
 }
@@ -132,10 +136,12 @@ void caml_realloc_stack () {
   stack_used = Stack_sp(old_stack);
   size = Stack_high(old_stack) - Stack_base(old_stack);
   size *= 2;
-  caml_gc_log ("Growing stack to %" ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
-               size / 1024);
 
-  new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
+  caml_gc_log ("Growing old_stack=0x%lx to %lu words\n", 
+                old_stack, Stack_ctx_words + size/sizeof(value));
+   new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
+  caml_gc_log ("New_stack=0x%lx\n", new_stack);
+
   memcpy(Stack_high(new_stack) - stack_used,
          Stack_high(old_stack) - stack_used,
          stack_used);
@@ -181,8 +187,7 @@ void caml_init_main_stack (value* gc_regs)
   Stack_handle_effect(stack) = Val_long(0);
   Stack_parent(stack) = Val_unit;
 
-  /* Setup for initial enter. SWITCH_C_TO_OCAML expects a context at the bottom
-   * of stack. So setup a dummy context. */
+  /* Build a context */
   sp = Stack_high(stack);
   sp -= sizeof(struct caml_context);
   ctxt = (struct caml_context*)sp;
@@ -190,6 +195,8 @@ void caml_init_main_stack (value* gc_regs)
   ctxt->gc_regs = NULL;
   ctxt->callback_offset = 0;
   Stack_sp(stack) = sizeof(struct caml_context);
+  caml_gc_log ("Allocate stack=0x%lx of %lu words\n", 
+               stack, Stack_size/sizeof(value));
 
   caml_current_stack = stack;
   CAMLreturn0;
@@ -289,3 +296,17 @@ uintnat caml_stack_usage (void)
     sz += (*caml_stack_usage_hook)();
   return sz;
 }
+
+#ifdef DEBUG
+uintnat stack_sp(value stk) {
+  return Stack_sp(stk);
+}
+
+value stack_dirty(value stk) {
+  return Stack_dirty(stk);
+}
+
+value stack_parent(value stk) {
+  return Stack_parent(stk);
+}
+#endif

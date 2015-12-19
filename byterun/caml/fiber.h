@@ -43,6 +43,9 @@ CAMLextern intnat caml_trap_barrier_off;
 value caml_find_performer(value stack);
 
 void caml_scan_stack(scanning_action, value stack);
+#ifdef NATIVE_CODE
+value* caml_scan_stack_high(scanning_action, value stack, char* stack_high);
+#endif
 void caml_scan_dirty_stack(scanning_action, value stack);
 void caml_save_stack_gc (int mark_dirty);
 void caml_restore_stack_gc();

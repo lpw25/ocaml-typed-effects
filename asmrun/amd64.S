@@ -207,24 +207,24 @@
         pushq   %r9; CFI_ADJUST(8); \
         pushq   %r11; CFI_ADJUST(8); \
     /* Save OCaml top of stack in REG */ \
-        movq	  GREL(caml_current_stack)(%rip), %r11; \
-        movq	  (%r11), %r11; \
-        movq	  -8(%r11), REG; \
-        shrq	  $10, REG; \
-        leaq	  (%r11,REG,8), REG; \
+        movq    GREL(caml_current_stack)(%rip), %r11; \
+        movq    (%r11), %r11; \
+        movq    -8(%r11), REG; \
+        shrq    $10, REG; \
+        leaq    (%r11,REG,8), REG; \
     /* Set caml_top_of_stack to be OCaml top-of-stack */ \
-        movq	  GREL(caml_top_of_stack)(%rip), %r9; \
-        movq	  REG, (%r9); \
+        movq    GREL(caml_top_of_stack)(%rip), %r9; \
+        movq    REG, (%r9); \
     /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
-        subq	  (%r11), REG; \
-        addq	  $176, %r11; \
-        movq	  GREL(caml_stack_threshold)(%rip), %r9; \
-        movq	  %r11, (%r9); \
+        subq    (%r11), REG; \
+        addq    $176, %r11; \
+        movq    GREL(caml_stack_threshold)(%rip), %r9; \
+        movq    %r11, (%r9); \
     /* Restore %r9 and %r11 */ \
         popq    %r11; CFI_ADJUST(-8); \
         popq    %r9; CFI_ADJUST(-8); \
     /* Switch to OCaml stack */ \
-        movq	  REG, %rsp; \
+        movq    REG, %rsp; \
     /* Pop the caml_context from the bottom of stack updating %r14 */ \
         popq    %r14; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8); \
@@ -254,15 +254,15 @@
         movq    GREL(caml_top_of_stack)(%rip), REG2; \
         movq    REG1, (REG2); \
     /* Switch to target stack */ \
-        subq	  (TGT), REG1; \
+        subq    (TGT), REG1; \
         movq    REG1, %rsp; \
     /* Update current stack global variable */ \
         movq    GREL(caml_current_stack)(%rip), REG1; \
         movq    TGT, (REG1); \
     /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
         leaq    176(TGT), REG1; \
-        movq	  GREL(caml_stack_threshold)(%rip), REG2; \
-        movq	  REG1, (REG2); \
+        movq    GREL(caml_stack_threshold)(%rip), REG2; \
+        movq    REG1, (REG2); \
     /* Pop the caml_context from the bottom of stack updating %r14 */ \
         popq    %r14; CFI_ADJUST(-8); \
         popq    REG1; CFI_ADJUST(-8); \
@@ -439,11 +439,11 @@ FUNCTION(G(caml_call_gc))
         CFI_STARTPROC
         SWITCH_OCAML_TO_C(0,%rax)
         ENTER_FUNCTION
-        call    LBL(caml_call_gc)
+        call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
         ret
-LBL(caml_call_gc):
+LBL(do_gc):
 #ifdef WITH_FRAME_POINTERS
         ENTER_FUNCTION
 #else
@@ -490,7 +490,7 @@ LBL(caml_alloc1):
 LBL(100):
         SWITCH_OCAML_TO_C(0,%rax)
         ENTER_FUNCTION
-        call    LBL(caml_call_gc)
+        call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
         jmp     LBL(caml_alloc1)
@@ -506,7 +506,7 @@ LBL(caml_alloc2):
 LBL(101):
         SWITCH_OCAML_TO_C(0,%rax)
         ENTER_FUNCTION
-        call    LBL(caml_call_gc)
+        call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
         jmp     LBL(caml_alloc2)
@@ -522,7 +522,7 @@ LBL(caml_alloc3):
 LBL(102):
         SWITCH_OCAML_TO_C(0,%rax)
         ENTER_FUNCTION
-        call    LBL(caml_call_gc)
+        call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
         jmp     LBL(caml_alloc3)
@@ -540,7 +540,7 @@ LBL(caml_allocN):
 LBL(103):
         SWITCH_OCAML_TO_C(8,%rax)
         ENTER_FUNCTION
-        call    LBL(caml_call_gc)
+        call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
         popq    %rax; CFI_ADJUST(-8)       /* recover desired size */
@@ -659,14 +659,14 @@ LBL(caml_start_program):
         popq    %rbx; CFI_ADJUST(-8)
         popq    %rax; CFI_ADJUST(-8)
         popq    %r12; CFI_ADJUST(-8)
-    /* Load preivous caml_current_stack in %r11. */
-        popq    %r11; CFI_ADJUST(-8)
+    /* Load previous caml_current_stack in %rdx. */
+        popq    %rdx; CFI_ADJUST(-8)
     /* Switch from C to OCaml stack. */
         SWITCH_C_TO_OCAML(%r10)
     /* Now we are in OCaml. Save prev caml_current_stack on the OCaml stack so
      * that GC will know where to find the prev chunk. */
         subq    $8, %rsp
-        pushq   %r11; CFI_ADJUST(8)
+        pushq   %rdx; CFI_ADJUST(8)
     /* Setup alloc ptr */
         LOAD_VAR(caml_young_ptr, %r15)
     /* Build an exception handler */
@@ -806,13 +806,13 @@ CFI_STARTPROC
         movq    $1, 24(%rdi)
         movq    $1, 32(%rdi)
         SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
- 				movq		(%rbx), %rsi
+        movq    (%rbx), %rsi
         jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_fiber_val_handler))
 CFI_STARTPROC
-LBL(caml_fiber_val_handler):
+LBL(110):
     /* In handler. %rax has value. */
         LOAD_VAR(caml_current_stack, %rdi)
         movq    $0, (%rdi)        /* zero SP */
@@ -824,17 +824,17 @@ LBL(caml_fiber_val_handler):
         movq    $1, 24(%rdi)
         movq    $1, 32(%rdi)
         SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
- 				movq		(%rbx), %rsi
+        movq    (%rbx), %rsi
         jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_perform))
 CFI_STARTPROC
-    /* In handler. %rax has effect. */
-        LOAD_VAR(caml_current_stack, %rbx)
-        movq    32(%rbx), %rdi    /* effect handler */
-        movq    40(%rbx), %rcx    /* Parent stack. Never NULL here. */
-        movq    $1, 40(%rbx)      /* Set parent stack of performer to NULL */
+    /* In handler. %rax has effect (first argument). */
+        LOAD_VAR(caml_current_stack, %rbx)  /* (second argument) */
+        movq    32(%rbx), %rdi              /* effect handler (third argument) */
+        movq    40(%rbx), %rcx              /* Parent stack. Never NULL here. */
+        movq    $1, 40(%rbx)                /* Set parent stack of performer to NULL */
         SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
@@ -842,18 +842,18 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_delegate))
 CFI_STARTPROC
-    /* %rax -> effect, %rbx -> performer */
+    /* %rax -> effect (first argument), %rbx -> performer */
         LOAD_VAR(caml_current_stack, %rdi)
         movq    40(%rdi), %rsi  /* Parent stack */
         cmpq    $1, %rsi        /* Parent is Null? */
-        je      LBL(110)
+        je      LBL(111)
         movq    %rbx, 40(%rdi)  /* Set performer as parent */
-        movq    %rdi, %rbx      /* Load current stack in %rbx for jmp */
-        movq    32(%rdi), %rbx  /* effect handler */
+        movq    %rdi, %rbx      /* current stack (second argument) */
+        movq    32(%rdi), %rdi  /* effect handler (third argument) */
         SWITCH_OCAML_STACKS(0,%rsi,%r11,%r9)
-				movq		(%rbx), %rsi
+        LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
-LBL(110):
+LBL(111):
     /* No parent stack. Raise Unhandled. */
         LOAD_VAR(caml_exn_Unhandled, %rax)
         jmp LBL(caml_raise_exn)
@@ -863,20 +863,20 @@ FUNCTION(G(caml_resume))
 CFI_STARTPROC
     /* %rax -> tail of stack list, %rbx -> fun, %rdi -> arg */
         LEA_VAR(caml_current_stack, %rsi)
-        movq	  (%rsi), %rcx
+        movq    (%rsi), %rcx
     /* Rewind parent pointers to find the performer */
-LBL(111):
-        movq	  %rax, %rsi
-        movq	  40(%rsi), %rax
-        movq	  %rcx, 40(%rsi)
-        cmpq	  $1, %rax
-        movq	  %rsi, %rcx
-        jne	LBL(111)
+LBL(112):
+        movq    %rax, %rsi
+        movq    40(%rsi), %rax
+        movq    %rcx, 40(%rsi)
+        cmpq    $1, %rax
+        movq    %rsi, %rcx
+        jne     LBL(112)
     /* %rsi now has the desired head of stack list */
         SWITCH_OCAML_STACKS(0,%rsi,%r11,%r9)
-				movq		%rdi, %rax
-				movq		(%rbx), %rsi
-				jmp 		*%rsi
+        movq    %rdi, %rax    /* first argument */
+        movq    (%rbx), %rsi  /* closure in %rbx (second argument) */
+        jmp     *%rsi
 CFI_ENDPROC
 
         .globl  G(caml_system__code_end)
@@ -891,7 +891,7 @@ G(caml_system__frametable):
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
         .align  EIGHT_ALIGN
-        .quad   LBL(caml_fiber_val_handler)
+        .quad   LBL(110)
         .value  -1
         .value  0
         .align  EIGHT_ALIGN

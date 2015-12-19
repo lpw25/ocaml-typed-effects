@@ -615,7 +615,8 @@ void caml_print_obj (value v, value* p) {
       tag = Tag_hd (hd);
       sz = Wosize_hd (hd);
 
-      caml_gc_log ("OBJECT(%p,%lx,%lu)\n", (void*)v, hd, sz);
+      caml_gc_log ("OBJECT(%p,h=%lx,t=%u,c=%lx,s=%lu,y=%d)\n", 
+                   (void*)v, hd, tag, Color_hd(hd), sz, Is_young(v));
 
       e = (caml_object_map*) malloc (sizeof(caml_object_map));
       e->pointer = v;
@@ -663,6 +664,13 @@ void caml_print_heap (void)
     HASH_DEL(print_obj_done, me);
     free(me);
   }
+}
+
+int is_block_is_young (value v) {
+  if (Is_block(v) && Is_young(v)) {
+    return 1;
+  }
+  return 0;
 }
 
 #endif

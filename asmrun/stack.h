@@ -90,6 +90,7 @@ extern void caml_init_frame_descriptors(void);
 extern void caml_register_frametable(intnat *);
 extern void caml_register_dyn_global(void *);
 
+extern void caml_dirty_stack (void);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 

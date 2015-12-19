@@ -77,6 +77,13 @@ static void check_head (value v)
   }
 }
 
+static void check_field (value v, value *p) {
+  if (Is_block (v) && Is_in_heap (v)){
+    check_head (v);
+    Assert (Color_val (v) != Caml_blue);
+  }
+}
+
 static void check_block (header_t *hp)
 {
   mlsize_t i;
@@ -103,17 +110,13 @@ static void check_block (header_t *hp)
     break;
 
   case Stack_tag:
-    /* XXX KC: TODO */
+    caml_scan_stack(check_field, v);
     break;
 
   default:
     Assert (Tag_hp (hp) < No_scan_tag);
-    for (i = 0; i < Wosize_hp (hp); i++){
-      f = Field (v, i);
-      if (Is_block (f) && Is_in_heap (f)){
-        check_head (f);
-        Assert (Color_val (f) != Caml_blue);
-      }
+    for (i = 0; i < Wosize_hp (hp); i++) {
+      check_field (Field (v,i), NULL);
     }
   }
 }

@@ -630,7 +630,7 @@ CAMLprim value caml_bvar_take(value bv)
   if (stat & BVAR_EMPTY) caml_raise_not_found();
 
   value v = Op_val(bv)[0];
-  Op_val(bv)[0] = Val_unit;
+  caml_modify((value*)bv, Val_unit);
   Op_val(bv)[1] = Val_long(BVAR_EMPTY);
 
   return v;
@@ -650,3 +650,13 @@ CAMLprim value caml_bvar_is_empty(value bv)
 {
   return Val_int((Long_val(Op_val(bv)[1]) & BVAR_EMPTY) != 0);
 }
+
+#ifdef DEBUG
+color_t color_val (value v) {
+  return (color_t)Color_val(v);
+}
+
+header_t hd_val (value v) {
+  return (header_t)Hd_val(v);
+}
+#endif
