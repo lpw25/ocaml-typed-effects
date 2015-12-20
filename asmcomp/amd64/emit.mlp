@@ -852,8 +852,8 @@ let fundecl fundecl =
 
 	(* XXX KC: fundecl.fun_body.live does not capture liveness at the start of
 	the function properly. *)
-	let live_initially = 
-		Reg.Set.(fold (fun r s -> add {r with typ = Addr} s) 
+	let live_initially =
+		Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
 			fundecl.fun_args empty)
 	in
   tailrec_entry_point := record_frame_label live_initially Debuginfo.none;
