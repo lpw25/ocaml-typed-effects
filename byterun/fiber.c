@@ -258,7 +258,8 @@ void caml_clean_stack(value stack)
 void caml_scan_stack(scanning_action f, value stack)
 {
   value *low, *high, *sp;
-  Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
+  Assert(Is_block(stack) && (Tag_val(stack) == Stack_tag ||
+                             Tag_ehd(Hd_val(stack)) == Stack_tag));
 
   f(Stack_handle_value(stack), &Stack_handle_value(stack));
   f(Stack_handle_exception(stack), &Stack_handle_exception(stack));

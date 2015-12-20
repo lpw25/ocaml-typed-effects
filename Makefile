@@ -17,7 +17,7 @@ include stdlib/StdlibModules
 
 CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
 CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
-#XXX KC CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -runtime-variant d -I asmrun -I stdlib -I otherlibs/dynlink
+#CAMLOPT=boot/ocamlrun ./ocamlopt -g -nostdlib -runtime-variant d -I asmrun -I stdlib -I otherlibs/dynlink
 COMPFLAGS=-strict-sequence -w +33..39+48 -warn-error A -bin-annot \
           -safe-string $(INCLUDES)
 LINKFLAGS=
@@ -548,7 +548,8 @@ compilerlibs/ocamloptcomp.cmxa: $(ASMCOMP:.cmo=.cmx)
 partialclean::
 	rm -f compilerlibs/ocamloptcomp.cmxa compilerlibs/ocamloptcomp.a
 
-#XXX KC ocamlopt.opt: asmrun/libasmrund.a compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
+
+#ocamlopt.opt: asmrun/libasmrund.a compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
 
 ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)

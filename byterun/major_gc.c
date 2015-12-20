@@ -158,16 +158,60 @@ static void start_cycle (void)
 #endif
 }
 
+static value *gray_vals_ptr = NULL;  /* Local copy of gray_vals_cur */
+
+static void mark_child (value child, value* childp) 
+{
+  header_t hd;
+#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
+  if (Is_block (child)
+        && Wosize_val (child) > 0  /* Atoms never need to be marked. */
+        /* Closure blocks contain code pointers at offsets that cannot
+           be reliably determined, so we always use the page table when
+           marking such values. */
+        && (!marking_closure || Is_in_heap (child))) {
+    /* See [caml_darken] for a description of this assertion. */
+    CAMLassert (Is_in_heap (child) || Is_black_hd (Hd_val (child)));
+#else
+  if (Is_block (child) && Is_in_heap (child)) {
+#endif
+    hd = Hd_val (child);
+    if (Tag_hd (hd) == Forward_tag){
+      value f = Forward_val (child);
+      if (Is_block (f)
+          && (!Is_in_value_area(f) || Tag_val (f) == Forward_tag
+              || Tag_val (f) == Lazy_tag || Tag_val (f) == Double_tag)){
+        /* Do not short-circuit the pointer. */
+      }else{
+        *childp = f;
+      }
+    }
+    else if (Tag_hd(hd) == Infix_tag) {
+      child -= Infix_offset_val(child);
+      hd = Hd_val(child);
+    }
+    if (Is_white_hd (hd)){
+      Hd_val (child) = Grayhd_hd (hd);
+      *gray_vals_ptr++ = child;
+      if (gray_vals_ptr >= gray_vals_end) {
+        gray_vals_cur = gray_vals_ptr;
+        realloc_gray_vals ();
+        gray_vals_ptr = gray_vals_cur;
+      }
+    }
+  }
+}
+
 static void mark_slice (intnat work)
 {
-  value *gray_vals_ptr;  /* Local copy of gray_vals_cur */
-  value v, child;
+  value v;
   header_t hd;
   mlsize_t size, i;
 #ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
   int marking_closure = 0;
 #endif
 
+  Assert(gray_vals_ptr == NULL);
   caml_gc_message (0x40, "Marking %ld words\n", work);
   caml_gc_message (0x40, "Subphase = %ld\n", caml_gc_subphase);
   gray_vals_ptr = gray_vals_cur;
@@ -182,45 +226,12 @@ static void mark_slice (intnat work)
       Assert (Is_gray_hd (hd));
       Hd_val (v) = Blackhd_hd (hd);
       size = Wosize_hd (hd);
-      if (Tag_hd (hd) < No_scan_tag){
-        for (i = 0; i < size; i++){
-          child = Field (v, i);
-#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
-          if (Is_block (child)
-                && Wosize_val (child) > 0  /* Atoms never need to be marked. */
-                /* Closure blocks contain code pointers at offsets that cannot
-                   be reliably determined, so we always use the page table when
-                   marking such values. */
-                && (!marking_closure || Is_in_heap (child))) {
-            /* See [caml_darken] for a description of this assertion. */
-            CAMLassert (Is_in_heap (child) || Is_black_hd (Hd_val (child)));
-#else
-          if (Is_block (child) && Is_in_heap (child)) {
-#endif
-            hd = Hd_val (child);
-            if (Tag_hd (hd) == Forward_tag){
-              value f = Forward_val (child);
-              if (Is_block (f)
-                  && (!Is_in_value_area(f) || Tag_val (f) == Forward_tag
-                      || Tag_val (f) == Lazy_tag || Tag_val (f) == Double_tag)){
-                /* Do not short-circuit the pointer. */
-              }else{
-                Field (v, i) = f;
-              }
-            }
-            else if (Tag_hd(hd) == Infix_tag) {
-              child -= Infix_offset_val(child);
-              hd = Hd_val(child);
-            }
-            if (Is_white_hd (hd)){
-              Hd_val (child) = Grayhd_hd (hd);
-              *gray_vals_ptr++ = child;
-              if (gray_vals_ptr >= gray_vals_end) {
-                gray_vals_cur = gray_vals_ptr;
-                realloc_gray_vals ();
-                gray_vals_ptr = gray_vals_cur;
-              }
-            }
+      if (Tag_hd (hd) < No_scan_tag) {
+        if (Tag_hd (hd) == Stack_tag) {
+          caml_scan_stack (mark_child, v);
+        } else {
+          for (i = 0; i < size; i++) {
+            mark_child (Field(v,i), &Field(v,i));
           }
         }
       }
@@ -337,6 +348,7 @@ static void mark_slice (intnat work)
     }
   }
   gray_vals_cur = gray_vals_ptr;
+  gray_vals_ptr = NULL;
 }
 
 static void sweep_slice (intnat work)

@@ -141,6 +141,8 @@ void caml_register_dyn_global(void *v) {
   caml_dyn_globals = cons((void*) v,caml_dyn_globals);
 }
 
+extern void caml_scan_registers(scanning_action, value);
+
 /* Call [caml_oldify_one] on (at least) all the roots that point to the minor
    heap. */
 void caml_oldify_local_roots (void)
@@ -230,7 +232,6 @@ void caml_do_roots (scanning_action f)
   if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
 }
 
-void caml_scan_stack(scanning_action f, value stack);
 
 void caml_do_local_roots(scanning_action f,
                          struct caml__roots_block * local_roots)
@@ -239,14 +240,8 @@ void caml_do_local_roots(scanning_action f,
   int i,j;
   value *root;
 
+  caml_scan_registers (f, caml_current_stack);
   f (caml_current_stack, &caml_current_stack);
-
-  /* Scan stack explicitly to avoid missing out on live registers during
-   * `caml_darken_all_roots`. But skip for compaction. */
-  if (Is_block(caml_current_stack) && 
-      Tag_val(caml_current_stack) == Stack_tag) {
-    caml_scan_stack (f, caml_current_stack);
-  }
 
   /* Local C roots */
   for (lr = local_roots; lr != NULL; lr = lr->next) {

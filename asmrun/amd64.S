@@ -801,7 +801,8 @@ CFI_STARTPROC
         movq    24(%rdi), %rbx    /* exception handler */
         movq    40(%rdi), %rcx    /* parent stack. Never NULL here. */
     /* Reset stack */
-        movq    $1, 8(%rdi)
+        lea     LBL(110)(%rip), %r11
+        push    %r11
         movq    $1, 16(%rdi)
         movq    $1, 24(%rdi)
         movq    $1, 32(%rdi)
@@ -819,7 +820,8 @@ LBL(110):
         movq    16(%rdi), %rbx    /* value handler */
         movq    40(%rdi), %rcx    /* Parent stack. Never NULL here. */
     /* Reset stack */
-        movq    $1, 8(%rdi)
+        lea     LBL(110)(%rip), %r11
+        push    %r11
         movq    $1, 16(%rdi)
         movq    $1, 24(%rdi)
         movq    $1, 32(%rdi)

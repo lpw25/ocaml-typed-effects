@@ -90,6 +90,8 @@ extern void caml_init_frame_descriptors(void);
 extern void caml_register_frametable(intnat *);
 extern void caml_register_dyn_global(void *);
 
+extern void caml_save_stack_gc(int);
+extern void caml_restore_stack_gc(void);
 extern void caml_dirty_stack (void);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
@@ -116,8 +118,10 @@ extern intnat caml_globals_inited;
 extern intnat * caml_frametable[];
 
 #define Stack_ctx_words 6 /* Must be consistent with amd64.S:LOAD_OCAML_STACK */
+#ifdef NATIVE_CODE
 #define Stack_base(stk) ((char*)(Op_val(stk) + Stack_ctx_words))
 #define Stack_high(stk) ((char*)(Op_val(stk) + Wosize_val(stk)))
+#endif
 #define Stack_sp(stk) (*(long*)(Op_val(stk) + 0))
 #define Stack_dirty(stk) (*(Op_val(stk) + 1))
 #define Stack_handle_value(stk) (*(Op_val(stk) + 2))

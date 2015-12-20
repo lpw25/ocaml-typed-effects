@@ -24,7 +24,11 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "caml/weak.h"
+#ifdef NATIVE_CODE
+#include "stack.h"
+#else
 #include "caml/fiber.h"
+#endif
 
 extern uintnat caml_percent_free;                   /* major_gc.c */
 extern void caml_shrink_heap (char *);              /* memory.c */
@@ -45,11 +49,6 @@ extern void caml_shrink_heap (char *);              /* memory.c */
   XXX (see [caml_register_global_roots])
   XXX Should be able to fix it to only assume 2-byte alignment.
 */
-#define Make_ehd(s,t,c) (((s) << 10) | (t) << 2 | (c))
-#define Whsize_ehd(h) Whsize_hd (h)
-#define Wosize_ehd(h) Wosize_hd (h)
-#define Tag_ehd(h) (((h) >> 2) & 0xFF)
-#define Ecolor(w) ((w) & 3)
 
 typedef uintnat word;
 
@@ -170,6 +169,13 @@ static void do_compaction (void)
           Hd_hp (p) = Make_ehd (sz, String_tag, 3);
         }else{                                      Assert (Is_white_hd (hd));
           /* Live object.  Keep its tag. */
+          if (Tag_hd(hd) == Stack_tag) {
+            /* Reset free stack space */
+            value stack = Val_hp(p);
+            value* iter = (value*)Stack_base(stack);
+            value* sp = (value*)(Stack_high(stack) - Stack_sp(stack));
+            while(iter < sp) *iter++ = Val_unit;
+          }
           Hd_hp (p) = Make_ehd (sz, Tag_hd (hd), 3);
         }
         p += Whsize_wosize (sz);

@@ -630,7 +630,7 @@ CAMLprim value caml_bvar_take(value bv)
   if (stat & BVAR_EMPTY) caml_raise_not_found();
 
   value v = Op_val(bv)[0];
-  caml_modify((value*)bv, Val_unit);
+  caml_modify(&Op_val(bv)[0], Val_unit);
   Op_val(bv)[1] = Val_long(BVAR_EMPTY);
 
   return v;
@@ -640,7 +640,7 @@ CAMLprim value caml_bvar_put(value bv, value v)
 {
   intnat stat = bvar_status(bv);
   if (!(stat & BVAR_EMPTY)) caml_invalid_argument("Put to a full bvar");
-  Op_val(bv)[0] = v;
+  caml_modify(&Op_val(bv)[0], v);
   Op_val(bv)[1] = Val_long(0);
 
   return Val_unit;

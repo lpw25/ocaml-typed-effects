@@ -86,14 +86,8 @@ CAMLexport void caml_do_local_roots (scanning_action f,
   int i, j;
   value * sp;
 
+  caml_scan_stack (f, caml_current_stack);
   f (caml_current_stack, &caml_current_stack);
-
-  /* Scan stack explicitly to avoid missing out on live registers during
-   * `caml_darken_all_roots`. But skip for compaction. */
-  if (Is_block(caml_current_stack) && 
-      Tag_val(caml_current_stack) == Stack_tag) {
-    caml_scan_stack (f, caml_current_stack);
-  }
 
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){

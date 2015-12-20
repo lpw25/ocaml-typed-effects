@@ -138,6 +138,12 @@ bits  63    10 9     8 7   0
 #define Bhsize_hp(hp) (Bsize_wsize (Whsize_hp (hp)))
 #define Bhsize_hd(hd) (Bsize_wsize (Whsize_hd (hd)))
 
+#define Make_ehd(s,t,c) (((s) << 10) | (t) << 2 | (c))
+#define Whsize_ehd(h) Whsize_hd (h)
+#define Wosize_ehd(h) Wosize_hd (h)
+#define Tag_ehd(h) (((h) >> 2) & 0xFF)
+#define Ecolor(w) ((w) & 3)
+
 #ifdef ARCH_BIG_ENDIAN
 #define Tag_val(val) (((unsigned char *) (val)) [-1])
                                                  /* Also an l-value. */

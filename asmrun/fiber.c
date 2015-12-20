@@ -202,7 +202,7 @@ void caml_init_main_stack (value* gc_regs)
   CAMLreturn0;
 }
 
-void caml_scan_stack (scanning_action f, value stack)
+static void scan_stack (scanning_action f, value stack, int registers_only)
 {
   char * sp;
   uintnat retaddr;
@@ -221,11 +221,17 @@ void caml_scan_stack (scanning_action f, value stack)
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
 
 next_chunk:
-  Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
-  f(Stack_handle_value(stack), &Stack_handle_value(stack));
-  f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
-  f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
-  f(Stack_parent(stack), &Stack_parent(stack));
+  Assert(Is_block(stack) && (Tag_val(stack) == Stack_tag || 
+                             Tag_ehd(Hd_val(stack)) == Stack_tag));
+
+  if (!registers_only) {
+    f(Stack_handle_value(stack), &Stack_handle_value(stack));
+    f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
+    f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
+    f(Stack_parent(stack), &Stack_parent(stack));
+  }
+
+  if (Stack_sp(stack) == 0) return;
 
   sp = Stack_high(stack) - Stack_sp(stack);
   context = (struct caml_context*)sp;
@@ -249,6 +255,7 @@ next_chunk:
         if (ofs & 1) {
           root = regs + (ofs >> 1);
         } else {
+          if (registers_only) continue;
           root = (value *)(sp + ofs);
         }
         f (*root, root);
@@ -268,17 +275,21 @@ next_chunk:
       /* Continue with the next stack chunk. */
       f (stack, stackp);
       if (Is_block(stack) && stack == *stackp) {
-        /* If the previous chunk has not been scanned, scan it.  
-         * XXX KC: This is a properly awful predicate. Smells fishy. But this
-         * seems necessary for example with `caml_darken_all_roots` where not
-         * performing the scan explicitly risks not scanning the live
-         * registers. c.f: `caml_do_local_roots` */
         goto next_chunk;
       }
       return;
     }
   }
 }
+
+void caml_scan_stack (scanning_action f, value v) {
+  scan_stack (f,v,0);
+}
+
+void caml_scan_registers (scanning_action f, value v) {
+  scan_stack (f,v,1);
+}
+
 
 void caml_scan_dirty_stack (scanning_action f, value stack) {
   if (Stack_dirty(stack) == Val_long(1)) {

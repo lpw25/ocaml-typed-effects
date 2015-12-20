@@ -24,8 +24,10 @@
 
 /* One word at the base of the stack is used to store the stack pointer */
 #define Stack_ctx_words 6
+#ifndef NATIVE_CODE
 #define Stack_base(stk) (Op_val(stk) + Stack_ctx_words)
 #define Stack_high(stk) (Op_val(stk) + Wosize_val(stk))
+#endif
 #define Stack_sp(stk) (*(long*)(Op_val(stk) + 0))
 #define Stack_dirty(stk) (*(Op_val(stk) + 1))
 #define Stack_handle_value(stk) (*(Op_val(stk) + 2))
