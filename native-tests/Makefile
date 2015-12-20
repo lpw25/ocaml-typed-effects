@@ -37,7 +37,7 @@ test9.native: test9.ml test9.mli test9.c
 .PHONY: clean test expected
 
 clean:
-	rm -f *.cmi *.cmx *.s *~ *.o op *.native seen.out dump
+	rm -f *.cmi *.cmx *.s *~ *.o op *.native seen.out dump a.out
 
 test: all
 	rm -f seen.out
@@ -47,4 +47,3 @@ test: all
 expected.out: all
 	rm -f expected.out
 	for p in $(EXE); do bash -c `pwd`/$$p >>expected.out 2>&1; done
-

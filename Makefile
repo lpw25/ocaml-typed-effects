@@ -402,7 +402,7 @@ clean:: partialclean
 # Shared parts of the system
 
 compilerlibs/ocamlcommon.cma: $(COMMON)
-	$(CAMLC) -a -linkall -o $@ $(COMMON)
+	$(CAMLC) -a -linkall -o $@ $(COMMON) 
 partialclean::
 	rm -f compilerlibs/ocamlcommon.cma
 
@@ -453,7 +453,7 @@ partialclean::
 
 ocamlnat: ocamlopt otherlibs/dynlink/dynlink.cmxa $(NATTOPOBJS:.cmo=.cmx)
 	$(CAMLOPT) $(LINKFLAGS) otherlibs/dynlink/dynlink.cmxa -o ocamlnat \
-	           $(NATTOPOBJS:.cmo=.cmx) -linkall
+	           $(NATTOPOBJS:.cmo=.cmx) -linkall 
 
 toplevel/opttoploop.cmx: otherlibs/dynlink/dynlink.cmxa
 
@@ -856,6 +856,9 @@ clean::
 
 .mli.cmi:
 	$(CAMLC) $(COMPFLAGS) -c $<
+
+parsing/pprintast.cmx: parsing/pprintast.ml
+	OCAMLRUNPARAM='s=1M' $(CAMLOPT) $(COMPFLAGS) -c $< 
 
 .ml.cmx:
 	$(CAMLOPT) $(COMPFLAGS) -c $<
