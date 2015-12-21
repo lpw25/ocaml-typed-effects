@@ -966,11 +966,14 @@ let rec close fenv cenv = function
       (Uprim(Praise k, [ulam], Debuginfo.from_raise ev),
        Value_unknown)
   | Lprim(Pperform, args) ->
-      Udirect_apply ("caml_perform", args, Debuginfo.none)
+      let args = close_list fenv cenv args in
+      (Udirect_apply ("caml_perform", args, Debuginfo.none), Value_unknown)
   | Lprim(Presume, args) ->
-      Udirect_apply ("caml_resume", args, Debuginfo.none)
+      let args = close_list fenv cenv args in
+      (Udirect_apply ("caml_resume", args, Debuginfo.none), Value_unknown)
   | Lprim(Pdelegate, args) ->
-      Udirect_apply ("caml_delegate", args, Debuginfo.none)
+      let args = close_list fenv cenv args in
+      (Udirect_apply ("caml_delegate", args, Debuginfo.none), Value_unknown)
   | Lprim(p, args) ->
       simplif_prim !Clflags.float_const_prop
                    p (close_list_approx fenv cenv args) Debuginfo.none

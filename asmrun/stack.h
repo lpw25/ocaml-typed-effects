@@ -92,7 +92,7 @@ extern void caml_register_dyn_global(void *);
 
 extern void caml_save_stack_gc(int);
 extern void caml_restore_stack_gc(void);
-extern void caml_after_switch(value);
+extern void caml_switch_stack(value);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 

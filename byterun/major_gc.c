@@ -223,15 +223,19 @@ static void mark_slice (intnat work)
       marking_closure =
         (Tag_hd (hd) == Closure_tag || Tag_hd (hd) == Infix_tag);
 #endif
-      Assert (Is_gray_hd (hd));
-      Hd_val (v) = Blackhd_hd (hd);
+      Assert (Is_gray_hd (hd) || 
+              (Tag_hd (hd) == Stack_tag && 
+               Color_hd(hd) == Caml_black));
       size = Wosize_hd (hd);
-      if (Tag_hd (hd) < No_scan_tag) {
-        if (Tag_hd (hd) == Stack_tag) {
-          caml_scan_stack (mark_child, v);
-        } else {
-          for (i = 0; i < size; i++) {
-            mark_child (Field(v,i), &Field(v,i));
+      if (Color_hd(hd) != Caml_black) {
+        Hd_val (v) = Blackhd_hd (hd);
+        if (Tag_hd (hd) < No_scan_tag) {
+          if (Tag_hd (hd) == Stack_tag) {
+            caml_scan_stack (mark_child, v);
+          } else {
+            for (i = 0; i < size; i++) {
+              mark_child (Field(v,i), &Field(v,i));
+            }
           }
         }
       }

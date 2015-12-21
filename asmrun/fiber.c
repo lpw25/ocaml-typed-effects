@@ -43,15 +43,7 @@ static void save_stack_dirty (int mark_dirty)
     dirty_stack(caml_current_stack);
 }
 
-void caml_after_switch(value previous_stack) {
-  dirty_stack (previous_stack);
-  if (caml_gc_phase == Phase_mark && 
-      Color_val(caml_current_stack) != Caml_black) {
-    caml_scan_stack(caml_darken, caml_current_stack);
-    Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
-  }
-  //XXX KC: How does darken work with delegation?
-}
+
 
 
 static void load_stack(value newstack)
@@ -297,6 +289,20 @@ void caml_scan_registers (scanning_action f, value v) {
 void caml_scan_dirty_stack (scanning_action f, value stack) {
   if (Stack_dirty(stack) == Val_long(1)) {
     caml_scan_stack(f, stack);
+  }
+}
+
+void caml_switch_stack(value target) {
+  Assert (Is_block(target) && Tag_val(target) == Stack_tag);
+
+  dirty_stack (caml_current_stack);
+
+  caml_current_stack = target;
+
+  if (caml_gc_phase == Phase_mark && 
+      Color_val(caml_current_stack) != Caml_black) {
+    caml_scan_stack(caml_darken, caml_current_stack);
+    Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
   }
 }
 

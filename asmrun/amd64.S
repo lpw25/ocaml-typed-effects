@@ -230,43 +230,20 @@
         popq    REG; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8)
 
-/* Switch OCaml stacks. Target is in register TGT. Clobbers REG1, REG2.
- * Assert (TGT != REG1 && TGT != REG2). TODO non-pic. */
-#define SWITCH_OCAML_STACKS(OFFSET,TGT,REG1,REG2) \
-    /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
-        pushq   $0 ; CFI_ADJUST(8); \
-        movq    GREL(caml_gc_regs_slot)(%rip), REG1; \
-        movq    %rsp, (REG1); \
-        pushq   %r14; CFI_ADJUST(8); \
-    /* Save OCaml SP in the stack slot */ \
-        movq    GREL(caml_top_of_stack)(%rip), REG2; \
-        movq    (REG2), REG2; \
-        subq    %rsp, REG2; \
-        movq    GREL(caml_current_stack)(%rip), REG1; \
-        movq    (REG1), REG1; \
-        movq    REG2, (REG1); \
-    /* Load target stack top in REG1 */ \
-        movq    -8(TGT), REG1; \
-        shrq    $10, REG1; \
-        leaq    (TGT,REG1,8), REG1; \
-    /* Update caml_top_of_stack */ \
-        movq    GREL(caml_top_of_stack)(%rip), REG2; \
-        movq    REG1, (REG2); \
-    /* Switch to target stack */ \
-        subq    (TGT), REG1; \
-        movq    REG1, %rsp; \
-    /* Update current stack global variable */ \
-        movq    GREL(caml_current_stack)(%rip), REG1; \
-        movq    TGT, (REG1); \
-    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
-        leaq    176(TGT), REG1; \
-        movq    GREL(caml_stack_threshold)(%rip), REG2; \
-        movq    REG1, (REG2); \
-    /* Pop the caml_context from the bottom of stack updating %r14 */ \
-        popq    %r14; CFI_ADJUST(-8); \
-        popq    REG1; CFI_ADJUST(-8); \
-        popq    REG1; CFI_ADJUST(-8)
+/* Switch between OCaml stacks.
+ * arguments : target stack (%rdi)
+ * preserves : %rbx, %r12, %r13 */
+#define SWITCH_OCAML_STACKS \
+    /* Switch from OCaml to C */ \
+        SWITCH_OCAML_TO_C(0,%r10); \
+        ENTER_FUNCTION; \
+    /* Call switch stack */ \
+        PREPARE_FOR_C_CALL; \
+        call    GCALL(caml_switch_stack); \
+        CLEANUP_AFTER_C_CALL; \
+    /* Load ocaml stack and restore global variables */ \
+        LEAVE_FUNCTION; \
+        SWITCH_C_TO_OCAML(%r10)
 
 /* Save and restore all callee-save registers on stack.
    Keep the stack 16-aligned. */
@@ -796,17 +773,22 @@ CFI_ENDPROC
 FUNCTION(G(caml_fiber_exn_handler))
 CFI_STARTPROC
     /* In handler. %rax has exception */
-        LOAD_VAR(caml_current_stack, %rdi)
-        movq    $0, (%rdi)        /* zero SP */
-        movq    24(%rdi), %rbx    /* exception handler */
-        movq    40(%rdi), %rcx    /* parent stack. Never NULL here. */
+        mov     %rax, %rbx
+        LOAD_VAR(caml_current_stack, %rsi)
+        movq    $0, (%rsi)        /* zero SP */
+        movq    24(%rsi), %r12    /* exception handler */
+        movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
     /* Reset stack */
         lea     LBL(110)(%rip), %r11
         push    %r11
-        movq    $1, 16(%rdi)
-        movq    $1, 24(%rdi)
-        movq    $1, 32(%rdi)
-        SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
+        movq    $1, 16(%rsi)
+        movq    $1, 24(%rsi)
+        movq    $1, 32(%rsi)
+    /* Switch stacks */
+        SWITCH_OCAML_STACKS
+    /* Invoke exception handler */
+        movq    %rbx, %rax        /* First argument */
+        movq    %r12, %rbx        /* Second argument */
         movq    (%rbx), %rsi
         jmp     *%rsi
 CFI_ENDPROC
@@ -814,69 +796,91 @@ CFI_ENDPROC
 FUNCTION(G(caml_fiber_val_handler))
 CFI_STARTPROC
 LBL(110):
-    /* In handler. %rax has value. */
-        LOAD_VAR(caml_current_stack, %rdi)
-        movq    $0, (%rdi)        /* zero SP */
-        movq    16(%rdi), %rbx    /* value handler */
-        movq    40(%rdi), %rcx    /* Parent stack. Never NULL here. */
+    /* In handler. %rax has value */
+        mov     %rax, %rbx
+        LOAD_VAR(caml_current_stack, %rsi)
+        movq    $0, (%rsi)        /* zero SP */
+        movq    16(%rsi), %r12    /* value handler */
+        movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
     /* Reset stack */
         lea     LBL(110)(%rip), %r11
         push    %r11
-        movq    $1, 16(%rdi)
-        movq    $1, 24(%rdi)
-        movq    $1, 32(%rdi)
-        SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
+        movq    $1, 16(%rsi)
+        movq    $1, 24(%rsi)
+        movq    $1, 32(%rsi)
+    /* Switch stacks */
+        SWITCH_OCAML_STACKS
+    /* Invoke value handler */
+        movq    %rbx, %rax        /* First argument */
+        movq    %r12, %rbx        /* Second argument */
         movq    (%rbx), %rsi
         jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_perform))
 CFI_STARTPROC
-    /* In handler. %rax has effect (first argument). */
-        LOAD_VAR(caml_current_stack, %rbx)  /* (second argument) */
-        movq    32(%rbx), %rdi              /* effect handler (third argument) */
-        movq    40(%rbx), %rcx              /* Parent stack. Never NULL here. */
-        movq    $1, 40(%rbx)                /* Set parent stack of performer to NULL */
-        SWITCH_OCAML_STACKS(0,%rcx,%r11,%r9)
+    /* In handler. %rax has effect */
+        mov     %rax, %r12
+        LOAD_VAR(caml_current_stack, %rbx) /* Second argument */
+        movq    40(%rbx), %rdi    /* Parent stack. */
+        cmpq    $1, %rdi          /* Parent is NULL? */
+        je      LBL(111)
+        movq    32(%rbx), %r13    /* effect handler (third argument) */
+        movq    $1, 40(%rbx)      /* Set parent stack of performer to NULL */
+    /* Switch stacks */
+        SWITCH_OCAML_STACKS
+    /* Invoke effect handler */
+        movq    %r12, %rax        /* First argument */
+        movq    %r13, %rdi        /* Third argument */
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
+LBL(111):
+    /* No parent stack. Raise Unhandled. */
+        LEA_VAR(caml_exn_Unhandled, %rax)
+        jmp LBL(caml_raise_exn)
 CFI_ENDPROC
 
 FUNCTION(G(caml_delegate))
 CFI_STARTPROC
     /* %rax -> effect (first argument), %rbx -> performer */
-        LOAD_VAR(caml_current_stack, %rdi)
-        movq    40(%rdi), %rsi  /* Parent stack */
-        cmpq    $1, %rsi        /* Parent is Null? */
-        je      LBL(111)
-        movq    %rbx, 40(%rdi)  /* Set performer as parent */
-        movq    %rdi, %rbx      /* current stack (second argument) */
-        movq    32(%rdi), %rdi  /* effect handler (third argument) */
-        SWITCH_OCAML_STACKS(0,%rsi,%r11,%r9)
+        movq    %rax, %r12
+        LOAD_VAR(caml_current_stack, %rax)
+        movq    40(%rax), %rdi  /* Parent stack */
+        cmpq    $1, %rdi        /* Parent is Null? */
+        je      LBL(112)
+        movq    %rbx, 40(%rax)  /* Set performer as parent */
+        movq    32(%rax), %r13  /* Save effect handler (callee-saved) */
+        movq    %rax, %rbx      /* Save current stack (callee-saved & second argument) */
+    /* Switch stacks */
+        SWITCH_OCAML_STACKS
+    /* Invoke effect handler */
+        movq    %r12, %rax      /* First argument */
+        movq    %r13, %rdi      /* Third argument */
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
-LBL(111):
+LBL(112):
     /* No parent stack. Raise Unhandled. */
-        LOAD_VAR(caml_exn_Unhandled, %rax)
+        LEA_VAR(caml_exn_Unhandled, %rax)
         jmp LBL(caml_raise_exn)
 CFI_ENDPROC
 
 FUNCTION(G(caml_resume))
 CFI_STARTPROC
     /* %rax -> tail of stack list, %rbx -> fun, %rdi -> arg */
-        LEA_VAR(caml_current_stack, %rsi)
-        movq    (%rsi), %rcx
+        movq    %rdi, %r12      /* Save arg (callee-saved) */
+        LEA_VAR(caml_current_stack, %rdi)
+        movq    (%rdi), %rcx
     /* Rewind parent pointers to find the performer */
-LBL(112):
-        movq    %rax, %rsi
-        movq    40(%rsi), %rax
-        movq    %rcx, 40(%rsi)
+LBL(113):
+        movq    %rax, %rdi
+        movq    40(%rdi), %rax
+        movq    %rcx, 40(%rdi)
         cmpq    $1, %rax
-        movq    %rsi, %rcx
-        jne     LBL(112)
-    /* %rsi now has the desired head of stack list */
-        SWITCH_OCAML_STACKS(0,%rsi,%r11,%r9)
-        movq    %rdi, %rax    /* first argument */
+        movq    %rdi, %rcx
+        jne     LBL(113)
+    /* %rdi now has the desired head of stack list */
+        SWITCH_OCAML_STACKS
+        movq    %r12, %rax    /* first argument */
         movq    (%rbx), %rsi  /* closure in %rbx (second argument) */
         jmp     *%rsi
 CFI_ENDPROC
