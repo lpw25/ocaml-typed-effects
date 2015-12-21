@@ -665,7 +665,7 @@ void caml_print_heap (void)
   print_obj_done = NULL;
   print_obj_todo = NULL;
 
-  caml_do_roots (caml_print_obj);
+  caml_do_roots (caml_print_obj, 0);
   while (print_obj_todo != NULL) {
     le = print_obj_todo;
     print_obj_todo = print_obj_todo->next;
