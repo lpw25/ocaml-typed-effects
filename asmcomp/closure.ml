@@ -51,11 +51,6 @@ let getglobal id =
   Uprim(Pgetglobal (Ident.create_persistent (Compilenv.symbol_for_global id)),
         [], Debuginfo.none)
 
-let dirty_stack =
-  Uprim (Pccall {Primitive.prim_name = "caml_dirty_stack"; prim_arity = 0;
-                prim_alloc = false; prim_native_name = "";
-                prim_native_float = false}, [], Debuginfo.none)
-
 (* Check if a variable occurs in a [clambda] term. *)
 
 let occurs_var var u =
@@ -971,17 +966,11 @@ let rec close fenv cenv = function
       (Uprim(Praise k, [ulam], Debuginfo.from_raise ev),
        Value_unknown)
   | Lprim(Pperform, args) ->
-      let args = close_list fenv cenv args in
-      let c = Udirect_apply ("caml_perform", args, Debuginfo.none) in
-      (Usequence (dirty_stack, c), Value_unknown)
+      Udirect_apply ("caml_perform", args, Debuginfo.none)
   | Lprim(Presume, args) ->
-      let args = close_list fenv cenv args in
-      let c = Udirect_apply ("caml_resume", args, Debuginfo.none) in
-      (Usequence (dirty_stack, c), Value_unknown)
+      Udirect_apply ("caml_resume", args, Debuginfo.none)
   | Lprim(Pdelegate, args) ->
-      let args = close_list fenv cenv args in
-      let c = Udirect_apply ("caml_delegate", args, Debuginfo.none) in
-      (Usequence (dirty_stack, c), Value_unknown)
+      Udirect_apply ("caml_delegate", args, Debuginfo.none)
   | Lprim(p, args) ->
       simplif_prim !Clflags.float_const_prop
                    p (close_list_approx fenv cenv args) Debuginfo.none

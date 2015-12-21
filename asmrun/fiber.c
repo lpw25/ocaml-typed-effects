@@ -43,11 +43,14 @@ static void save_stack_dirty (int mark_dirty)
     dirty_stack(caml_current_stack);
 }
 
-void caml_dirty_stack (void) {
-  save_stack_dirty(1);
-  //FIXME KC: parent_stack update must be aware of colors.
-  //Assert (Color_val(caml_current_stack) == Caml_white ||
-  //        Color_val(Stack_parent(caml_current_stack)) != Caml_white);
+void caml_after_switch(value previous_stack) {
+  dirty_stack (previous_stack);
+  if (caml_gc_phase == Phase_mark && 
+      Color_val(caml_current_stack) != Caml_black) {
+    caml_scan_stack(caml_darken, caml_current_stack);
+    Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
+  }
+  //XXX KC: How does darken work with delegation?
 }
 
 
