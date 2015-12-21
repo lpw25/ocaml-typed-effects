@@ -43,10 +43,10 @@ static void dirty_stack (value stack);
 static value save_stack_dirty (int mark_dirty)
 {
   value old_stack = caml_current_stack;
-  Stack_sp(old_stack) = caml_extern_sp - caml_stack_high;
+  Stack_sp(old_stack) = caml_stack_high - caml_extern_sp;
   Assert(caml_stack_threshold == Stack_base(old_stack) + Stack_threshold / sizeof(value));
   Assert(caml_stack_high == Stack_high(old_stack));
-  Assert(caml_extern_sp == caml_stack_high + Stack_sp(old_stack));
+  Assert(caml_extern_sp == caml_stack_high - Stack_sp(old_stack));
   if (mark_dirty)
     dirty_stack(old_stack);
   return old_stack;
@@ -63,7 +63,7 @@ static void load_stack(value newstack)
   Assert(Tag_val(newstack) == Stack_tag);
   caml_stack_threshold = Stack_base(newstack) + Stack_threshold / sizeof(value);
   caml_stack_high = Stack_high(newstack);
-  caml_extern_sp = caml_stack_high + Stack_sp(newstack);
+  caml_extern_sp = caml_stack_high - Stack_sp(newstack);
   caml_current_stack = newstack;
 }
 
@@ -83,7 +83,7 @@ CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
   sp -= 1;
   sp[0] = Val_long(1); /* trapsp ?? */
 
-  Stack_sp(stack) = sp - high;
+  Stack_sp(stack) = high - sp;
   Stack_dirty(stack) = Val_long(0);
   Stack_handle_value(stack) = hval;
   Stack_handle_exception(stack) = hexn;
@@ -160,7 +160,7 @@ void caml_realloc_stack(asize_t required_space, value* saved_vals, int nsaved)
 
   old_stack = save_stack();
 
-  stack_used = -Stack_sp(old_stack);
+  stack_used = Stack_sp(old_stack);
   size = Stack_high(old_stack) - Stack_base(old_stack);
   do {
     if (size >= caml_max_stack_size) caml_raise_stack_overflow();
@@ -267,7 +267,7 @@ void caml_scan_stack(scanning_action f, value stack)
   f(Stack_parent(stack), &Stack_parent(stack));
 
   high = Stack_high(stack);
-  low = high + Stack_sp(stack);
+  low = high - Stack_sp(stack);
   for (sp = low; sp < high; sp++) {
     f(*sp, sp);
   }

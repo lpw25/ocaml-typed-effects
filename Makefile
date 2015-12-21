@@ -857,9 +857,6 @@ clean::
 .mli.cmi:
 	$(CAMLC) $(COMPFLAGS) -c $<
 
-parsing/pprintast.cmx: parsing/pprintast.ml
-	OCAMLRUNPARAM='s=1M' $(CAMLOPT) $(COMPFLAGS) -c $<
-
 .ml.cmx:
 	$(CAMLOPT) $(COMPFLAGS) -c $<
 

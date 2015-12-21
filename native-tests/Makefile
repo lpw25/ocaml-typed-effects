@@ -1,6 +1,6 @@
 EXE=test1.native test2.native test3.native test4.native test5.native \
 		test6.native test7.native test8.native test9.native test10.native \
-		test11.native test12.native test13.native test14.native
+		test11.native test12.native test13.native test14.native test15.native
 DEBUG=false
 FLAGS=
 OCAMLOPT=ocamlopt.opt 
@@ -41,7 +41,7 @@ clean:
 
 test: all
 	rm -f seen.out
-	for p in $(EXE); do echo "Running $$p" && bash -c `pwd`/$$p >>seen.out 2>&1; done
+	for p in $(EXE); do echo "Running $$p" && bash -c `pwd`/$$p >>seen.out 2>&1; done || true
 	diff expected.out seen.out && echo "SUCCESS!"
 
 expected.out: all

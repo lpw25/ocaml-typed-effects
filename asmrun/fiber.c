@@ -43,18 +43,6 @@ static void save_stack_dirty (int mark_dirty)
     dirty_stack(caml_current_stack);
 }
 
-
-
-
-static void load_stack(value newstack)
-{
-  Assert(sizeof(newstack) == sizeof(caml_current_stack));
-  Assert(Tag_val(newstack) == Stack_tag);
-  caml_top_of_stack = Stack_high(newstack);
-  caml_stack_threshold = Stack_base(newstack) + Stack_threshold;
-  caml_current_stack = newstack;
-}
-
 static int stack_is_saved = 0;
 void caml_save_stack_gc(int mark_dirty)
 {
@@ -66,7 +54,7 @@ void caml_save_stack_gc(int mark_dirty)
 void caml_restore_stack_gc()
 {
   Assert(stack_is_saved);
-  load_stack(caml_current_stack);
+  Assert(Tag_val(caml_current_stack) == Stack_tag);
   stack_is_saved = 0;
 }
 
@@ -134,7 +122,7 @@ void caml_realloc_stack () {
 
   caml_gc_log ("Growing old_stack=0x%lx to %lu words\n", 
                 old_stack, Stack_ctx_words + size/sizeof(value));
-   new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
+  new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
   caml_gc_log ("New_stack=0x%lx\n", new_stack);
 
   memcpy(Stack_high(new_stack) - stack_used,
@@ -293,6 +281,7 @@ void caml_scan_dirty_stack (scanning_action f, value stack) {
 }
 
 void caml_switch_stack(value target) {
+  CAMLparam1(target);
   Assert (Is_block(target) && Tag_val(target) == Stack_tag);
 
   dirty_stack (caml_current_stack);
@@ -304,6 +293,7 @@ void caml_switch_stack(value target) {
     caml_scan_stack(caml_darken, caml_current_stack);
     Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
   }
+  CAMLreturn0;
 }
 
 uintnat (*caml_stack_usage_hook)(void) = NULL;
