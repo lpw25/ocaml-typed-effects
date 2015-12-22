@@ -185,7 +185,7 @@ void caml_init_main_stack (value* gc_regs)
   CAMLreturn0;
 }
 
-static void scan_stack (scanning_action f, value stack, int registers_only)
+value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
 {
   char * sp;
   uintnat retaddr;
@@ -204,19 +204,15 @@ static void scan_stack (scanning_action f, value stack, int registers_only)
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
 
 next_chunk:
-  Assert(Is_block(stack) && (Tag_val(stack) == Stack_tag || 
-                             Tag_ehd(Hd_val(stack)) == Stack_tag));
 
-  if (!registers_only) {
-    f(Stack_handle_value(stack), &Stack_handle_value(stack));
-    f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
-    f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
-    f(Stack_parent(stack), &Stack_parent(stack));
-  }
+  f(Stack_handle_value(stack), &Stack_handle_value(stack));
+  f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
+  f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
+  f(Stack_parent(stack), &Stack_parent(stack));
 
-  if (Stack_sp(stack) == 0) return;
+  if (Stack_sp(stack) == 0) return NULL;
 
-  sp = Stack_high(stack) - Stack_sp(stack);
+  sp = ((char*)stack_high) - Stack_sp(stack);
   context = (struct caml_context*)sp;
   regs = context->gc_regs;
   sp += sizeof(struct caml_context) + context->callback_offset;
@@ -238,7 +234,6 @@ next_chunk:
         if (ofs & 1) {
           root = regs + (ofs >> 1);
         } else {
-          if (registers_only) continue;
           root = (value *)(sp + ofs);
         }
         f (*root, root);
@@ -253,26 +248,26 @@ next_chunk:
       /* XXX KC: disabled already scanned optimization. */
     } else {
       /* This marks the top of an ML stack chunk. */
-      value* stackp = Callback_link(sp);
-      stack = *stackp;
-      /* Continue with the next stack chunk. */
-      f (stack, stackp);
-      if (Is_block(stack) && stack == *stackp) {
-        goto next_chunk;
-      }
-      return;
+      return Callback_link(sp);
     }
   }
 }
 
-void caml_scan_stack (scanning_action f, value v) {
-  scan_stack (f,v,0);
-}
+void caml_scan_stack (scanning_action f, value stack) {
+  value* stackp;
 
-void caml_scan_registers (scanning_action f, value v) {
-  scan_stack (f,v,1);
-}
+  Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
 
+  do {
+    value* stack_high = (value*)Stack_high(stack);
+    stackp = caml_scan_stack_high (f,stack,stack_high);
+    if (stackp == NULL) return;
+
+    /* Continue with the next stack chunk. */
+    stack = *stackp;
+    f (stack, stackp);
+  } while (Is_block(stack) && stack == *stackp);
+}
 
 void caml_scan_dirty_stack (scanning_action f, value stack) {
   if (Stack_dirty(stack) == Val_long(1)) {

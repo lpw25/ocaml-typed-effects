@@ -603,8 +603,8 @@ CAMLexport void * caml_stat_resize (void * blk, asize_t sz)
 }
 
 
-#define BVAR_EMPTY      0x10000
-#define BVAR_OWNER_MASK 0x0ffff
+#define BVAR_EMPTY  Val_long(1)
+#define BVAR_FULL   Val_long(2)    
 
 CAMLprim value caml_bvar_create(value v)
 {
@@ -612,43 +612,40 @@ CAMLprim value caml_bvar_create(value v)
 
   value bv = caml_alloc_small(2, 0);
   Field(bv, 0) = v;
-  Field(bv, 1) = Val_long(0);
+  Field(bv, 1) = BVAR_FULL;
 
   CAMLreturn (bv);
 }
 
-/* Get a bvar's status, transferring it if necessary */
-static intnat bvar_status(value bv)
-{
-    intnat stat = Long_val(Op_val(bv)[1]);
-    return stat;
-}
-
 CAMLprim value caml_bvar_take(value bv)
 {
-  intnat stat = bvar_status(bv);
-  if (stat & BVAR_EMPTY) caml_raise_not_found();
+  CAMLparam1(bv);
+  CAMLlocal1(v);
 
-  value v = Op_val(bv)[0];
-  caml_modify(&Op_val(bv)[0], Val_unit);
-  Op_val(bv)[1] = Val_long(BVAR_EMPTY);
+  if (Field(bv,1) == BVAR_EMPTY) 
+    caml_raise_not_found ();
 
-  return v;
+  v = Field(bv, 0);
+  caml_modify(&Field(bv,0), Val_unit);
+  Field(bv,1) = BVAR_EMPTY;
+
+  CAMLreturn (v);
 }
 
 CAMLprim value caml_bvar_put(value bv, value v)
 {
-  intnat stat = bvar_status(bv);
-  if (!(stat & BVAR_EMPTY)) caml_invalid_argument("Put to a full bvar");
+  if (Op_val(bv)[1] == BVAR_FULL)
+    caml_invalid_argument("Put to a full bvar");
+
   caml_modify(&Op_val(bv)[0], v);
-  Op_val(bv)[1] = Val_long(0);
+  Op_val(bv)[1] = BVAR_FULL;
 
   return Val_unit;
 }
 
 CAMLprim value caml_bvar_is_empty(value bv)
 {
-  return Val_int((Long_val(Op_val(bv)[1]) & BVAR_EMPTY) != 0);
+  return Val_int(Op_val(bv)[1] == BVAR_EMPTY);
 }
 
 #ifdef DEBUG

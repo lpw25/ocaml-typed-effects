@@ -241,11 +241,7 @@ void caml_do_local_roots(scanning_action f,
   int i,j;
   value *root;
 
-  if (is_compaction) {
-    caml_scan_registers (f, caml_current_stack);
-  } else {
-    caml_scan_stack (f, caml_current_stack);
-  }
+  if (!is_compaction) caml_scan_stack (f, caml_current_stack);
   f (caml_current_stack, &caml_current_stack);
 
   /* Local C roots */

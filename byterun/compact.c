@@ -169,13 +169,6 @@ static void do_compaction (void)
           Hd_hp (p) = Make_ehd (sz, String_tag, 3);
         }else{                                      Assert (Is_white_hd (hd));
           /* Live object.  Keep its tag. */
-          if (Tag_hd(hd) == Stack_tag) {
-            /* Reset free stack space */
-            value stack = Val_hp(p);
-            value* iter = (value*)Stack_base(stack);
-            value* sp = (value*)(Stack_high(stack) - Stack_sp(stack));
-            while(iter < sp) *iter++ = Val_unit;
-          }
           Hd_hp (p) = Make_ehd (sz, Tag_hd (hd), 3);
         }
         p += Whsize_wosize (sz);
@@ -183,7 +176,6 @@ static void do_compaction (void)
       ch = Chunk_next (ch);
     }
   }
-
 
   /* Second pass: invert pointers.
      Link infix headers in each block in an inverted list of inverted lists.
@@ -220,7 +212,12 @@ static void do_compaction (void)
         }
 
         if (t < No_scan_tag){
-          for (i = 1; i < sz; i++) invert_pointer_at (&(p[i]));
+          if (t == Stack_tag) {
+            value stack = (value)(&(p[1]));
+            caml_scan_stack_high(invert_root, stack, (value*)p+sz);
+          } else {
+            for (i = 1; i < sz; i++) invert_pointer_at (&(p[i]));
+          }
         }
         p += sz;
       }

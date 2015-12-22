@@ -499,7 +499,6 @@ intnat caml_major_collection_slice (intnat howmuch)
 
   if (caml_gc_phase == Phase_idle) caml_compact_heap_maybe ();
 
-
   caml_stat_major_words += caml_allocated_words;
   caml_allocated_words = 0;
   caml_dependent_allocated = 0;

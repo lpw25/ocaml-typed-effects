@@ -84,7 +84,7 @@ static void check_field (value v, value *p) {
   }
 }
 
-static void check_block (header_t *hp)
+void check_block (header_t *hp)
 {
   mlsize_t i;
   value v = Val_hp (hp);

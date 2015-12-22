@@ -255,22 +255,27 @@ void caml_clean_stack(value stack)
   Stack_dirty(stack) = Val_long(0);
 }
 
-void caml_scan_stack(scanning_action f, value stack)
+value* caml_scan_stack_high (scanning_action f, value stack, 
+                             value* stack_high)
 {
-  value *low, *high, *sp;
-  Assert(Is_block(stack) && (Tag_val(stack) == Stack_tag ||
-                             Tag_ehd(Hd_val(stack)) == Stack_tag));
+  value *low, *sp;
 
   f(Stack_handle_value(stack), &Stack_handle_value(stack));
   f(Stack_handle_exception(stack), &Stack_handle_exception(stack));
   f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
   f(Stack_parent(stack), &Stack_parent(stack));
 
-  high = Stack_high(stack);
-  low = high - Stack_sp(stack);
-  for (sp = low; sp < high; sp++) {
+  low = stack_high - Stack_sp(stack);
+  for (sp = low; sp < stack_high; sp++) {
     f(*sp, sp);
   }
+  return NULL;
+}
+
+void caml_scan_stack (scanning_action f, value stack)
+{
+  Assert (Is_block(stack) && Tag_val(stack) == Stack_tag);
+  caml_scan_stack_high (f, stack, Stack_high(stack));
 }
 
 void caml_scan_dirty_stack(scanning_action f, value stack)
