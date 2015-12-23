@@ -748,8 +748,8 @@ and transl_exp0 e =
             let exn = List.hd argl and cont = List.nth argl 1 in
             let m = Ident.create "match" in
             let zero = Lconst(Const_base(Const_int 0)) in
-            let if_so = Lsequence (Lprim (Psetfield (0, true), [cont; zero]), 
-                                Lvar m) 
+            let if_so =
+              Lsequence (Lprim (Psetfield (0, true), [cont; zero]), Lvar m)
             in
             let if_not = Lprim(Praise Raise_regular, [exn]) in
             Llet (Strict, m, Lprim(Pfield 0, [cont]),
