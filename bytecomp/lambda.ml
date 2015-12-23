@@ -52,6 +52,7 @@ type primitive =
   | Pperform
   | Presume
   | Pdelegate
+  | Ptakecont
   (* External call *)
   | Pccall of Primitive.description
   (* Exceptions *)
