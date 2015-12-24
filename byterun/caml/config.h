@@ -125,7 +125,7 @@ typedef uint64_t uintnat;
 #define Page_size (1 << Page_log)
 
 /* Initial size of stack (bytes). */
-#define Stack_size (4096 * sizeof(value))
+#define Stack_size (1024 * sizeof(value))
 
 /* Minimum free size of stack (bytes); below that, it is reallocated. Must be
  * consistent with amd64.S:SWITCH_C_TO_OCAML and SWITCH_OCAML_STACKS. */

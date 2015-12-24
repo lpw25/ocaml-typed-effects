@@ -16,6 +16,7 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "stack.h"
+#include "caml/startup_aux.h"
 
 /* The following variables are cached copies of corresponding values at the
  * bottom of the stack object. */
@@ -58,8 +59,6 @@ void caml_restore_stack_gc()
   stack_is_saved = 0;
 }
 
-#define Fiber_stack_wosize (((Stack_threshold) * 2) / sizeof(value))
-
 extern void caml_fiber_exn_handler (value) Noreturn;
 extern void caml_fiber_val_handler (value) Noreturn;
 
@@ -69,7 +68,7 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   char* sp;
   struct caml_context *ctxt;
 
-  stack = caml_alloc(Fiber_stack_wosize, Stack_tag);
+  stack = caml_alloc(caml_init_fiber_wsz, Stack_tag);
   Stack_dirty(stack) = Val_long(0);
   Stack_handle_value(stack) = hval;
   Stack_handle_exception(stack) = hexn;
@@ -103,7 +102,7 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
 
   caml_gc_log ("Allocate stack=0x%lx of %lu words\n", 
-               stack, Fiber_stack_wosize);
+               stack, caml_init_fiber_wsz);
 
   CAMLreturn (stack);
 }
@@ -202,8 +201,6 @@ value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
   struct caml_context* context;
 
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
-
-next_chunk:
 
   f(Stack_handle_value(stack), &Stack_handle_value(stack));
   f(Stack_handle_exception(stack), &Stack_handle_exception(stack));

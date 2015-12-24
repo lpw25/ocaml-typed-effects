@@ -850,16 +850,19 @@ let fundecl fundecl =
     cfi_adjust_cfa_offset n;
   end;
 
-	(* XXX KC: fundecl.fun_body.live does not capture liveness at the start of
-	the function properly. *)
-	let live_initially =
-		Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
-			fundecl.fun_args empty)
-	in
+  (* XXX KC: fundecl.fun_body.live does not capture liveness at the start of
+  the function properly. *)
+  let live_initially =
+    Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
+      fundecl.fun_args empty)
+  in
   tailrec_entry_point := record_frame_label live_initially Debuginfo.none;
   load_symbol_addr "caml_stack_threshold" r11;
   I.mov (mem64 QWORD 0 R11) r11;
-  let s = max_stack_size fundecl.fun_body in
+  let s = !Clflags.stack_slop + max_stack_size fundecl.fun_body in
+  (* Extra 1k bytes slop space if profiling is enabled. Ensures that `mcount`
+   * and signal handlers do not stack overflow. *)
+  let s = if !Clflags.gprofile then s + 1024 else s in
   I.add (int s) r11;
   I.cmp rsp r11;
   I.jb (label !tailrec_entry_point);

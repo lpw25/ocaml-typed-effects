@@ -22,6 +22,7 @@
 #include "caml/instruct.h"
 #include "caml/alloc.h"
 #include "caml/fix_code.h"
+#include "caml/startup_aux.h"
 
 CAMLexport value caml_current_stack;
 CAMLexport value * caml_stack_high; /* one-past-the-end */
@@ -67,8 +68,6 @@ static void load_stack(value newstack)
   caml_current_stack = newstack;
 }
 
-#define Fiber_stack_wosize ((Stack_threshold / sizeof(value)) *2)
-
 CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
 {
   CAMLparam3(hval, hexn, heff);
@@ -76,7 +75,7 @@ CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
   value* sp;
   value* high;
 
-  stack = caml_alloc(Fiber_stack_wosize, Stack_tag);
+  stack = caml_alloc(caml_init_fiber_wsz, Stack_tag);
   high = sp = Stack_high(stack);
 
   // ?
