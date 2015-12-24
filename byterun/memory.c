@@ -602,52 +602,6 @@ CAMLexport void * caml_stat_resize (void * blk, asize_t sz)
   return result;
 }
 
-
-#define BVAR_EMPTY  Val_long(1)
-#define BVAR_FULL   Val_long(2)    
-
-CAMLprim value caml_bvar_create(value v)
-{
-  CAMLparam1(v);
-
-  value bv = caml_alloc_small(2, 0);
-  Field(bv, 0) = v;
-  Field(bv, 1) = BVAR_FULL;
-
-  CAMLreturn (bv);
-}
-
-CAMLprim value caml_bvar_take(value bv)
-{
-  CAMLparam1(bv);
-  CAMLlocal1(v);
-
-  if (Field(bv,1) == BVAR_EMPTY) 
-    caml_raise_not_found ();
-
-  v = Field(bv, 0);
-  caml_modify(&Field(bv,0), Val_unit);
-  Field(bv,1) = BVAR_EMPTY;
-
-  CAMLreturn (v);
-}
-
-CAMLprim value caml_bvar_put(value bv, value v)
-{
-  if (Op_val(bv)[1] == BVAR_FULL)
-    caml_invalid_argument("Put to a full bvar");
-
-  caml_modify(&Op_val(bv)[0], v);
-  Op_val(bv)[1] = BVAR_FULL;
-
-  return Val_unit;
-}
-
-CAMLprim value caml_bvar_is_empty(value bv)
-{
-  return Val_int(Op_val(bv)[1] == BVAR_EMPTY);
-}
-
 #ifdef DEBUG
 color_t color_val (value v) {
   return (color_t)Color_val(v);
