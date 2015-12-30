@@ -274,7 +274,6 @@ void caml_scan_dirty_stack (scanning_action f, value stack) {
 
 void caml_switch_stack(value target) {
   CAMLparam1(target);
-  value parent;
 
   Assert (Is_block(target) && Tag_val(target) == Stack_tag);
 
@@ -284,12 +283,7 @@ void caml_switch_stack(value target) {
 
   if (caml_gc_phase == Phase_mark && 
       Color_val(caml_current_stack) != Caml_black) {
-    /* Save parent stack */
-    parent = Stack_parent (caml_current_stack);
-    Stack_parent(caml_current_stack) = Val_unit;
     caml_scan_stack(caml_darken, caml_current_stack);
-    /* Restore parent stack */
-    Stack_parent(caml_current_stack) = parent;
     Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
   }
   CAMLreturn0;
