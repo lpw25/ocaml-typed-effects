@@ -78,6 +78,8 @@ static value *weak_prev;
 static unsigned long major_gc_counter = 0;
 #endif
 
+void (*caml_major_gc_hook)(void) = NULL;
+
 static void realloc_gray_vals (void)
 {
   value *new;
@@ -109,13 +111,6 @@ void caml_darken (value v, value *p /* not used */)
 {
 #ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
   if (Is_block (v) && Wosize_val (v) > 0) {
-    /* We insist that naked pointers to outside the heap point to things that
-       look like values with headers coloured black.  This isn't always
-       strictly necessary but is essential in certain cases---in particular
-       when the value is allocated in a read-only section.  (For the values
-       where it would be safe it is a performance improvement since we avoid
-       putting them on the grey list.) */
-    CAMLassert (Is_in_heap (v) || Is_black_hd (Hd_val (v)));
 #else
   if (Is_block (v) && Is_in_heap (v)) {
 #endif
@@ -126,6 +121,15 @@ void caml_darken (value v, value *p /* not used */)
       h = Hd_val (v);
       t = Tag_hd (h);
     }
+#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
+    /* We insist that naked pointers to outside the heap point to things that
+       look like values with headers coloured black.  This isn't always
+       strictly necessary but is essential in certain cases---in particular
+       when the value is allocated in a read-only section.  (For the values
+       where it would be safe it is a performance improvement since we avoid
+       putting them on the grey list.) */
+    CAMLassert (Is_in_heap (v) || Is_black_hd (h));
+#endif
     CAMLassert (!Is_blue_hd (h));
     if (Is_white_hd (h)){
       if (t < No_scan_tag){
@@ -160,7 +164,7 @@ static void start_cycle (void)
 
 static value *gray_vals_ptr = NULL;  /* Local copy of gray_vals_cur */
 
-static void mark_child (value child, value* childp) 
+static void mark_child (value child, value* childp)
 {
   header_t hd;
 #ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
@@ -211,7 +215,8 @@ static void mark_slice (intnat work)
   int marking_closure = 0;
 #endif
 
-  Assert(gray_vals_ptr == NULL);
+  Assert (gray_vals_ptr == NULL);
+  if (caml_major_slice_begin_hook != NULL) (*caml_major_slice_begin_hook) ();
   caml_gc_message (0x40, "Marking %ld words\n", work);
   caml_gc_message (0x40, "Subphase = %ld\n", caml_gc_subphase);
   gray_vals_ptr = gray_vals_cur;
@@ -223,8 +228,8 @@ static void mark_slice (intnat work)
       marking_closure =
         (Tag_hd (hd) == Closure_tag || Tag_hd (hd) == Infix_tag);
 #endif
-      Assert (Is_gray_hd (hd) || 
-              (Tag_hd (hd) == Stack_tag && 
+      Assert (Is_gray_hd (hd) ||
+              (Tag_hd (hd) == Stack_tag &&
                Color_hd(hd) == Caml_black));
       size = Wosize_hd (hd);
       if (Color_hd(hd) != Caml_black) {
@@ -345,6 +350,7 @@ static void mark_slice (intnat work)
         limit = chunk + Chunk_size (chunk);
         work = 0;
         caml_fl_wsz_at_phase_change = caml_fl_cur_wsz;
+        if (caml_major_gc_hook) (*caml_major_gc_hook)();
       }
         break;
       default: Assert (0);
@@ -353,6 +359,7 @@ static void mark_slice (intnat work)
   }
   gray_vals_cur = gray_vals_ptr;
   gray_vals_ptr = NULL;
+  if (caml_major_slice_end_hook != NULL) (*caml_major_slice_end_hook) ();
 }
 
 static void sweep_slice (intnat work)
@@ -360,6 +367,7 @@ static void sweep_slice (intnat work)
   char *hp;
   header_t hd;
 
+  if (caml_major_slice_begin_hook != NULL) (*caml_major_slice_begin_hook) ();
   caml_gc_message (0x40, "Sweeping %ld words\n", work);
   while (work > 0){
     if (caml_gc_sweep_hp < limit){
@@ -398,6 +406,7 @@ static void sweep_slice (intnat work)
       }
     }
   }
+  if (caml_major_slice_end_hook != NULL) (*caml_major_slice_end_hook) ();
 }
 
 /* The main entry point for the GC.  Called after each minor GC.
@@ -630,7 +639,7 @@ void caml_print_obj (value v, value* p) {
       tag = Tag_hd (hd);
       sz = Wosize_hd (hd);
 
-      caml_gc_log ("OBJECT(%p,h=%lx,t=%u,c=%lx,s=%lu,y=%d)\n", 
+      caml_gc_log ("OBJECT(%p,h=%lx,t=%u,c=%lx,s=%lu,y=%d)\n",
                    (void*)v, hd, tag, Color_hd(hd), sz, Is_young(v));
 
       e = (caml_object_map*) malloc (sizeof(caml_object_map));

@@ -243,6 +243,7 @@ CAMLprim value caml_record_backtrace(value vflag)
     caml_backtrace_active = flag;
     caml_backtrace_pos = 0;
     if (flag) {
+      caml_backtrace_last_exn = Val_unit;
       caml_register_global_root(&caml_backtrace_last_exn);
     } else {
       caml_remove_global_root(&caml_backtrace_last_exn);
@@ -309,7 +310,7 @@ void caml_stash_backtrace(value exn, code_t pc, value * sp, int reraise)
 #define Codet_Val(v) ((code_t)(Long_val(v)<<1))
 
 /* returns the next frame pointer (or NULL if none is available);
-   updates *sp to point to the following one, and *trapsp to the next
+   updates *sp to point to the following one, and *trsp to the next
    trap frame, which we will skip when we reach it  */
 
 code_t caml_next_frame_pointer(value ** sp, intnat * trap_spoff)

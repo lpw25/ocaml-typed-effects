@@ -78,6 +78,15 @@ typedef struct {
   unsigned short live_ofs[1];
 } frame_descr;
 
+struct caml_loc_info {
+  int loc_valid;
+  int loc_is_raise;
+  char * loc_filename;
+  int loc_lnum;
+  int loc_startchr;
+  int loc_endchr;
+};
+
 /* Hash table of frame descriptors */
 
 extern frame_descr ** caml_frame_descriptors;
@@ -93,6 +102,8 @@ extern void caml_register_dyn_global(void *);
 extern void caml_save_stack_gc(int);
 extern void caml_restore_stack_gc(void);
 extern void caml_switch_stack(value);
+CAMLextern void extract_location_info(frame_descr * d,
+                                      /*out*/ struct caml_loc_info * li);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 
