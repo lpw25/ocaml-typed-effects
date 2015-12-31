@@ -846,6 +846,7 @@ package-macosx:
 
 clean::
 	rm -rf package-macosx/*.pkg package-macosx/*.dmg
+	make -Cnative-tests clean
 
 # Default rules
 

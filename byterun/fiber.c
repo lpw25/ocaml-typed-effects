@@ -96,6 +96,11 @@ value caml_switch_stack(value stk)
 {
   value s = save_stack();
   load_stack(stk);
+  if (caml_gc_phase == Phase_mark &&
+      Color_val(caml_current_stack) != Caml_black) {
+    caml_scan_stack(caml_darken, caml_current_stack);
+    Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));
+  }
   return s;
 }
 
@@ -254,7 +259,7 @@ void caml_clean_stack(value stack)
   Stack_dirty(stack) = Val_long(0);
 }
 
-value* caml_scan_stack_high (scanning_action f, value stack, 
+value* caml_scan_stack_high (scanning_action f, value stack,
                              value* stack_high)
 {
   value *low, *sp;

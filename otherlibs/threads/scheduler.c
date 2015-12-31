@@ -74,11 +74,14 @@ struct caml_thread_struct {
   value ident;                  /* Unique id (for equality comparisons) */
   struct caml_thread_struct * next;  /* Double linking of threads */
   struct caml_thread_struct * prev;
-  value * stack_low;            /* The execution stack for this thread */
+
+  value current_stack;
   value * stack_high;
   value * stack_threshold;
-  value * sp;
-  value * trapsp;
+  value * extern_sp;
+  intnat trap_sp_off;
+  intnat trap_barrier_off;
+
   value backtrace_pos;          /* The backtrace info for this thread */
   code_t * backtrace_buffer;
   value backtrace_last_exn;
@@ -128,9 +131,9 @@ static value next_ident = Val_int(0);
 
 /* Scan the stacks of the other threads */
 
-static void (*prev_scan_roots_hook) (scanning_action);
+static void (*prev_scan_roots_hook) (scanning_action, int);
 
-static void thread_scan_roots(scanning_action action)
+static void thread_scan_roots(scanning_action action, int is_compaction)
 {
   caml_thread_t th, start;
 
@@ -140,10 +143,10 @@ static void thread_scan_roots(scanning_action action)
   /* Don't scan curr_thread->sp, this has already been done.
      Don't scan local roots either, for the same reason. */
   for (th = start->next; th != start; th = th->next) {
-    do_local_roots(action, NULL);
+    do_local_roots(action, NULL, is_compaction);
   }
   /* Hook */
-  if (prev_scan_roots_hook != NULL) (*prev_scan_roots_hook)(action);
+  if (prev_scan_roots_hook != NULL) (*prev_scan_roots_hook)(action, is_compaction);
 }
 
 /* Forward declarations for async I/O handling */
@@ -161,16 +164,18 @@ value thread_initialize(value unit)       /* ML */
   curr_thread =
     (caml_thread_t) alloc_shr(sizeof(struct caml_thread_struct)
                               / sizeof(value), 0);
-#if 0
   curr_thread->ident = next_ident;
   next_ident = Val_int(Int_val(next_ident) + 1);
   curr_thread->next = curr_thread;
   curr_thread->prev = curr_thread;
-  curr_thread->stack_low = stack_low;
-  curr_thread->stack_high = stack_high;
-  curr_thread->stack_threshold = stack_threshold;
-  curr_thread->sp = extern_sp;
-  curr_thread->trapsp = trapsp;
+
+  curr_thread->current_stack = caml_current_stack;
+  curr_thread->stack_high = Stack_high(caml_current_stack);
+  curr_thread->stack_threshold = Stack_base(caml_current_stack) + Stack_threshold;
+  curr_thread->extern_sp = caml_extern_sp;
+  curr_thread->trap_sp_off = caml_trap_sp_off;
+  curr_thread->trap_barrier_off = caml_trap_barrier_off;
+
   curr_thread->backtrace_pos = Val_int(backtrace_pos);
   curr_thread->backtrace_buffer = backtrace_buffer;
   caml_initialize (&curr_thread->backtrace_last_exn, backtrace_last_exn);
@@ -183,7 +188,6 @@ value thread_initialize(value unit)       /* ML */
   curr_thread->joining = NO_JOINING;
   curr_thread->waitpid = NO_WAITPID;
   curr_thread->retval = Val_unit;
-#endif
   /* Initialize GC */
   prev_scan_roots_hook = scan_roots_hook;
   scan_roots_hook = thread_scan_roots;
@@ -220,6 +224,8 @@ value thread_initialize_preemption(value unit)     /* ML */
 value thread_new(value clos)          /* ML */
 {
   caml_thread_t th;
+  value stack;
+
   /* Allocate the thread and its stack */
   Begin_root(clos);
     th = (caml_thread_t) alloc_shr(sizeof(struct caml_thread_struct)
@@ -227,22 +233,25 @@ value thread_new(value clos)          /* ML */
   End_roots();
   th->ident = next_ident;
   next_ident = Val_int(Int_val(next_ident) + 1);
-  th->stack_low = (value *) caml_stat_alloc(Thread_stack_size);
-  th->stack_high = th->stack_low + Thread_stack_size / sizeof(value);
-  th->stack_threshold = th->stack_low + Stack_threshold / sizeof(value);
-  th->sp = th->stack_high;
-  th->trapsp = th->stack_high;
+
+  th->current_stack = stack;
+  th->stack_high = Stack_high(stack);
+  th->stack_threshold = Stack_base(stack) + Stack_threshold;
+  th->extern_sp = Stack_high(stack);
+  th->trap_sp_off = 1;
+  th->trap_barrier_off = 2;
+
   /* Set up a return frame that pretends we're applying the function to ().
      This way, the next RETURN instruction will run the function. */
-  th->sp -= 5;
-  th->sp[0] = Val_unit;         /* dummy local to be popped by RETURN 1 */
-  th->sp[1] = (value) Code_val(clos);
-  th->sp[2] = clos;
-  th->sp[3] = Val_long(0);      /* no extra args */
-  th->sp[4] = Val_unit;         /* the () argument */
+  th->extern_sp -= 5;
+  th->extern_sp[0] = Val_unit;         /* dummy local to be popped by RETURN 1 */
+  th->extern_sp[1] = (value) Code_val(clos);
+  th->extern_sp[2] = clos;
+  th->extern_sp[3] = Val_long(0);      /* no extra args */
+  th->extern_sp[4] = Val_unit;         /* the () argument */
   /* Fake a C call frame */
-  th->sp--;
-  th->sp[0] = Val_unit;         /* a dummy environment */
+  th->extern_sp--;
+  th->extern_sp[0] = Val_unit;         /* a dummy environment */
   /* Finish initialization of th */
   th->backtrace_pos = Val_int(0);
   th->backtrace_buffer = NULL;
@@ -304,16 +313,16 @@ static value schedule_thread(void)
   if (callback_depth > 1) return curr_thread->retval;
 
   /* Save the status of the current thread */
-#if 0
-  curr_thread->stack_low = stack_low;
-  curr_thread->stack_high = stack_high;
-  curr_thread->stack_threshold = stack_threshold;
-  curr_thread->sp = extern_sp;
-  curr_thread->trapsp = trapsp;
+  curr_thread->current_stack = caml_current_stack;
+  curr_thread->stack_high = Stack_high(caml_current_stack);
+  curr_thread->stack_threshold = Stack_base(caml_current_stack) + Stack_threshold;
+  curr_thread->extern_sp = caml_extern_sp;
+  curr_thread->trap_sp_off = caml_trap_sp_off;
+  curr_thread->trap_barrier_off = caml_trap_barrier_off;
+
   curr_thread->backtrace_pos = Val_int(backtrace_pos);
   curr_thread->backtrace_buffer = backtrace_buffer;
   caml_modify (&curr_thread->backtrace_last_exn, backtrace_last_exn);
-#endif
 
 try_again:
   /* Find if a thread is runnable.
@@ -498,17 +507,17 @@ try_again:
   run_thread->waitpid = NO_WAITPID;
 
   /* Activate the thread */
-#if 0
   curr_thread = run_thread;
-  stack_low = curr_thread->stack_low;
-  stack_high = curr_thread->stack_high;
-  stack_threshold = curr_thread->stack_threshold;
-  extern_sp = curr_thread->sp;
-  trapsp = curr_thread->trapsp;
+  caml_current_stack = curr_thread->current_stack;
+  caml_stack_high = curr_thread->stack_high;
+  caml_stack_threshold = curr_thread->stack_threshold;
+  caml_extern_sp = curr_thread->extern_sp;
+  caml_trap_sp_off = curr_thread->trap_sp_off;
+  caml_trap_barrier_off = curr_thread->trap_barrier_off;
+
   backtrace_pos = Int_val(curr_thread->backtrace_pos);
   backtrace_buffer = curr_thread->backtrace_buffer;
   backtrace_last_exn = curr_thread->backtrace_last_exn;
-#endif
   return curr_thread->retval;
 }
 
@@ -753,12 +762,12 @@ value thread_kill(value thread)       /* ML */
   Assign(th->prev->next, th->next);
   Assign(th->next->prev, th->prev);
   /* Free its resources */
-  stat_free((char *) th->stack_low);
-  th->stack_low = NULL;
   th->stack_high = NULL;
   th->stack_threshold = NULL;
-  th->sp = NULL;
-  th->trapsp = NULL;
+  th->extern_sp = NULL;
+  th->trap_sp_off = 1;
+  th->trap_barrier_off = 2;
+
   if (th->backtrace_buffer != NULL) {
     free(th->backtrace_buffer);
     th->backtrace_buffer = NULL;

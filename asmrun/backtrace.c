@@ -163,9 +163,11 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
   intnat max_frames = Long_val(max_frames_value);
   intnat trace_size;
 
+#if 0
   /* first compute the size of the trace */
   {
-    uintnat pc = caml_last_return_address;
+    /* XXX KC */
+    /* uintnat pc = caml_last_return_address; */
     /* note that [caml_bottom_of_stack] always points to the most recent
      * frame, independently of the [Stack_grows_upwards] setting */
 
@@ -189,9 +191,11 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
 #endif
     }
   }
+#endif
 
   trace = caml_alloc((mlsize_t) trace_size, 0);
 
+#if 0
   /* then collect the trace */
   {
     uintnat pc = caml_last_return_address;
@@ -207,6 +211,7 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
       Field(trace, trace_pos) = Val_Descrptr(descr);
     }
   }
+#endif
 
   CAMLreturn(trace);
 }

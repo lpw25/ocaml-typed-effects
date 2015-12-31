@@ -33,7 +33,7 @@ dllib=''
 x11_include_dir=''
 x11_lib_dir=''
 graph_wanted=yes
-pthread_wanted=no # FIXME KC
+pthread_wanted=yes
 dl_defs=''
 verbose=no
 with_curses=yes
@@ -1417,9 +1417,7 @@ echo "PTHREAD_CAML_LINK=$pthread_caml_link" >> Makefile
 
 # Determine if the bytecode thread library is supported
 
-# FIXME KC
-if false \
-&& test "$has_select" = "yes" \
+if test "$has_select" = "yes" \
 && test "$has_setitimer" = "yes" \
 && test "$has_gettimeofday" = "yes" \
 && test "$has_wait" = "yes"; then

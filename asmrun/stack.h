@@ -97,22 +97,26 @@ extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 
 /* Declaration of variables used in the asm code */
-extern char * caml_top_of_stack;
-extern char * caml_stack_threshold;
 
+/* Current OCaml stack */
 extern value  caml_current_stack;
+/* Current top of stack. [caml_top_of_stack == caml_system_sp] when running C
+ * code. */
+extern char * caml_top_of_stack;
+/* Current stack threshold. Used to check for stack overflow of OCaml code. */
+extern char * caml_stack_threshold;
+/* Saved system stack pointer */
 extern char * caml_system_sp;
+/* Saved top of system stack (approx.) */
 extern char * caml_system_top_of_stack;
-
-extern uintnat caml_last_return_address;
-
+/* Offset of exception pointer from the top of stack */
+extern uintnat caml_exception_ptr_offset;
 /* The address of the gc_regs slot in the caml_context at the bottom of the
  * OCaml stack. During allocation and GC, the gc_regs structure is built after
  * the context is built. We use this address to update the gc_regs slot in the
  * context after the regs table is built. */
 extern value ** caml_gc_regs_slot;
 
-extern uintnat caml_exception_ptr_offset;
 extern value caml_globals[];
 extern intnat caml_globals_inited;
 extern intnat * caml_frametable[];

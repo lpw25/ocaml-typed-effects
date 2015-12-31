@@ -25,7 +25,7 @@
 
 CAMLexport struct caml__roots_block *caml_local_roots = NULL;
 
-CAMLexport void (*caml_scan_roots_hook) (scanning_action f) = NULL;
+CAMLexport void (*caml_scan_roots_hook) (scanning_action f, int) = NULL;
 
 /* FIXME should rename to [caml_oldify_young_roots] and synchronise with
    asmrun/roots.c */
@@ -54,7 +54,7 @@ void caml_oldify_local_roots (void)
   /* Finalised values */
   caml_final_do_young_roots (&caml_oldify_one);
   /* Hook */
-  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one);
+  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one, 0);
 }
 
 
@@ -76,7 +76,7 @@ void caml_do_roots (scanning_action f, int is_compaction)
   /* Finalised values */
   caml_final_do_strong_roots (f);
   /* Hook */
-  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
+  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f, is_compaction);
 }
 
 CAMLexport void caml_do_local_roots (scanning_action f,

@@ -154,7 +154,10 @@ void caml_realloc_stack () {
 
 void caml_init_main_stack (value* gc_regs)
 {
-  CAMLparamN(gc_regs, 6);
+  CAMLparam0();
+  if (gc_regs) {
+    CAMLxparamN(gc_regs, 6);
+  }
   value stack;
   char* sp;
   struct caml_context *ctxt;
