@@ -833,6 +833,7 @@ let max_stack_size fun_body =
 let fundecl fundecl =
   function_name := fundecl.fun_name;
   fastcode_flag := fundecl.fun_fast;
+  tailrec_entry_point := new_label();
   stack_offset := 0;
   call_gc_sites := [];
   bound_error_sites := [];
@@ -871,21 +872,27 @@ let fundecl fundecl =
     Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
       fundecl.fun_args empty)
   in
-  tailrec_entry_point := record_frame_label live_initially Debuginfo.none;
-  load_symbol_addr "caml_stack_threshold" r11;
-  I.mov (mem64 QWORD 0 R11) r11;
+  let handle_overflow = new_label() in
+  let after_overflow = record_frame_label live_initially Debuginfo.none in
   let s = !Clflags.stack_slop + max_stack_size fundecl.fun_body in
   (* Extra 1k bytes slop space if profiling is enabled. Ensures that `mcount`
    * and signal handlers do not stack overflow. *)
   let s = if !Clflags.gprofile then s + 1024 else s in
+  load_symbol_addr "caml_stack_threshold" r11;
+  I.mov (mem64 QWORD 0 R11) r11;
   I.add (int s) r11;
-  I.cmp rsp r11;
-  I.jb (label !tailrec_entry_point);
-  emit_call "caml_call_realloc_stack";
-
+  I.cmp r11 rsp;
+  I.jb (label handle_overflow);
   def_label !tailrec_entry_point;
   emit_all true fundecl.fun_body;
+
   List.iter emit_call_gc !call_gc_sites;
+
+  def_label handle_overflow;
+  emit_call "caml_call_realloc_stack";
+  def_label after_overflow;
+  I.jmp (label !tailrec_entry_point);
+
   emit_call_bound_errors ();
   cfi_endproc ();
   begin match system with
