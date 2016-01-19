@@ -132,6 +132,61 @@
 #define LEA_VAR(label,dst) \
         movq    GREL(label)(%rip), dst
 
+/* Switch from OCaml to C stack. Clobbers REG. */
+#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+    /* Build caml_context at the bottom of the stack */ \
+        pushq   $OFFSET; CFI_ADJUST(8); \
+        pushq   $0 ; CFI_ADJUST(8); \
+        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
+        movq    %rsp, (REG); \
+        pushq   %r14; CFI_ADJUST(8); \
+    /* Save OCaml SP in the stack slot */ \
+        movq    GREL(caml_top_of_stack)(%rip), REG; \
+        movq    (REG), REG; \
+        subq    %rsp, REG; \
+        pushq   REG; CFI_ADJUST(8); \
+        movq    GREL(caml_current_stack)(%rip), REG; \
+        movq    (REG), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+    /* Make system top-of-stack current top-of-stack */ \
+        movq    GREL(caml_system_top_of_stack)(%rip), REG; \
+        pushq   (REG); CFI_ADJUST(8); \
+        movq    GREL(caml_top_of_stack)(%rip), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+    /* Switch to system stack */ \
+        movq    GREL(caml_system_sp)(%rip), REG; \
+        movq    (REG), %rsp
+
+/* Switch from C to OCaml stack. Clobbers REG.
+ * Assert (REG != %r11 && REG != %r9). */
+#define SWITCH_C_TO_OCAML(REG) \
+    /* Save %r9 and %r11 */ \
+        pushq   %r9; CFI_ADJUST(8); \
+        pushq   %r11; CFI_ADJUST(8); \
+    /* Save OCaml top of stack in REG */ \
+        movq    GREL(caml_current_stack)(%rip), %r11; \
+        movq    (%r11), %r11; \
+        movq    -8(%r11), REG; \
+        shrq    $10, REG; \
+        leaq    (%r11,REG,8), REG; \
+    /* Set caml_top_of_stack to be OCaml top-of-stack */ \
+        movq    GREL(caml_top_of_stack)(%rip), %r9; \
+        movq    REG, (%r9); \
+    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
+        subq    (%r11), REG; \
+        addq    $176, %r11; \
+        movq    GREL(caml_stack_threshold)(%rip), %r9; \
+        movq    %r11, (%r9); \
+    /* Restore %r9 and %r11 */ \
+        popq    %r11; CFI_ADJUST(-8); \
+        popq    %r9; CFI_ADJUST(-8); \
+    /* Switch to OCaml stack */ \
+        movq    REG, %rsp; \
+    /* Pop the caml_context from the bottom of stack updating %r14 */ \
+        popq    %r14; CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8)
+
 #else
 
 /* Non-PIC operations on global variables.  Slightly faster. */
@@ -160,6 +215,52 @@
 #define LEA_VAR(label,dst) \
         leaq    G(label)(%rip), dst
 
+/* Switch from OCaml to C stack. Clobbers REG. */
+#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+    /* Build caml_context at the bottom of the stack */ \
+        pushq   $OFFSET; CFI_ADJUST(8); \
+        pushq   $0 ; CFI_ADJUST(8); \
+        movq    %rsp, G(caml_gc_regs_slot)(%rip); \
+        pushq   %r14; CFI_ADJUST(8); \
+    /* Save OCaml SP in the stack slot */ \
+        movq    G(caml_top_of_stack)(%rip), REG; \
+        subq    %rsp, REG; \
+        pushq   REG; CFI_ADJUST(8); \
+        movq    G(caml_current_stack)(%rip), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+    /* Make system top-of-stack current top-of-stack */ \
+        movq    GREL(caml_system_top_of_stack)(%rip), REG; \
+        pushq   (REG); CFI_ADJUST(8); \
+        movq    GREL(caml_top_of_stack)(%rip), REG; \
+        popq    (REG); CFI_ADJUST(-8); \
+    /* Switch to system stack */ \
+        movq    G(caml_system_sp)(%rip), %rsp
+
+/* Switch from C to OCaml stack. Clobbers REG.
+ * Assert (REG != %r11). */
+#define SWITCH_C_TO_OCAML(REG) \
+    /* Save %r11 */ \
+        pushq   %r11; CFI_ADJUST(8); \
+    /* Save OCaml top of stack in REG */ \
+        movq    G(caml_current_stack)(%rip), %r11; \
+        movq    -8(%r11), REG; \
+        shrq    $10, REG; \
+        leaq    (%r11,REG,8), REG; \
+    /* Set caml_top_of_stack to be OCaml top-of-stack */ \
+        movq    REG, G(caml_top_of_stack)(%rip); \
+    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
+        subq    (%r11), REG; \
+        addq    $176, %r11; \
+        movq    %r11, G(caml_stack_threshold)(%rip); \
+    /* Restore %r11 */ \
+        popq    %r11; CFI_ADJUST(-8); \
+    /* Switch to OCaml stack */ \
+        movq    REG, %rsp; \
+    /* Pop the caml_context from the bottom of stack updating %r14 */ \
+        popq    %r14; CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8); \
+        popq    REG; CFI_ADJUST(-8)
+
 #endif
 
 /* Store [caml_top_of_stack - %rsp] into %r14. %r14 is an offset. Clobbers
@@ -174,61 +275,6 @@
         sub     %r14, %rsp; \
         popq    %r14
 
-
-/* Switch from OCaml to C stack. Clobbers REG. TODO non-pic. */
-#define SWITCH_OCAML_TO_C(OFFSET,REG) \
-    /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
-        pushq   $0 ; CFI_ADJUST(8); \
-        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
-        movq    %rsp, (REG); \
-        pushq   %r14; CFI_ADJUST(8); \
-    /* Save OCaml SP in the stack slot */ \
-        movq    GREL(caml_top_of_stack)(%rip), REG; \
-        movq    (REG), REG; \
-        subq    %rsp, REG; \
-        pushq   REG; CFI_ADJUST(8); \
-        movq    GREL(caml_current_stack)(%rip), REG; \
-        movq    (REG), REG; \
-        popq    (REG); CFI_ADJUST(-8); \
-    /* Make system top-of-stack current top-of-stack */ \
-        movq    GREL(caml_system_top_of_stack)(%rip), REG; \
-        pushq   (REG); CFI_ADJUST(8); \
-        movq    GREL(caml_top_of_stack)(%rip), REG; \
-        popq    (REG); CFI_ADJUST(-8); \
-    /* Switch to system stack */ \
-        movq    GREL(caml_system_sp)(%rip), REG; \
-        movq    (REG), %rsp
-
-/* Switch from C to OCaml stack. Clobbers REG.
- * Assert (REG != %r11 && REG != %r9). TODO non-pic. */
-#define SWITCH_C_TO_OCAML(REG) \
-    /* Save %r9 and %r11 */ \
-        pushq   %r9; CFI_ADJUST(8); \
-        pushq   %r11; CFI_ADJUST(8); \
-    /* Save OCaml top of stack in REG */ \
-        movq    GREL(caml_current_stack)(%rip), %r11; \
-        movq    (%r11), %r11; \
-        movq    -8(%r11), REG; \
-        shrq    $10, REG; \
-        leaq    (%r11,REG,8), REG; \
-    /* Set caml_top_of_stack to be OCaml top-of-stack */ \
-        movq    GREL(caml_top_of_stack)(%rip), %r9; \
-        movq    REG, (%r9); \
-    /* Update caml_stack_threshold. 176 = 8 * (Stack_threshold(16) + Stack_ctx_words(6)). */ \
-        subq    (%r11), REG; \
-        addq    $176, %r11; \
-        movq    GREL(caml_stack_threshold)(%rip), %r9; \
-        movq    %r11, (%r9); \
-    /* Restore %r9 and %r11 */ \
-        popq    %r11; CFI_ADJUST(-8); \
-        popq    %r9; CFI_ADJUST(-8); \
-    /* Switch to OCaml stack */ \
-        movq    REG, %rsp; \
-    /* Pop the caml_context from the bottom of stack updating %r14 */ \
-        popq    %r14; CFI_ADJUST(-8); \
-        popq    REG; CFI_ADJUST(-8); \
-        popq    REG; CFI_ADJUST(-8)
 
 /* Switch between OCaml stacks.
  * arguments : target stack (%rdi)
