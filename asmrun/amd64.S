@@ -577,27 +577,18 @@ CFI_STARTPROC
 LBL(caml_c_call):
     /* Arguments:
         C arguments         : %rdi, %rsi, %rdx, %rcx, %r8, and %r9
-        C function          : %rax
-        C stack args        : begin=%r13 end=%r12 */
+        C function          : %rax */
     /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C(0,%r10)
         ENTER_FUNCTION
     /* Build an exception handler */
-        lea     LBL(106)(%rip), %r10
+        lea     LBL(104)(%rip), %r10
         push    %r10; CFI_ADJUST(8)
         push    %r14; CFI_ADJUST(8)
         SAVE_EXN_HANDLER
     /* Make the exception handler and alloc ptr available to the C code */
         STORE_VAR(%r15, caml_young_ptr)
         STORE_VAR(%r14, caml_exception_ptr_offset)
-    /* Copy arguments from OCaml to C stack */
-LBL(104):
-        subq    $8, %r12; CFI_ADJUST(8)
-        cmpq    %r13,%r12
-        jl      LBL(105)
-        push    (%r12)
-        jmp     LBL(104)
-LBL(105):
     /* Call the function (address in %rax) */
         PREPARE_FOR_C_CALL
         call    *%rax
@@ -612,7 +603,57 @@ LBL(105):
         SWITCH_C_TO_OCAML(%r10)
     /* Return to OCaml caller */
         ret
+LBL(104):
+    /* Exception in C code */
+    /* Prepare for return to OCaml */
+        LOAD_VAR(caml_young_ptr, %r15)
+    /* Load ocaml stack and restore global variables */
+        LEAVE_FUNCTION
+        SWITCH_C_TO_OCAML(%r10)
+    /* Raise the exception in OCaml */
+        jmp LBL(caml_raise_exn)
+CFI_ENDPROC
+
+FUNCTION(G(caml_c_call_stack_args))
+CFI_STARTPROC
+    /* Arguments:
+        C arguments         : %rdi, %rsi, %rdx, %rcx, %r8, and %r9
+        C function          : %rax
+        C stack args        : begin=%r13 end=%r12 */
+    /* Switch from OCaml to C */
+        SWITCH_OCAML_TO_C(0,%r10)
+        ENTER_FUNCTION
+    /* Build an exception handler */
+        lea     LBL(107)(%rip), %r10
+        push    %r10; CFI_ADJUST(8)
+        push    %r14; CFI_ADJUST(8)
+        SAVE_EXN_HANDLER
+    /* Make the exception handler and alloc ptr available to the C code */
+        STORE_VAR(%r15, caml_young_ptr)
+        STORE_VAR(%r14, caml_exception_ptr_offset)
+    /* Copy arguments from OCaml to C stack */
+LBL(105):
+        subq    $8, %r12; CFI_ADJUST(8)
+        cmpq    %r13,%r12
+        jl      LBL(106)
+        push    (%r12)
+        jmp     LBL(105)
 LBL(106):
+    /* Call the function (address in %rax) */
+        PREPARE_FOR_C_CALL
+        call    *%rax
+        CLEANUP_AFTER_C_CALL
+    /* Pop the exception handler */
+        popq    %r14; CFI_ADJUST(-8)
+        popq    %r12; CFI_ADJUST(-8)   /* dummy register */
+    /* Prepare for return to OCaml */
+        LOAD_VAR(caml_young_ptr, %r15)
+    /* Load ocaml stack and restore global variables */
+        LEAVE_FUNCTION
+        SWITCH_C_TO_OCAML(%r10)
+    /* Return to OCaml caller */
+        ret
+LBL(107):
     /* Exception in C code */
     /* Prepare for return to OCaml */
         LOAD_VAR(caml_young_ptr, %r15)
@@ -693,18 +734,18 @@ LBL(caml_start_program):
     /* Setup alloc ptr */
         LOAD_VAR(caml_young_ptr, %r15)
     /* Build an exception handler */
-        lea     LBL(108)(%rip), %r13
+        lea     LBL(109)(%rip), %r13
         pushq   %r13; CFI_ADJUST(8)
         pushq   %r14; CFI_ADJUST(8)
         SAVE_EXN_HANDLER
     /* Call the OCaml code */
         call    *%r12
-LBL(107):
+LBL(108):
     /* Pop the exception handler */
         popq    %r14; CFI_ADJUST(-8)
         popq    %r12; CFI_ADJUST(-8)   /* dummy register */
         CFI_ADJUST(-16)
-LBL(109):
+LBL(110):
     /* Update alloc ptr */
         STORE_VAR(%r15,caml_young_ptr)
     /* Load previous caml_current_stack in %r9 */
@@ -720,11 +761,11 @@ LBL(109):
         POP_CALLEE_SAVE_REGS
     /* Return to caller. */
         ret
-LBL(108):
+LBL(109):
     /* Exception handler*/
     /* Mark the bucket as an exception result and return it */
         orq     $2, %rax
-        jmp     LBL(109)
+        jmp     LBL(110)
 CFI_ENDPROC
 
 
@@ -809,8 +850,6 @@ CFI_ENDPROC
 FUNCTION(G(caml_ml_array_bound_error))
 CFI_STARTPROC
         LEA_VAR(caml_array_bound_error, %rax)
-        movq    %rsp, %r13
-        movq    %rsp, %r12
         jmp     LBL(caml_c_call)
 CFI_ENDPROC
 
@@ -825,7 +864,7 @@ CFI_STARTPROC
         movq    24(%rsi), %r12    /* exception handler */
         movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
     /* Reset stack */
-        lea     LBL(110)(%rip), %r11
+        lea     LBL(111)(%rip), %r11
         push    %r11
         movq    $1, 16(%rsi)
         movq    $1, 24(%rsi)
@@ -841,7 +880,7 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_fiber_val_handler))
 CFI_STARTPROC
-LBL(110):
+LBL(111):
     /* In handler. %rax has value */
         mov     %rax, %rbx
         LOAD_VAR(caml_current_stack, %rsi)
@@ -849,7 +888,7 @@ LBL(110):
         movq    16(%rsi), %r12    /* value handler */
         movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
     /* Reset stack */
-        lea     LBL(110)(%rip), %r11
+        lea     LBL(111)(%rip), %r11
         push    %r11
         movq    $1, 16(%rsi)
         movq    $1, 24(%rsi)
@@ -870,7 +909,7 @@ CFI_STARTPROC
         LOAD_VAR(caml_current_stack, %rbx) /* Second argument */
         movq    40(%rbx), %rdi    /* Parent stack. */
         cmpq    $1, %rdi          /* Parent is NULL? */
-        je      LBL(111)
+        je      LBL(112)
         movq    32(%rbx), %r13    /* effect handler (third argument) */
         movq    $1, 40(%rbx)      /* Set parent stack of performer to NULL */
     /* Switch stacks */
@@ -880,7 +919,7 @@ CFI_STARTPROC
         movq    %r13, %rdi        /* Third argument */
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
-LBL(111):
+LBL(112):
     /* No parent stack. Raise Unhandled. */
         LEA_VAR(caml_exn_Unhandled, %rax)
         jmp LBL(caml_raise_exn)
@@ -893,7 +932,7 @@ CFI_STARTPROC
         LOAD_VAR(caml_current_stack, %rax)
         movq    40(%rax), %rdi  /* Parent stack */
         cmpq    $1, %rdi        /* Parent is Null? */
-        je      LBL(112)
+        je      LBL(113)
         movq    %rbx, 40(%rax)  /* Set performer as parent */
         movq    32(%rax), %r13  /* Save effect handler (callee-saved) */
         movq    %rax, %rbx      /* Save current stack (callee-saved & second argument) */
@@ -904,7 +943,7 @@ CFI_STARTPROC
         movq    %r13, %rdi      /* Third argument */
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
-LBL(112):
+LBL(113):
     /* No parent stack. Raise Unhandled. */
         LEA_VAR(caml_exn_Unhandled, %rax)
         jmp LBL(caml_raise_exn)
@@ -917,13 +956,13 @@ CFI_STARTPROC
         LEA_VAR(caml_current_stack, %rdi)
         movq    (%rdi), %rcx
     /* Rewind parent pointers to find the performer */
-LBL(113):
+LBL(114):
         movq    %rax, %rdi
         movq    40(%rdi), %rax
         movq    %rcx, 40(%rdi)
         cmpq    $1, %rax
         movq    %rdi, %rcx
-        jne     LBL(113)
+        jne     LBL(114)
     /* %rdi now has the desired head of stack list */
         SWITCH_OCAML_STACKS
         movq    %r12, %rax    /* first argument */
@@ -939,11 +978,11 @@ G(caml_system__code_end):
         .align  EIGHT_ALIGN
 G(caml_system__frametable):
         .quad   2           /* two descriptors */
-        .quad   LBL(107)    /* return address into callback */
+        .quad   LBL(108)    /* return address into callback */
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
         .align  EIGHT_ALIGN
-        .quad   LBL(110)
+        .quad   LBL(111)
         .value  -1
         .value  0
         .align  EIGHT_ALIGN

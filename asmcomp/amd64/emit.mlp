@@ -503,10 +503,27 @@ let emit_instr fallthrough i =
       end
   | Lop(Iextcall(s, alloc, stack_off)) ->
       add_used_symbol s;
-      if alloc || stack_off > 0 then
+      if stack_off > 0 then
         begin
           I.lea (mem64 QWORD 0 RSP) r13;
           I.lea (mem64 QWORD stack_off RSP) r12;
+          load_symbol_addr s rax;
+          emit_call "caml_c_call_stack_args";
+          record_frame i.live i.dbg;
+          if system <> S_win64 then begin
+            (* TODO: investigate why such a diff.
+                This comes from:
+                http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
+
+                If we do the same for Win64, we probably need to change
+                amd64nt.asm accordingly.
+            *)
+            load_symbol_addr "caml_young_ptr" r11;
+            I.mov (mem64 QWORD 0 R11) r15
+          end
+        end
+      else if alloc then
+        begin
           load_symbol_addr s rax;
           emit_call "caml_c_call";
           record_frame i.live i.dbg;
@@ -977,6 +994,7 @@ let begin_assembly() =
     D.extrn "caml_call_gc" NEAR;
     D.extrn "caml_call_realloc_stack" NEAR;
     D.extrn "caml_c_call" NEAR;
+    D.extrn "caml_c_call_stack_args" NEAR;
     D.extrn "caml_allocN" NEAR;
     D.extrn "caml_alloc1" NEAR;
     D.extrn "caml_alloc2" NEAR;
