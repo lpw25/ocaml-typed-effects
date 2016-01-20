@@ -181,7 +181,7 @@ type fpclass =
   | FP_zero
   | FP_infinite
   | FP_nan
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float -> fpclass = "caml_classify_float" "noalloc"
 
 (* String and byte sequence operations -- more in modules String and Bytes *)
 
