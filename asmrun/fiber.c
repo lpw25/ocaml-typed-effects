@@ -52,10 +52,17 @@ void caml_save_stack_gc(int mark_dirty)
   stack_is_saved = 1;
 }
 
+static void load_stack (value stack) {
+  caml_stack_threshold = Stack_base(stack) + Stack_threshold;
+  caml_top_of_stack = Stack_high(stack);
+  caml_current_stack = stack;
+}
+
 void caml_restore_stack_gc()
 {
   Assert(stack_is_saved);
   Assert(Tag_val(caml_current_stack) == Stack_tag);
+  load_stack(caml_current_stack);
   stack_is_saved = 0;
 }
 
@@ -101,7 +108,7 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
   Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
 
-  caml_gc_log ("Allocate stack=0x%lx of %lu words\n", 
+  caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
                stack, caml_init_fiber_wsz);
 
   CAMLreturn (stack);
@@ -119,7 +126,7 @@ void caml_realloc_stack () {
   size = Stack_high(old_stack) - Stack_base(old_stack);
   size *= 2;
 
-  caml_gc_log ("Growing old_stack=0x%lx to %lu words\n", 
+  caml_gc_log ("Growing old_stack=0x%lx to %lu words\n",
                 old_stack, Stack_ctx_words + size/sizeof(value));
   new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
   caml_gc_log ("New_stack=0x%lx\n", new_stack);
@@ -139,7 +146,7 @@ void caml_realloc_stack () {
     dirty_stack(new_stack);
   }
 
-  caml_current_stack = new_stack;
+  load_stack(new_stack);
 
   /* Reset old stack */
   Stack_sp(old_stack) = 0;
@@ -180,10 +187,10 @@ void caml_init_main_stack (value* gc_regs)
   ctxt->gc_regs = NULL;
   ctxt->callback_offset = 0;
   Stack_sp(stack) = sizeof(struct caml_context);
-  caml_gc_log ("Allocate stack=0x%lx of %lu words\n", 
+  caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
                stack, Stack_size/sizeof(value));
 
-  caml_current_stack = stack;
+  load_stack(stack);
   CAMLreturn0;
 }
 
@@ -282,9 +289,9 @@ void caml_switch_stack(value target) {
 
   dirty_stack (caml_current_stack);
 
-  caml_current_stack = target;
+  load_stack(target);
 
-  if (caml_gc_phase == Phase_mark && 
+  if (caml_gc_phase == Phase_mark &&
       Color_val(caml_current_stack) != Caml_black) {
     caml_scan_stack(caml_darken, caml_current_stack);
     Hd_val(caml_current_stack) = Blackhd_hd(Hd_val(caml_current_stack));

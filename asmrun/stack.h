@@ -111,8 +111,7 @@ extern uintnat (*caml_stack_usage_hook)(void);
 
 /* Current OCaml stack */
 extern value  caml_current_stack;
-/* Current top of stack. [caml_top_of_stack == caml_system_sp] when running C
- * code. */
+/* Current OCaml top of stack. */
 extern char * caml_top_of_stack;
 /* Current stack threshold. Used to check for stack overflow of OCaml code. */
 extern char * caml_stack_threshold;

@@ -63,7 +63,7 @@ void caml_raise(value v)
 #define PUSHED_AFTER >
 #endif
   while (caml_local_roots != NULL &&
-         (char *) caml_local_roots PUSHED_AFTER caml_top_of_stack - caml_exception_ptr_offset) {
+         (char *) caml_local_roots PUSHED_AFTER caml_system_top_of_stack - caml_exception_ptr_offset) {
     caml_local_roots = caml_local_roots->next;
   }
 #undef PUSHED_AFTER
