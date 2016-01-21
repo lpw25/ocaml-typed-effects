@@ -97,6 +97,8 @@ CAMLexport value caml_callback3_exn(value closure,
 
 #else
 
+#include "stack.h"
+
 static void init_callback_code(void)
 {
 }
@@ -116,16 +118,19 @@ CAMLexport value caml_callbackN_exn(value closure, int narg, value args[])
     switch (narg - i) {
     case 1:
       res = caml_callback_exn(res, args[i]);
+      caml_restore_stack();
       if (Is_exception_result(res)) CAMLreturn (res);
       i += 1;
       break;
     case 2:
       res = caml_callback2_exn(res, args[i], args[i + 1]);
+      caml_restore_stack();
       if (Is_exception_result(res)) CAMLreturn (res);
       i += 2;
       break;
     default:
       res = caml_callback3_exn(res, args[i], args[i + 1], args[i + 2]);
+      caml_restore_stack();
       if (Is_exception_result(res)) CAMLreturn (res);
       i += 3;
       break;
@@ -141,6 +146,7 @@ CAMLexport value caml_callbackN_exn(value closure, int narg, value args[])
 CAMLexport value caml_callback (value closure, value arg)
 {
   value res = caml_callback_exn(closure, arg);
+  caml_restore_stack();
   if (Is_exception_result(res)) caml_raise(Extract_exception(res));
   return res;
 }
@@ -148,6 +154,7 @@ CAMLexport value caml_callback (value closure, value arg)
 CAMLexport value caml_callback2 (value closure, value arg1, value arg2)
 {
   value res = caml_callback2_exn(closure, arg1, arg2);
+  caml_restore_stack();
   if (Is_exception_result(res)) caml_raise(Extract_exception(res));
   return res;
 }
@@ -156,6 +163,7 @@ CAMLexport value caml_callback3 (value closure, value arg1, value arg2,
                                  value arg3)
 {
   value res = caml_callback3_exn(closure, arg1, arg2, arg3);
+  caml_restore_stack();
   if (Is_exception_result(res)) caml_raise(Extract_exception(res));
   return res;
 }
@@ -163,6 +171,7 @@ CAMLexport value caml_callback3 (value closure, value arg1, value arg2,
 CAMLexport value caml_callbackN (value closure, int narg, value args[])
 {
   value res = caml_callbackN_exn(closure, narg, args);
+  caml_restore_stack();
   if (Is_exception_result(res)) caml_raise(Extract_exception(res));
   return res;
 }

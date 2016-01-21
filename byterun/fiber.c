@@ -244,6 +244,11 @@ void caml_restore_stack_gc()
   stack_is_saved = 0;
 }
 
+void caml_restore_stack()
+{
+  load_stack(caml_current_stack);
+}
+
 static void dirty_stack(value stack)
 {
   if(Is_young(stack) || Stack_dirty(stack) == Val_long(1))

@@ -66,6 +66,12 @@ void caml_restore_stack_gc()
   stack_is_saved = 0;
 }
 
+void caml_restore_stack ()
+{
+  Assert(Tag_val(caml_current_stack) == Stack_tag);
+  load_stack(caml_current_stack);
+}
+
 extern void caml_fiber_exn_handler (value) Noreturn;
 extern void caml_fiber_val_handler (value) Noreturn;
 

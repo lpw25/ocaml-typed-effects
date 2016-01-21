@@ -48,6 +48,7 @@ void caml_scan_stack(scanning_action, value stack);
 value* caml_scan_stack_high(scanning_action, value stack, value* stack_high);
 void caml_scan_dirty_stack(scanning_action, value stack);
 void caml_save_stack_gc (int mark_dirty);
+void caml_restore_stack(void);
 void caml_restore_stack_gc();
 void caml_clean_stack(value stack);
 
