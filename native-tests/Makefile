@@ -1,6 +1,7 @@
 EXE=test1.native test2.native test3.native test4.native test5.native \
 		test6.native test7.native test8.native test9.native test10.native \
-		test11.native test12.native test13.native test14.native test15.native
+		test11.native test12.native test13.native test14.native test15.native \
+		test16.native
 DEBUG=false
 FLAGS=
 OCAMLOPT=ocamlopt.opt
@@ -30,6 +31,11 @@ test9.native: test9.ml test9.mli test9.c
 	$(OCAMLOPT) $(FLAGS) -ccopt -c -o test9_c.o test9.c
 	$(OCAMLOPT) $(FLAGS) -c test9.mli
 	$(OCAMLOPT) $(FLAGS) -o test9.native test9_c.o test9.ml -linkall
+
+test16.native: test16.ml test16.mli test16.c
+	$(OCAMLOPT) $(FLAGS) -ccopt -c -o test16_c.o test16.c
+	$(OCAMLOPT) $(FLAGS) -c test16.mli
+	$(OCAMLOPT) $(FLAGS) -o test16.native test16_c.o test16.ml -linkall
 
 %.native: %.ml
 	$(OCAMLOPT) $(FLAGS) -o $@ $<

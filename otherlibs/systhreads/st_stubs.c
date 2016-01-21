@@ -71,7 +71,7 @@ struct caml_thread_struct {
   char *system_sp;             /* Saved value of caml_system_sp */
   char *system_top_of_stack;   /* Saved value of caml_system_top_of_stack */
   value **gc_regs_slot;        /* Saved value of caml_gc_regs_slot */
-  uintnat exception_ptr_offset; /* Saved value of caml_exception_ptr_offset */
+  uintnat system_exnptr_offset; /* Saved value of caml_system_exnptr_offset */
   struct longjmp_buffer *exit_buf; /* For thread exit */
 #else
   value *stack_high;
@@ -160,7 +160,7 @@ static void caml_thread_enter_blocking_section(void)
   curr_thread->system_sp = caml_system_sp;
   curr_thread->system_top_of_stack = caml_system_top_of_stack;
   curr_thread->gc_regs_slot = caml_gc_regs_slot;
-  curr_thread->exception_ptr_offset = caml_exception_ptr_offset;
+  curr_thread->system_exnptr_offset = caml_system_exnptr_offset;
 #else
   curr_thread->stack_high = caml_stack_high;
   curr_thread->stack_threshold = caml_stack_threshold;
@@ -193,7 +193,7 @@ static void caml_thread_leave_blocking_section(void)
   caml_system_sp = curr_thread->system_sp;
   caml_system_top_of_stack = curr_thread->system_top_of_stack;
   caml_gc_regs_slot = curr_thread->gc_regs_slot;
-  caml_exception_ptr_offset = curr_thread->exception_ptr_offset;
+  caml_system_exnptr_offset = curr_thread->system_exnptr_offset;
 #else
   caml_stack_high = curr_thread->stack_high;
   caml_stack_threshold = curr_thread->stack_threshold;
@@ -295,7 +295,7 @@ static caml_thread_t caml_thread_new_info(void)
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
   th->gc_regs_slot = NULL;
-  th->exception_ptr_offset = 0;
+  th->system_exnptr_offset = 0;
   th->exit_buf = NULL;
 #else
   stack = caml_alloc_shr(Thread_stack_size, Stack_tag);

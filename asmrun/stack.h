@@ -121,7 +121,7 @@ extern char * caml_system_sp;
 /* Saved top of system stack (approx.) */
 extern char * caml_system_top_of_stack;
 /* Offset of exception pointer from the top of stack */
-extern uintnat caml_exception_ptr_offset;
+extern uintnat caml_system_exnptr_offset;
 /* The address of the gc_regs slot in the caml_context at the bottom of the
  * OCaml stack. During allocation and GC, the gc_regs structure is built after
  * the context is built. We use this address to update the gc_regs slot in the

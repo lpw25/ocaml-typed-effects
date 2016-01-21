@@ -26,7 +26,7 @@
 
   typedef greg_t context_reg;
   #define CONTEXT_PC (context->uc_mcontext.gregs[REG_RIP])
-  #define CONTEXT_EXCEPTION_PTR_OFFSET (context->uc_mcontext.gregs[REG_R14])
+  #define CONTEXT_EXNPTR_OFFSET (context->uc_mcontext.gregs[REG_R14])
   #define CONTEXT_YOUNG_PTR (context->uc_mcontext.gregs[REG_R15])
   #define CONTEXT_FAULTING_ADDRESS ((char *)context->uc_mcontext.gregs[REG_CR2])
 
@@ -54,7 +54,7 @@
   typedef unsigned long long context_reg;
   #define CONTEXT_STATE (((ucontext_t *)context)->uc_mcontext->CONTEXT_REG(ss))
   #define CONTEXT_PC (CONTEXT_STATE.CONTEXT_REG(rip))
-  #define CONTEXT_EXCEPTION_POINTER (CONTEXT_STATE.CONTEXT_REG(r14))
+  #define CONTEXT_EXNPTR_OFFSET (CONTEXT_STATE.CONTEXT_REG(r14))
   #define CONTEXT_YOUNG_PTR (CONTEXT_STATE.CONTEXT_REG(r15))
   #define CONTEXT_SP (CONTEXT_STATE.CONTEXT_REG(rsp))
   #define CONTEXT_FAULTING_ADDRESS ((char *) info->si_addr)
@@ -77,7 +77,7 @@
 
   typedef unsigned long context_reg;
   #define CONTEXT_PC (context->uc_mcontext.arm_pc)
-  #define CONTEXT_EXCEPTION_POINTER (context->uc_mcontext.arm_fp)
+  #define CONTEXT_EXNPTR_OFFSET (context->uc_mcontext.arm_fp)
   #define CONTEXT_YOUNG_PTR (context->uc_mcontext.arm_r8)
   #define CONTEXT_FAULTING_ADDRESS ((char *) context->uc_mcontext.fault_address)
 
@@ -96,7 +96,7 @@
 
   typedef unsigned long context_reg;
   #define CONTEXT_PC (context->uc_mcontext.pc)
-  #define CONTEXT_EXCEPTION_POINTER (context->uc_mcontext.regs[26])
+  #define CONTEXT_EXNPTR_OFFSET (context->uc_mcontext.regs[26])
   #define CONTEXT_YOUNG_PTR (context->uc_mcontext.regs[27])
   #define CONTEXT_FAULTING_ADDRESS ((char *) context->uc_mcontext.fault_address)
 
@@ -115,7 +115,7 @@
 
   typedef greg_t context_reg;
   #define CONTEXT_PC (context->uc_mcontext.gregs[REG_RIP])
-  #define CONTEXT_EXCEPTION_POINTER (context->uc_mcontext.gregs[REG_R14])
+  #define CONTEXT_EXNPTR_OFFSET (context->uc_mcontext.gregs[REG_R14])
   #define CONTEXT_YOUNG_PTR (context->uc_mcontext.gregs[REG_R15])
   #define CONTEXT_FAULTING_ADDRESS ((char *) info->si_addr)
 
@@ -131,7 +131,7 @@
  sigact.sa_flags = SA_SIGINFO
 
  #define CONTEXT_PC (context->sc_rip)
- #define CONTEXT_EXCEPTION_POINTER (context->sc_r14)
+ #define CONTEXT_EXNPTR_OFFSET (context->sc_r14)
  #define CONTEXT_YOUNG_PTR (context->sc_r15)
  #define CONTEXT_FAULTING_ADDRESS ((char *) info->si_addr)
 
@@ -260,7 +260,7 @@
 
   #define CONTEXT_STATE (CONTEXT_MCONTEXT->CONTEXT_REG(ss))
   #define CONTEXT_PC (CONTEXT_STATE.CONTEXT_REG(srr0))
-  #define CONTEXT_EXCEPTION_POINTER (CONTEXT_STATE.CONTEXT_REG(r29))
+  #define CONTEXT_EXNPTR_OFFSET (CONTEXT_STATE.CONTEXT_REG(r29))
   #define CONTEXT_YOUNG_LIMIT (CONTEXT_STATE.CONTEXT_REG(r30))
   #define CONTEXT_YOUNG_PTR (CONTEXT_STATE.CONTEXT_REG(r31))
   #define CONTEXT_SP (CONTEXT_STATE.CONTEXT_REG(r1))
@@ -279,7 +279,7 @@
 
   typedef unsigned long context_reg;
   #define CONTEXT_PC (context->regs->nip)
-  #define CONTEXT_EXCEPTION_POINTER (context->regs->gpr[29])
+  #define CONTEXT_EXNPTR_OFFSET (context->regs->gpr[29])
   #define CONTEXT_YOUNG_LIMIT (context->regs->gpr[30])
   #define CONTEXT_YOUNG_PTR (context->regs->gpr[31])
   #define CONTEXT_SP (context->regs->gpr[1])
@@ -297,7 +297,7 @@
 
   typedef unsigned long context_reg;
   #define CONTEXT_PC (context->sc_frame.srr0)
-  #define CONTEXT_EXCEPTION_POINTER (context->sc_frame.fixreg[29])
+  #define CONTEXT_EXNPTR_OFFSET (context->sc_frame.fixreg[29])
   #define CONTEXT_YOUNG_LIMIT (context->sc_frame.fixreg[30])
   #define CONTEXT_YOUNG_PTR (context->sc_frame.fixreg[31])
   #define CONTEXT_SP (context->sc_frame.fixreg[1])
@@ -321,7 +321,7 @@
        after the stack pointer */
   #define CONTEXT_SP (context->uc_mcontext.gregs[REG_SP])
   #define SPARC_L_REG(n) ((long *)(context->uc_mcontext.gregs[REG_SP]))[n]
-  #define CONTEXT_EXCEPTION_POINTER (SPARC_L_REG(5))
+  #define CONTEXT_EXNPTR_OFFSET (SPARC_L_REG(5))
   #define CONTEXT_YOUNG_LIMIT (SPARC_L_REG(7))
   #define CONTEXT_YOUNG_PTR (SPARC_L_REG(6))
 

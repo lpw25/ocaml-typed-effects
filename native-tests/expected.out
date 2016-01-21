@@ -49,3 +49,15 @@ in handler. raising X
 4
 8
 Fatal error: exception Unhandled
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+[Caml] c_to_caml: raise exception
+[Caml] Caught exception
+[Caml] Enter c_to_caml
+[Caml] c_to_caml: raise exception
+[Caml] Caught exceception again
+[Caml] Done
+[C] Enter caml_to_c
+[C] Call c_to_caml
+[C] Enter caml_to_c
+[C] Call c_to_caml
