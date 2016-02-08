@@ -171,7 +171,8 @@ value thread_initialize(value unit)       /* ML */
 
   curr_thread->current_stack = caml_current_stack;
   curr_thread->stack_high = Stack_high(caml_current_stack);
-  curr_thread->stack_threshold = Stack_base(caml_current_stack) + Stack_threshold;
+  curr_thread->stack_threshold =
+    Stack_base(caml_current_stack) + Stack_threshold / sizeof(value);
   curr_thread->extern_sp = caml_extern_sp;
   curr_thread->trap_sp_off = caml_trap_sp_off;
   curr_thread->trap_barrier_off = caml_trap_barrier_off;
@@ -236,7 +237,8 @@ value thread_new(value clos)          /* ML */
 
   th->current_stack = stack;
   th->stack_high = Stack_high(stack);
-  th->stack_threshold = Stack_base(stack) + Stack_threshold;
+  th->stack_threshold =
+    Stack_base(stack) + Stack_threshold / sizeof(value);
   th->extern_sp = Stack_high(stack);
   th->trap_sp_off = 1;
   th->trap_barrier_off = 2;
@@ -315,7 +317,8 @@ static value schedule_thread(void)
   /* Save the status of the current thread */
   curr_thread->current_stack = caml_current_stack;
   curr_thread->stack_high = Stack_high(caml_current_stack);
-  curr_thread->stack_threshold = Stack_base(caml_current_stack) + Stack_threshold;
+  curr_thread->stack_threshold =
+    Stack_base(caml_current_stack) + Stack_threshold / sizeof(value);
   curr_thread->extern_sp = caml_extern_sp;
   curr_thread->trap_sp_off = caml_trap_sp_off;
   curr_thread->trap_barrier_off = caml_trap_barrier_off;

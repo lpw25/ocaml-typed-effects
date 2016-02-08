@@ -289,6 +289,7 @@ static caml_thread_t caml_thread_new_info(void)
   caml_init_main_stack(NULL);
   th->current_stack = caml_current_stack;
   caml_current_stack = stack;
+  caml_restore_stack();
 
   th->top_of_stack = Stack_high(th->current_stack);
   th->stack_threshold = Stack_base(th->current_stack) + Stack_threshold;

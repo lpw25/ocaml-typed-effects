@@ -241,6 +241,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
     Field(raise_unhandled, 0) = Val_bytecode(raise_unhandled_code);
     caml_register_global_root(&raise_unhandled);
     caml_register_global_root(&caml_global_data);
+    caml_init_callbacks();
     return Val_unit;
   }
 
