@@ -285,14 +285,9 @@ static caml_thread_t caml_thread_new_info(void)
   th->descr = Val_unit;         /* filled later */
   th->local_roots = NULL;
 #ifdef NATIVE_CODE
-  stack = caml_current_stack;
-  caml_init_main_stack(NULL);
-  th->current_stack = caml_current_stack;
-  caml_current_stack = stack;
-  caml_restore_stack();
-
-  th->top_of_stack = Stack_high(th->current_stack);
-  th->stack_threshold = Stack_base(th->current_stack) + Stack_threshold;
+  th->current_stack = Val_long(0);
+  th->top_of_stack = NULL;
+  th->stack_threshold = NULL;
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
   th->gc_regs_slot = NULL;
@@ -485,6 +480,7 @@ static ST_THREAD_FUNCTION caml_thread_start(void * arg)
 #ifdef NATIVE_CODE
   /* Record top of stack (approximative) */
   th->top_of_stack = &tos;
+  caml_system_top_of_stack = &tos;
   /* Setup termination handler (for caml_thread_exit) */
   if (sigsetjmp(termination_buf.buf, 0) == 0) {
     th->exit_buf = &termination_buf;

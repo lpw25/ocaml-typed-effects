@@ -68,8 +68,10 @@ void caml_restore_stack_gc()
 
 void caml_restore_stack ()
 {
-  Assert(Tag_val(caml_current_stack) == Stack_tag);
-  load_stack(caml_current_stack);
+  if (caml_current_stack != Val_unit) {
+    Assert(Tag_val(caml_current_stack) == Stack_tag);
+    load_stack(caml_current_stack);
+  }
 }
 
 extern void caml_fiber_exn_handler (value) Noreturn;
@@ -167,10 +169,7 @@ void caml_realloc_stack () {
 
 void caml_init_main_stack (value* gc_regs)
 {
-  CAMLparam0();
-  if (gc_regs) {
-    CAMLxparamN(gc_regs, 6);
-  }
+  CAMLparamN(gc_regs, 6);
   value stack;
   char* sp;
   struct caml_context *ctxt;

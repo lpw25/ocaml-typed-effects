@@ -680,6 +680,14 @@ LBL(110):
         POP_VAR(caml_system_sp)
         POP_VAR(caml_system_exnptr_offset)
         STORE_VAR(%r9,caml_current_stack)
+    /* Restore previous OCaml stack state */
+        movq    %rax, %r12 /* save result */
+        LEA_VAR(caml_restore_stack, %r13)
+        PREPARE_FOR_C_CALL
+        call    *%r13
+        CLEANUP_AFTER_C_CALL
+        movq    %r12, %rax /* restore result */
+    /* Adjust stack */
         addq    $8, %rsp; CFI_ADJUST(-8)
     /* Restore callee-save registers. */
         POP_CALLEE_SAVE_REGS
