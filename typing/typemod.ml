@@ -311,6 +311,16 @@ let rec map_rec_type_with_row_types ~rec_flag fn decls rem =
       else
         map_rec_type ~rec_flag fn decls rem
 
+let rec_flag_of_ptype_declarations tds =
+  let is_nonrec =
+    List.exists
+      (fun td ->
+         List.exists (fun (n, _) -> n.txt = "nonrec")
+           td.ptype_attributes)
+      tds
+  in
+  if is_nonrec then Nonrecursive else Recursive
+
 (* Add type extension flags to extension contructors *)
 let map_ext fn exts rem =
   match exts with
@@ -360,6 +370,7 @@ and approx_sig env ssg =
   | item :: srem ->
       match item.psig_desc with
       | Psig_type (rec_flag, sdecls) ->
+          let rec_flag = rec_flag_of_ptype_declarations sdecls in
           let decls = Typedecl.approx_type_decl env sdecls in
           let rem = approx_sig env srem in
           map_rec_type ~rec_flag
@@ -586,6 +597,7 @@ and transl_signature env sg =
             Sig_value(tdesc.val_id, tdesc.val_val) :: rem,
               final_env
         | Psig_type (rec_flag, sdecls) ->
+            let rec_flag = rec_flag_of_ptype_declarations sdecls in
             List.iter
               (fun decl -> check_name check_type names decl.ptype_name)
               sdecls;
@@ -850,6 +862,9 @@ let rec path_of_module mexp =
       path_of_module mexp
   | _ -> raise Not_a_path
 
+let path_of_module mexp =
+ try Some (path_of_module mexp) with Not_a_path -> None
+
 (* Check that all core type schemes in a structure are closed *)
 
 let rec closed_modtype env = function
@@ -867,21 +882,18 @@ and closed_signature_item env = function
   | Sig_module(id, md, _) -> closed_modtype env md.md_type
   | _ -> true
 
-let check_nongen_scheme env str =
-  match str.str_desc with
-    Tstr_value(rec_flag, pat_exp_list) ->
-      List.iter
-        (fun {vb_expr=exp} ->
-          if not (Ctype.closed_schema env exp.exp_type) then
-            raise(Error(exp.exp_loc, env, Non_generalizable exp.exp_type)))
-        pat_exp_list
-  | Tstr_module {mb_expr=md;_} ->
-      if not (closed_modtype env md.mod_type) then
-        raise(Error(md.mod_loc, env, Non_generalizable_module md.mod_type))
+let check_nongen_scheme env sig_item =
+  match sig_item with
+    Sig_value(_id, vd) ->
+      if not (Ctype.closed_schema env vd.val_type) then
+        raise (Error (vd.val_loc, env, Non_generalizable vd.val_type))
+  | Sig_module (_id, md, _) ->
+      if not (closed_modtype env md.md_type) then
+        raise(Error(md.md_loc, env, Non_generalizable_module md.md_type))
   | _ -> ()
 
-let check_nongen_schemes env str =
-  List.iter (check_nongen_scheme env) str
+let check_nongen_schemes env sg =
+  List.iter (check_nongen_scheme env) sg
 
 (* Helpers for typing recursive modules *)
 
@@ -1120,7 +1132,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
            mod_loc = smod.pmod_loc }
   | Pmod_apply(sfunct, sarg) ->
       let arg = type_module true funct_body None env sarg in
-      let path = try Some (path_of_module arg) with Not_a_path -> None in
+      let path = path_of_module arg in
       let funct =
         type_module (sttn && path <> None) funct_body None env sfunct in
       begin match Env.scrape_alias env funct.mod_type with
@@ -1241,6 +1253,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         let (desc, newenv) = Typedecl.transl_value_decl env loc sdesc in
         Tstr_primitive desc, [Sig_value(desc.val_id, desc.val_val)], newenv
     | Pstr_type (rec_flag, sdecls) ->
+        let rec_flag = rec_flag_of_ptype_declarations sdecls in
         List.iter
           (fun decl -> check_name check_type names decl.ptype_name)
           sdecls;
@@ -1606,7 +1619,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
         (Cmt_format.Implementation str) (Some sourcefile) initial_env None;
       (str, coercion)
     end else begin
-      check_nongen_schemes finalenv str.str_items;
+      check_nongen_schemes finalenv sg;
       normalize_signature finalenv simple_sg;
       let coercion =
         Includemod.compunit initial_env sourcefile sg
