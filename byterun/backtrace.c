@@ -313,14 +313,24 @@ void caml_stash_backtrace(value exn, code_t pc, value * sp, int reraise)
    updates *sp to point to the following one, and *trsp to the next
    trap frame, which we will skip when we reach it  */
 
+<<<<<<< HEAD
 code_t caml_next_frame_pointer(value ** sp, intnat * trap_spoff)
+=======
+code_t caml_next_frame_pointer(value ** sp, value ** trsp)
+>>>>>>> after-4.02.2
 {
   code_t end_code = (code_t) ((char *) caml_start_code + caml_code_size);
 
   while (*sp < caml_stack_high) {
+<<<<<<< HEAD
     value *p = (*sp)++;
     if(&Trap_pc(caml_stack_high + *trap_spoff) == p) {
       *trap_spoff = Trap_link(caml_stack_high + *trap_spoff);
+=======
+    code_t *p = (code_t*) (*sp)++;
+    if(&Trap_pc(*trsp) == p) {
+      *trsp = Trap_link(*trsp);
+>>>>>>> after-4.02.2
       continue;
     }
     if (Is_long(*p) &&
@@ -365,11 +375,11 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
   /* then collect the trace */
   {
     value * sp = caml_extern_sp;
-    intnat trap_spoff = caml_trap_sp_off;
+    value * trsp = caml_trapsp;
     uintnat trace_pos;
 
     for (trace_pos = 0; trace_pos < trace_size; trace_pos++) {
-      code_t p = caml_next_frame_pointer(&sp, &trap_spoff);
+      code_t p = caml_next_frame_pointer(&sp, &trsp);
       Assert(p != NULL);
       Field(trace, trace_pos) = Val_Codet(p);
     }
