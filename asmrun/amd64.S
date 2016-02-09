@@ -648,9 +648,11 @@ LBL(caml_start_program):
         popq    %rdx; CFI_ADJUST(-8)
     /* Switch from C to OCaml stack. */
         SWITCH_C_TO_OCAML(%r10)
-    /* Now we are in OCaml. Save prev caml_current_stack on the OCaml stack so
-     * that GC will know where to find the prev chunk. */
-        subq    $8, %rsp
+    /* Now we are in OCaml. Add a dummy (but special!) return address so that
+     * the GC will terminate walking the stack here. See caml_scan_stack_high(). */
+        pushq   $0 ; CFI_ADJUST(8)
+    /* Save prev caml_current_stack on the OCaml stack so that GC will know
+     * where to find the prev chunk. */
         pushq   %rdx; CFI_ADJUST(8)
     /* Setup alloc ptr */
         LOAD_VAR(caml_young_ptr, %r15)

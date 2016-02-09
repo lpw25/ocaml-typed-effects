@@ -229,6 +229,9 @@ value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
   regs = context->gc_regs;
   sp += sizeof(struct caml_context) + context->callback_offset;
   retaddr = *(uintnat*)sp;
+
+  if (retaddr == 0) return NULL;
+
   sp += sizeof(value);
 
   while(1) {
