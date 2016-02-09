@@ -247,13 +247,10 @@ void caml_empty_minor_heap (void)
 {
   value **r;
   uintnat prev_alloc_words;
-<<<<<<< HEAD
 
   caml_save_stack_gc (1);
 
   clean_stacks ();
-=======
->>>>>>> after-4.02.2
 
   if (caml_young_ptr != caml_young_end){
     if (caml_minor_gc_begin_hook != NULL) (*caml_minor_gc_begin_hook) ();
