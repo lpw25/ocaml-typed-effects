@@ -70,8 +70,7 @@ let stack_offset = ref 0
 
 (* Layout of the stack frame *)
 
-(* Must be consistent with byterun/caml/config.h:Stack_threshold *)
-let stack_threshold_size = 128 (* bytes *)
+let stack_threshold_size = Config.stack_threshold * 8 (* bytes *)
 
 let frame_required () =
   fp || !contains_calls || num_stack_slots.(0) > 0 || num_stack_slots.(1) > 0
