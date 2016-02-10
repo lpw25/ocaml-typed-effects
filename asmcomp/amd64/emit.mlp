@@ -919,15 +919,10 @@ let fundecl fundecl =
     List.iter emit_call_gc !call_gc_sites;
   end
   else begin
-    (* XXX KC: fundecl.fun_body.live does not capture liveness at the start of
-    the function properly. *)
-    let live_initially =
-      Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
-        fundecl.fun_args empty)
-    in
     let handle_overflow = new_label() in
-    let after_overflow = record_frame_label live_initially Debuginfo.none in
-
+    let after_overflow =
+      record_frame_label fundecl.fun_body.live Debuginfo.none
+    in
     load_symbol_addr "caml_stack_threshold" r11;
     I.mov (mem64 QWORD 0 R11) r11;
     I.add (int s) r11;
