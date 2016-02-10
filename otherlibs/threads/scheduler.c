@@ -76,9 +76,6 @@ struct caml_thread_struct {
   struct caml_thread_struct * prev;
 
   value current_stack;
-  value * stack_high;
-  value * stack_threshold;
-  value * extern_sp;
   intnat trap_sp_off;
   intnat trap_barrier_off;
 
@@ -143,7 +140,7 @@ static void thread_scan_roots(scanning_action action, int is_compaction)
   /* Don't scan curr_thread->sp, this has already been done.
      Don't scan local roots either, for the same reason. */
   for (th = start->next; th != start; th = th->next) {
-    do_local_roots(action, NULL, is_compaction);
+    do_local_roots(action, NULL, &th->current_stack, is_compaction);
   }
   /* Hook */
   if (prev_scan_roots_hook != NULL) (*prev_scan_roots_hook)(action, is_compaction);
@@ -170,10 +167,6 @@ value thread_initialize(value unit)       /* ML */
   curr_thread->prev = curr_thread;
 
   curr_thread->current_stack = caml_current_stack;
-  curr_thread->stack_high = Stack_high(caml_current_stack);
-  curr_thread->stack_threshold =
-    Stack_base(caml_current_stack) + Stack_threshold / sizeof(value);
-  curr_thread->extern_sp = caml_extern_sp;
   curr_thread->trap_sp_off = caml_trap_sp_off;
   curr_thread->trap_barrier_off = caml_trap_barrier_off;
 
@@ -226,6 +219,7 @@ value thread_new(value clos)          /* ML */
 {
   caml_thread_t th;
   value stack;
+  value* sp;
 
   /* Allocate the thread and its stack */
   Begin_root(clos);
@@ -235,25 +229,32 @@ value thread_new(value clos)          /* ML */
   th->ident = next_ident;
   next_ident = Val_int(Int_val(next_ident) + 1);
 
+  stack = caml_alloc_shr(Thread_stack_size/sizeof(value), Stack_tag);
+  Stack_sp(stack) = 0;
+  Stack_dirty(stack) = Val_long(0);
+  Stack_handle_value(stack) = Val_long(0);
+  Stack_handle_exception(stack) = Val_long(0);
+  Stack_handle_effect(stack) = Val_long(0);
+  Stack_parent(stack) = Val_unit;
+
   th->current_stack = stack;
-  th->stack_high = Stack_high(stack);
-  th->stack_threshold =
-    Stack_base(stack) + Stack_threshold / sizeof(value);
-  th->extern_sp = Stack_high(stack);
   th->trap_sp_off = 1;
   th->trap_barrier_off = 2;
 
   /* Set up a return frame that pretends we're applying the function to ().
      This way, the next RETURN instruction will run the function. */
-  th->extern_sp -= 5;
-  th->extern_sp[0] = Val_unit;         /* dummy local to be popped by RETURN 1 */
-  th->extern_sp[1] = (value) Code_val(clos);
-  th->extern_sp[2] = clos;
-  th->extern_sp[3] = Val_long(0);      /* no extra args */
-  th->extern_sp[4] = Val_unit;         /* the () argument */
+  sp = Stack_high(stack);
+  sp -= 5;
+  sp[0] = Val_unit;         /* dummy local to be popped by RETURN 1 */
+  sp[1] = (value) Code_val(clos);
+  sp[2] = clos;
+  sp[3] = Val_long(0);      /* no extra args */
+  sp[4] = Val_unit;         /* the () argument */
   /* Fake a C call frame */
-  th->extern_sp--;
-  th->extern_sp[0] = Val_unit;         /* a dummy environment */
+  sp--;
+  sp[0] = Val_unit;         /* a dummy environment */
+  /* Update the sp in the stack */
+  Stack_sp(stack) = Stack_high(stack) - sp;
   /* Finish initialization of th */
   th->backtrace_pos = Val_int(0);
   th->backtrace_buffer = NULL;
@@ -316,10 +317,6 @@ static value schedule_thread(void)
 
   /* Save the status of the current thread */
   curr_thread->current_stack = caml_current_stack;
-  curr_thread->stack_high = Stack_high(caml_current_stack);
-  curr_thread->stack_threshold =
-    Stack_base(caml_current_stack) + Stack_threshold / sizeof(value);
-  curr_thread->extern_sp = caml_extern_sp;
   curr_thread->trap_sp_off = caml_trap_sp_off;
   curr_thread->trap_barrier_off = caml_trap_barrier_off;
 
@@ -512,9 +509,7 @@ try_again:
   /* Activate the thread */
   curr_thread = run_thread;
   caml_current_stack = curr_thread->current_stack;
-  caml_stack_high = curr_thread->stack_high;
-  caml_stack_threshold = curr_thread->stack_threshold;
-  caml_extern_sp = curr_thread->extern_sp;
+  caml_restore_stack();
   caml_trap_sp_off = curr_thread->trap_sp_off;
   caml_trap_barrier_off = curr_thread->trap_barrier_off;
 
@@ -765,9 +760,6 @@ value thread_kill(value thread)       /* ML */
   Assign(th->prev->next, th->next);
   Assign(th->next->prev, th->prev);
   /* Free its resources */
-  th->stack_high = NULL;
-  th->stack_threshold = NULL;
-  th->extern_sp = NULL;
   th->trap_sp_off = 1;
   th->trap_barrier_off = 2;
 

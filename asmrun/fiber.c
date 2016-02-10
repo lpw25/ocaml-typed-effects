@@ -268,10 +268,11 @@ value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
   }
 }
 
-void caml_scan_stack (scanning_action f, value stack) {
+void caml_scan_stack (scanning_action f, value stack)
+{
   value* stackp;
 
-  Assert(Is_block(stack) && Tag_val(stack) == Stack_tag);
+  if (stack == Val_unit) return;
 
   do {
     value* stack_high = (value*)Stack_high(stack);
@@ -284,7 +285,8 @@ void caml_scan_stack (scanning_action f, value stack) {
   } while (Is_block(stack) && stack == *stackp);
 }
 
-void caml_scan_dirty_stack (scanning_action f, value stack) {
+void caml_scan_dirty_stack (scanning_action f, value stack)
+{
   if (Stack_dirty(stack) == Val_long(1)) {
     caml_scan_stack(f, stack);
   }

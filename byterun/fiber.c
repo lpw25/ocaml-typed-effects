@@ -283,7 +283,7 @@ value* caml_scan_stack_high (scanning_action f, value stack,
 
 void caml_scan_stack (scanning_action f, value stack)
 {
-  Assert (Is_block(stack) && Tag_val(stack) == Stack_tag);
+  if (stack == Val_unit) return;
   caml_scan_stack_high (f, stack, Stack_high(stack));
 }
 

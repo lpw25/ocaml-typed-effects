@@ -24,6 +24,7 @@ void caml_darken_all_roots (void);
 void caml_do_roots (scanning_action, int);
 CAMLextern void caml_do_local_roots (scanning_action,
                                      struct caml__roots_block *,
+                                     value* stackp,
                                      int);
 CAMLextern void (*caml_scan_roots_hook) (scanning_action, int);
 

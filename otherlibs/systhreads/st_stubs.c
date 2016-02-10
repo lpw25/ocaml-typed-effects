@@ -66,17 +66,12 @@ struct caml_thread_struct {
   value current_stack;         /* Saved value of caml_current_stack */
   struct caml__roots_block *local_roots; /* Saved value of local_roots */
 #ifdef NATIVE_CODE
-  char *top_of_stack;          /* Top of stack for this thread (approx.) */
-  char *stack_threshold;       /* Saved value of caml_stack_threshold */
   char *system_sp;             /* Saved value of caml_system_sp */
   char *system_top_of_stack;   /* Saved value of caml_system_top_of_stack */
   value **gc_regs_slot;        /* Saved value of caml_gc_regs_slot */
   uintnat system_exnptr_offset; /* Saved value of caml_system_exnptr_offset */
   struct longjmp_buffer *exit_buf; /* For thread exit */
 #else
-  value *stack_high;
-  value *stack_threshold;
-  value *extern_sp;
   intnat trap_sp_off;
   intnat trap_barrier_off;
   struct longjmp_buffer *external_raise; /* Saved external_raise */
@@ -138,7 +133,8 @@ static void caml_thread_scan_roots(scanning_action action, int is_compaction)
     (*action)(th->backtrace_last_exn, &th->backtrace_last_exn);
     /* Don't rescan the stack of the current thread, it was done already */
     if (th != curr_thread) {
-      do_local_roots(action, th->local_roots, is_compaction);
+      do_local_roots(action, th->local_roots,
+                     &th->current_stack, is_compaction);
     }
     th = th->next;
   } while (th != curr_thread);
@@ -155,16 +151,12 @@ static void caml_thread_enter_blocking_section(void)
   curr_thread->current_stack = caml_current_stack;
   curr_thread->local_roots = local_roots;
 #ifdef NATIVE_CODE
-  curr_thread->top_of_stack = caml_top_of_stack;
-  curr_thread->stack_threshold = caml_stack_threshold;
   curr_thread->system_sp = caml_system_sp;
   curr_thread->system_top_of_stack = caml_system_top_of_stack;
   curr_thread->gc_regs_slot = caml_gc_regs_slot;
   curr_thread->system_exnptr_offset = caml_system_exnptr_offset;
 #else
-  curr_thread->stack_high = caml_stack_high;
-  curr_thread->stack_threshold = caml_stack_threshold;
-  curr_thread->extern_sp = caml_extern_sp;
+  Stack_sp(caml_current_stack) = caml_stack_high - caml_extern_sp;
   curr_thread->trap_sp_off = caml_trap_sp_off;
   curr_thread->trap_barrier_off = caml_trap_barrier_off;
   curr_thread->external_raise = caml_external_raise;
@@ -186,18 +178,13 @@ static void caml_thread_leave_blocking_section(void)
 
   /* Restore the stack-related global variables */
   caml_current_stack = curr_thread->current_stack;
+  caml_restore_stack();
   caml_local_roots = curr_thread->local_roots;
 #ifdef NATIVE_CODE
-  caml_top_of_stack = curr_thread->top_of_stack;
-  caml_stack_threshold = curr_thread->stack_threshold;
   caml_system_sp = curr_thread->system_sp;
-  caml_system_top_of_stack = curr_thread->system_top_of_stack;
   caml_gc_regs_slot = curr_thread->gc_regs_slot;
   caml_system_exnptr_offset = curr_thread->system_exnptr_offset;
 #else
-  caml_stack_high = curr_thread->stack_high;
-  caml_stack_threshold = curr_thread->stack_threshold;
-  caml_extern_sp = curr_thread->extern_sp;
   caml_trap_sp_off = curr_thread->trap_sp_off;
   caml_trap_barrier_off = curr_thread->trap_barrier_off;
   caml_external_raise = curr_thread->external_raise;
@@ -286,8 +273,6 @@ static caml_thread_t caml_thread_new_info(void)
   th->local_roots = NULL;
 #ifdef NATIVE_CODE
   th->current_stack = Val_long(0);
-  th->top_of_stack = NULL;
-  th->stack_threshold = NULL;
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
   th->gc_regs_slot = NULL;
@@ -303,9 +288,6 @@ static caml_thread_t caml_thread_new_info(void)
   Stack_parent(stack) = Val_unit;
 
   th->current_stack = stack;
-  th->stack_high = Stack_high(stack);
-  th->stack_threshold = Stack_base(stack) + Stack_threshold;
-  th->extern_sp = Stack_high(stack);
   th->trap_sp_off = 1;
   th->trap_barrier_off = 2;
   th->external_raise = NULL;
@@ -479,7 +461,6 @@ static ST_THREAD_FUNCTION caml_thread_start(void * arg)
   leave_blocking_section();
 #ifdef NATIVE_CODE
   /* Record top of stack (approximative) */
-  th->top_of_stack = &tos;
   caml_system_top_of_stack = &tos;
   /* Setup termination handler (for caml_thread_exit) */
   if (sigsetjmp(termination_buf.buf, 0) == 0) {
@@ -543,7 +524,7 @@ CAMLexport int caml_c_thread_register(void)
   th = caml_thread_new_info();
   if (th == NULL) return 0;
 #ifdef NATIVE_CODE
-  th->top_of_stack = (char *) &err;
+  th->system_top_of_stack = (char *) &err;
 #endif
   /* Take master lock to protect access to the chaining of threads */
   st_masterlock_acquire(&caml_master_lock);

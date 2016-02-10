@@ -223,7 +223,7 @@ void caml_do_roots (scanning_action f, int is_compaction)
 
   /* The stack and local roots */
   if (caml_frame_descriptors == NULL) caml_init_frame_descriptors();
-  caml_do_local_roots(f, caml_local_roots, is_compaction);
+  caml_do_local_roots(f, caml_local_roots, &caml_current_stack, is_compaction);
   /* Global C roots */
   caml_scan_global_roots(f);
   /* Finalised values */
@@ -235,14 +235,15 @@ void caml_do_roots (scanning_action f, int is_compaction)
 
 void caml_do_local_roots(scanning_action f,
                          struct caml__roots_block * local_roots,
+                         value* stackp,
                          int is_compaction)
 {
   struct caml__roots_block *lr;
   int i,j;
   value *root;
 
-  if (!is_compaction) caml_scan_stack (f, caml_current_stack);
-  f (caml_current_stack, &caml_current_stack);
+  if (!is_compaction) caml_scan_stack (f, *stackp);
+  f (*stackp, stackp);
 
   /* Local C roots */
   for (lr = local_roots; lr != NULL; lr = lr->next) {
