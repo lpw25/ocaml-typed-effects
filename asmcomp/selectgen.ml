@@ -517,13 +517,13 @@ method emit_expr env exp =
                           (Array.append [|r1.(0)|] loc_arg) loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
-          | (Icall_imm op)->
+          | Icall_imm lbl ->
               let r1 = self#emit_tuple env new_args in
               let rd = self#regs_for ty in
               let (loc_arg, stack_ofs) = Proc.loc_arguments r1 in
               let loc_res = Proc.loc_results rd in
               self#insert_move_args r1 loc_arg stack_ofs;
-              self#insert_debug (Iop(Icall_imm op)) dbg loc_arg loc_res;
+              self#insert_debug (Iop(Icall_imm lbl)) dbg loc_arg loc_res;
               self#insert_move_results loc_res rd stack_ofs;
               Some rd
           | Iextcall(lbl, alloc, dummy_ofs) ->
