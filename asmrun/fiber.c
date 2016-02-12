@@ -74,52 +74,30 @@ void caml_restore_stack ()
   }
 }
 
-extern void caml_fiber_exn_handler (value) Noreturn;
-extern void caml_fiber_val_handler (value) Noreturn;
+value caml_alloc_main_stack ()
+{
+  value stack;
 
-value caml_alloc_stack (value hval, value hexn, value heff) {
-  CAMLparam3(hval, hexn, heff);
-  CAMLlocal1(stack);
-  char* sp;
-  struct caml_context *ctxt;
-
-  stack = caml_alloc(caml_init_fiber_wsz, Stack_tag);
+  /* Create a stack for the main program.
+     The GC is not initialised yet, so we use caml_alloc_shr
+     which cannot trigger it */
+  stack = caml_alloc_shr(Stack_size/sizeof(value), Stack_tag);
   Stack_dirty(stack) = Val_long(0);
-  Stack_handle_value(stack) = hval;
-  Stack_handle_exception(stack) = hexn;
-  Stack_handle_effect(stack) = heff;
+  Stack_handle_value(stack) = Val_long(0);
+  Stack_handle_exception(stack) = Val_long(0);
+  Stack_handle_effect(stack) = Val_long(0);
   Stack_parent(stack) = Val_unit;
+  Stack_sp(stack) = 0;
 
-  sp = Stack_high(stack);
-  /* Maintain the invariant that any stack is cut such that
-   * (SP + sizeof(value)) % sizeof(value) == 0. */
-  sp -= sizeof(value);
-  *(uintnat*)sp = Val_unit; /* dummy. Will never be read. */
-   /* No previous stack chunk */
-  sp -= sizeof(value);
-  *(value*)sp = Val_unit;
-  /* Fiber exception handler that returns to parent */
-  sp -= sizeof(value);
-  *(value**)sp = (value*)caml_fiber_exn_handler;
-  /* No previous exception frame */
-  sp -= sizeof(value);
-  *(uintnat*)sp = 0;
-  /* Value handler that returns to parent */
-  sp -= sizeof(value);
-  *(value**)sp = (value*)caml_fiber_val_handler;
+  return stack;
+}
 
-  /* Build a context */
-  sp -= sizeof(struct caml_context);
-  ctxt = (struct caml_context*)sp;
-  ctxt->exception_ptr_offset = sizeof(value) + sizeof(struct caml_context);
-  ctxt->gc_regs = NULL;
-  ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
-  Stack_sp(stack) = 5 * sizeof(value) + sizeof(struct caml_context);
+void caml_init_main_stack ()
+{
+  value stack;
 
-  caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
-               stack, caml_init_fiber_wsz);
-
-  CAMLreturn (stack);
+  stack = caml_alloc_main_stack ();
+  load_stack(stack);
 }
 
 void caml_realloc_stack () {
@@ -131,12 +109,11 @@ void caml_realloc_stack () {
 
   old_stack = caml_current_stack;
   stack_used = Stack_sp(old_stack);
-  size = Stack_high(old_stack) - Stack_base(old_stack);
+  size = Wosize_val(old_stack);
   size *= 2;
 
-  caml_gc_log ("Growing old_stack=0x%lx to %lu words\n",
-                old_stack, Stack_ctx_words + size/sizeof(value));
-  new_stack = caml_alloc(Stack_ctx_words + (size / sizeof(value)), Stack_tag);
+  caml_gc_log ("Growing old_stack=0x%lx to %lu words\n", old_stack, size);
+  new_stack = caml_alloc(size, Stack_tag);
   caml_gc_log ("New_stack=0x%lx\n", new_stack);
 
   memcpy(Stack_high(new_stack) - stack_used,
@@ -167,39 +144,65 @@ void caml_realloc_stack () {
   CAMLreturn0;
 }
 
-void caml_init_main_stack (value* gc_regs)
+void caml_maybe_expand_stack (value* gc_regs)
 {
-  CAMLparamN(gc_regs, 6);
-  value stack;
-  char* sp;
-  struct caml_context *ctxt;
+  CAMLparamN(gc_regs, 5);
+  uintnat stack_available;
 
-  /* Create a stack for the main program.
-     The GC is not initialised yet, so we use caml_alloc_shr
-     which cannot trigger it */
-  stack = caml_alloc_shr(Stack_size/sizeof(value), Stack_tag);
-  Stack_dirty(stack) = Val_long(0);
-  Stack_handle_value(stack) = Val_long(0);
-  Stack_handle_exception(stack) = Val_long(0);
-  Stack_handle_effect(stack) = Val_long(0);
-  Stack_parent(stack) = Val_unit;
+  Assert(Tag_val(caml_current_stack) == Stack_tag);
 
-  /* Build a context */
-  sp = Stack_high(stack);
-  sp -= sizeof(struct caml_context);
-  ctxt = (struct caml_context*)sp;
-  ctxt->exception_ptr_offset = 0;
-  ctxt->gc_regs = NULL;
-  ctxt->callback_offset = 0;
-  Stack_sp(stack) = sizeof(struct caml_context);
-  caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
-               stack, Stack_size/sizeof(value));
+  stack_available = Bosize_val(caml_current_stack)
+    - (Stack_sp(caml_current_stack) + Stack_ctx_words * sizeof(value));
+  if (stack_available < 2 * Stack_threshold)
+    caml_realloc_stack ();
 
-  load_stack(stack);
   CAMLreturn0;
 }
 
-value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
+extern void caml_fiber_exn_handler (value) Noreturn;
+extern void caml_fiber_val_handler (value) Noreturn;
+
+value caml_alloc_stack (value hval, value hexn, value heff) {
+  CAMLparam3(hval, hexn, heff);
+  CAMLlocal1(stack);
+  char* sp;
+  struct caml_context *ctxt;
+
+  stack = caml_alloc(caml_init_fiber_wsz, Stack_tag);
+  Stack_dirty(stack) = Val_long(0);
+  Stack_handle_value(stack) = hval;
+  Stack_handle_exception(stack) = hexn;
+  Stack_handle_effect(stack) = heff;
+  Stack_parent(stack) = Val_unit;
+
+  sp = Stack_high(stack);
+  /* Fiber exception handler that returns to parent */
+  sp -= sizeof(value);
+  *(value**)sp = (value*)caml_fiber_exn_handler;
+  /* No previous exception frame */
+  sp -= sizeof(value);
+  *(uintnat*)sp = 0;
+  /* Value handler that returns to parent */
+  sp -= sizeof(value);
+  *(value**)sp = (value*)caml_fiber_val_handler;
+
+  /* Build a context */
+  sp -= sizeof(struct caml_context);
+  ctxt = (struct caml_context*)sp;
+  ctxt->exception_ptr_offset = 2 * sizeof(value);
+  ctxt->gc_regs = NULL;
+  ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
+  Stack_sp(stack) = 3 * sizeof(value) + sizeof(struct caml_context);
+
+  caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
+               stack, caml_init_fiber_wsz);
+
+  CAMLreturn (stack);
+}
+
+
+
+void caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
 {
   char * sp;
   uintnat retaddr;
@@ -222,16 +225,18 @@ value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
   f(Stack_handle_effect(stack), &Stack_handle_effect(stack));
   f(Stack_parent(stack), &Stack_parent(stack));
 
-  if (Stack_sp(stack) == 0) return NULL;
+  if (Stack_sp(stack) == 0) return;
 
   sp = ((char*)stack_high) - Stack_sp(stack);
+
+next_chunk:
+  if (sp == (char*)stack_high) return;
   context = (struct caml_context*)sp;
   regs = context->gc_regs;
   sp += sizeof(struct caml_context) + context->callback_offset;
+
+  if (sp == (char*)stack_high) return;
   retaddr = *(uintnat*)sp;
-
-  if (retaddr == 0) return NULL;
-
   sp += sizeof(value);
 
   while(1) {
@@ -263,26 +268,20 @@ value* caml_scan_stack_high (scanning_action f, value stack, value* stack_high)
       /* XXX KC: disabled already scanned optimization. */
     } else {
       /* This marks the top of an ML stack chunk. */
-      return Callback_link(sp);
+#ifndef Stack_grows_upwards
+      sp += Next_chunk_offset;
+#else
+      sp -= Next_chunk_offset;
+#endif
+      goto next_chunk;
     }
   }
 }
 
 void caml_scan_stack (scanning_action f, value stack)
 {
-  value* stackp;
-
-  if (stack == Val_unit) return;
-
-  do {
-    value* stack_high = (value*)Stack_high(stack);
-    stackp = caml_scan_stack_high (f,stack,stack_high);
-    if (stackp == NULL) return;
-
-    /* Continue with the next stack chunk. */
-    stack = *stackp;
-    f (stack, stackp);
-  } while (Is_block(stack) && stack == *stackp);
+  value* stack_high = (value*)Stack_high(stack);
+  caml_scan_stack_high (f,stack,stack_high);
 }
 
 void caml_scan_dirty_stack (scanning_action f, value stack)

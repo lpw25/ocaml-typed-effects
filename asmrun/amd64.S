@@ -133,13 +133,7 @@
         movq    GREL(label)(%rip), dst
 
 /* Switch from OCaml to C stack. Clobbers REG & %r14. */
-#define SWITCH_OCAML_TO_C(OFFSET,REG) \
-    /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
-        pushq   $0 ; CFI_ADJUST(8); \
-        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
-        movq    %rsp, (REG); \
-        pushq   %r14; CFI_ADJUST(8); \
+#define SWITCH_OCAML_TO_C_NO_CTXT(REG) \
     /* Save OCaml SP in the stack slot */ \
         movq    GREL(caml_top_of_stack)(%rip), %r14; /* abuse %r14 */ \
         movq    (%r14), %r14; \
@@ -151,20 +145,25 @@
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
 
+/* Switch from OCaml to C stack. Also builds a context at 
+ * the bottom of the OCaml stack. Clobbers REG & %r14. */
+#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+    /* Build caml_context at the bottom of the stack */ \
+        pushq   $OFFSET; CFI_ADJUST(8); \
+        pushq   $0 ; CFI_ADJUST(8); \
+        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
+        movq    %rsp, (REG); \
+        pushq   %r14; CFI_ADJUST(8); \
+        SWITCH_OCAML_TO_C_NO_CTXT(REG)
+
 /* Switch from C to OCaml stack.  Clobbers REG. */
-#define SWITCH_C_TO_OCAML(REG) \
+#define SWITCH_C_TO_OCAML_NO_CTXT(REG) \
     /* Switch to OCaml stack */ \
         movq    GREL(caml_current_stack)(%rip), REG; \
         movq    (REG), REG; \
         movq    GREL(caml_top_of_stack)(%rip), %rsp; \
         movq    (%rsp), %rsp; \
-        subq    (REG), %rsp; \
-    /* Pop the caml_context from the bottom of stack updating %r14 */ \
-        popq    %r14; CFI_ADJUST(-8); \
-        popq    REG; CFI_ADJUST(-8); \
-        popq    REG; CFI_ADJUST(-8)
-
-
+        subq    (REG), %rsp
 #else
 
 /* Non-PIC operations on global variables.  Slightly faster. */
@@ -194,12 +193,7 @@
         leaq    G(label)(%rip), dst
 
 /* Switch from OCaml to C stack. Clobbers REG & %r14. */
-#define SWITCH_OCAML_TO_C(OFFSET,REG) \
-    /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
-        pushq   $0 ; CFI_ADJUST(8); \
-        movq    %rsp, G(caml_gc_regs_slot)(%rip); \
-        pushq   %r14; CFI_ADJUST(8); \
+#define SWITCH_OCAML_TO_C_NO_CTXT(REG) \
     /* Save OCaml SP in the stack slot */ \
         movq    G(caml_top_of_stack)(%rip), %r14; /* abuse %r14 */ \
         subq    %rsp, %r14; \
@@ -208,18 +202,33 @@
     /* Switch to system stack */ \
         movq    G(caml_system_sp)(%rip), %rsp
 
+/* Switch from OCaml to C stack. Also builds a context at 
+ * the bottom of the OCaml stack. Clobbers REG & %r14. */
+#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+    /* Build caml_context at the bottom of the stack */ \
+        pushq   $OFFSET; CFI_ADJUST(8); \
+        pushq   $0 ; CFI_ADJUST(8); \
+        movq    %rsp, G(caml_gc_regs_slot)(%rip); \
+        pushq   %r14; CFI_ADJUST(8); \
+        SWITCH_OCAML_TO_C_NO_CTXT(REG)
+
 /* Switch from C to OCaml stack. Clobbers REG. */
-#define SWITCH_C_TO_OCAML(REG) \
+#define SWITCH_C_TO_OCAML_NO_CTXT(REG) \
     /* Switch to OCaml stack */ \
         movq    G(caml_current_stack)(%rip), REG; \
         movq    G(caml_top_of_stack)(%rip), %rsp; \
-        subq    (REG), %rsp; \
+        subq    (REG), %rsp
+
+#endif
+
+/* Switch from C to OCaml stack. Also pops the context 
+ * from the bottom of the OCaml stack. Clobbers REG. */
+#define SWITCH_C_TO_OCAML(REG) \
+        SWITCH_C_TO_OCAML_NO_CTXT(REG); \
     /* Pop the caml_context from the bottom of stack updating %r14 */ \
         popq    %r14; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8)
-
-#endif
 
 /* Load [TOS - %r14] into %rsp. %r14 is an offset. Clobbers %r11. */
 #define RESTORE_EXN_HANDLER(TOS) \
@@ -621,9 +630,8 @@ LBL(caml_start_program):
         LOAD_VAR(caml_system_top_of_stack, %r14)
         subq    %rsp, %r14
         STORE_VAR(%r14, caml_system_exnptr_offset)
-    /* Temporarily push caml_current_stack for context switch */
-        PUSH_VAR(caml_current_stack)
     /* Save callback args */
+        subq    $8, %rsp; CFI_ADJUST(8)
         pushq   %r12; CFI_ADJUST(8)
         pushq   %rax; CFI_ADJUST(8)
         pushq   %rbx; CFI_ADJUST(8)
@@ -632,8 +640,8 @@ LBL(caml_start_program):
     /* Create a register array since caml_init_main_stack may GC? */
     /* XXX KC: Is this true? */
         movq    %rsp, C_ARG_1
-    /* Create new stack. Updates caml_current_stack. */
-        LEA_VAR(caml_init_main_stack, %r12)
+    /* Expand the current stack if needed */
+        LEA_VAR(caml_maybe_expand_stack, %r12)
         PREPARE_FOR_C_CALL
         call    *%r12
         CLEANUP_AFTER_C_CALL
@@ -644,16 +652,9 @@ LBL(caml_start_program):
         popq    %rbx; CFI_ADJUST(-8)
         popq    %rax; CFI_ADJUST(-8)
         popq    %r12; CFI_ADJUST(-8)
-    /* Load previous caml_current_stack in %rdx. */
-        popq    %rdx; CFI_ADJUST(-8)
+        addq    $8, %rsp; CFI_ADJUST(-8)
     /* Switch from C to OCaml stack. */
-        SWITCH_C_TO_OCAML(%r10)
-    /* Now we are in OCaml. Add a dummy (but special!) return address so that
-     * the GC will terminate walking the stack here. See caml_scan_stack_high(). */
-        pushq   $0 ; CFI_ADJUST(8)
-    /* Save prev caml_current_stack on the OCaml stack so that GC will know
-     * where to find the prev chunk. */
-        pushq   %rdx; CFI_ADJUST(8)
+        SWITCH_C_TO_OCAML_NO_CTXT(%r10)
     /* Setup alloc ptr */
         LOAD_VAR(caml_young_ptr, %r15)
     /* Build a handler for exceptions raised in OCaml */
@@ -672,23 +673,13 @@ LBL(108):
 LBL(110):
     /* Update alloc ptr */
         STORE_VAR(%r15,caml_young_ptr)
-    /* Load previous caml_current_stack in %r9 */
-        popq    %r9; CFI_ADJUST(-8)
     /* Return to C stack. */
-        SWITCH_OCAML_TO_C(0,%r10)
+        SWITCH_OCAML_TO_C_NO_CTXT(%r10)
     /* Pop the C exception handler */
-        addq    $16, %rsp; CFI_ADJUST(-8)
+        addq    $16, %rsp; CFI_ADJUST(-16)
     /* Restore previous system stack state */
         POP_VAR(caml_system_sp)
         POP_VAR(caml_system_exnptr_offset)
-        STORE_VAR(%r9,caml_current_stack)
-    /* Restore previous OCaml stack state */
-        movq    %rax, %r12 /* save result */
-        LEA_VAR(caml_restore_stack, %r13)
-        PREPARE_FOR_C_CALL
-        call    *%r13
-        CLEANUP_AFTER_C_CALL
-        movq    %r12, %rax /* restore result */
     /* Adjust stack */
         addq    $8, %rsp; CFI_ADJUST(-8)
     /* Restore callee-save registers. */
@@ -812,8 +803,6 @@ CFI_STARTPROC
         movq    24(%rsi), %r12    /* exception handler */
         movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
     /* Reset stack */
-        lea     LBL(111)(%rip), %r11
-        push    %r11
         movq    $1, 16(%rsi)
         movq    $1, 24(%rsi)
         movq    $1, 32(%rsi)
@@ -828,16 +817,15 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_fiber_val_handler))
 CFI_STARTPROC
-LBL(111):
     /* In handler. %rax has value */
         mov     %rax, %rbx
         LOAD_VAR(caml_current_stack, %rsi)
         movq    $0, (%rsi)        /* zero SP */
         movq    16(%rsi), %r12    /* value handler */
         movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
-    /* Reset stack */
-        lea     LBL(111)(%rip), %r11
-        push    %r11
+    /* Reset stack. First pop off fiber exn handler. */
+        popq    %r10
+        popq    %r10
         movq    $1, 16(%rsi)
         movq    $1, 24(%rsi)
         movq    $1, 32(%rsi)
@@ -925,14 +913,10 @@ G(caml_system__code_end):
         .globl  G(caml_system__frametable)
         .align  EIGHT_ALIGN
 G(caml_system__frametable):
-        .quad   2           /* two descriptors */
+        .quad   1           /* one descriptors */
         .quad   LBL(108)    /* return address into callback */
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
-        .align  EIGHT_ALIGN
-        .quad   LBL(111)
-        .value  -1
-        .value  0
         .align  EIGHT_ALIGN
 
 #if defined(SYS_macosx)

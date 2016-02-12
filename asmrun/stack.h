@@ -53,7 +53,7 @@
 
 #ifdef TARGET_amd64
 #define Saved_return_address(sp) *((intnat *)((sp) - 8))
-#define Callback_link(sp) ((value *)((sp) + 16))
+#define Next_chunk_offset 16
 #endif
 
 #ifdef TARGET_arm64
@@ -98,13 +98,21 @@ extern int caml_frame_descriptors_mask;
 extern void caml_init_frame_descriptors(void);
 extern void caml_register_frametable(intnat *);
 extern void caml_register_dyn_global(void *);
+CAMLextern void extract_location_info(frame_descr * d,
+                                      /*out*/ struct caml_loc_info * li);
+
+/* Stack management */
+
+extern value caml_alloc_main_stack(void);
+extern void caml_init_main_stack(void);
+extern void caml_maybe_expand_stack(value * gc_regs);
+extern void caml_realloc_stack();
+extern value caml_alloc_stack(value hval, value hexn, value heff);
 
 extern void caml_save_stack_gc(int);
 extern void caml_restore_stack_gc(void);
 extern void caml_restore_stack(void);
 extern void caml_switch_stack(value);
-CAMLextern void extract_location_info(frame_descr * d,
-                                      /*out*/ struct caml_loc_info * li);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 
@@ -132,7 +140,7 @@ extern value caml_globals[];
 extern intnat caml_globals_inited;
 extern intnat * caml_frametable[];
 
-#define Stack_ctx_words 6 /* Must be consistent with amd64.S:LOAD_OCAML_STACK */
+#define Stack_ctx_words 6
 #ifdef NATIVE_CODE
 #define Stack_base(stk) ((char*)(Op_val(stk) + Stack_ctx_words))
 #define Stack_high(stk) ((char*)(Op_val(stk) + Wosize_val(stk)))

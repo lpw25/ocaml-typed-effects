@@ -272,7 +272,7 @@ static caml_thread_t caml_thread_new_info(void)
   th->descr = Val_unit;         /* filled later */
   th->local_roots = NULL;
 #ifdef NATIVE_CODE
-  th->current_stack = Val_long(0);
+  th->current_stack = caml_alloc_main_stack();
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
   th->gc_regs_slot = NULL;

@@ -131,6 +131,7 @@ void caml_main(char **argv)
     if (caml_termination_hook != NULL) caml_termination_hook(NULL);
     return;
   }
+  caml_init_main_stack();
   res = caml_start_program();
   if (Is_exception_result(res))
     caml_fatal_uncaught_exception(Extract_exception(res));
