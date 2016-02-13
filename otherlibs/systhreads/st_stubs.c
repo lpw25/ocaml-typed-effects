@@ -182,6 +182,7 @@ static void caml_thread_leave_blocking_section(void)
   caml_local_roots = curr_thread->local_roots;
 #ifdef NATIVE_CODE
   caml_system_sp = curr_thread->system_sp;
+  caml_system_top_of_stack = curr_thread->system_top_of_stack;
   caml_gc_regs_slot = curr_thread->gc_regs_slot;
   caml_system_exnptr_offset = curr_thread->system_exnptr_offset;
 #else
