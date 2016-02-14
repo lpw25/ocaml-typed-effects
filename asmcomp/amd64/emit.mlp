@@ -836,7 +836,7 @@ type preproc_fun_result =
   {max_stack_size : int;
    contains_nontail_calls : bool;
    contains_external_calls : bool}
-   
+
 let preproc_fun fun_body fun_name =
   let rec proc_instr r a i =
     if i.desc = Lend then r else
@@ -847,8 +847,8 @@ let preproc_fun fun_body fun_name =
           | Lop (Istackoffset n) -> (upd_size r n, a+n)
           | Lpushtrap -> (upd_size r 16, a+16)
           | Lpoptrap -> (r, a-16)
-          | Lop (Iextcall _ | Ialloc _ | Iintop Icheckbound 
-                 | Iintop_imm (Icheckbound, _)) -> 
+          | Lop (Iextcall _ | Ialloc _ | Iintop Icheckbound
+                 | Iintop_imm (Icheckbound, _)) ->
               ({r with contains_external_calls = true}, a)
           | Lop (Icall_ind | Icall_imm _ ) ->
               ({r with contains_nontail_calls = true}, a)
@@ -857,7 +857,7 @@ let preproc_fun fun_body fun_name =
         proc_instr r' a' i.next
   in
   let fs = frame_size () in
-  let r = 
+  let r =
     {max_stack_size = fs;
      contains_nontail_calls = false;
      contains_external_calls = false}
@@ -904,15 +904,18 @@ let fundecl fundecl =
 
   let preproc_res = preproc_fun fundecl.fun_body fundecl.fun_name in
   let s = !Clflags.stack_slop + preproc_res.max_stack_size in
+
   (* Extra 1k bytes slop space if profiling is enabled. Ensures that `mcount`
    * and signal handlers do not stack overflow. *)
-  let s = if !Clflags.gprofile then s + 1024 else s in
+  let profile_slop = Config.profile_slop * 8 in
+  let s = s + profile_slop in
+
   (* Extra 48 bytes for caml_context at the bottom of OCaml stack if the
    * function makes external calls *)
   let s = if preproc_res.contains_external_calls then s + 48 else s in
 
-  if not preproc_res.contains_nontail_calls && 
-     s < stack_threshold_size 
+  if not preproc_res.contains_nontail_calls &&
+     s < stack_threshold_size + profile_slop
   then begin
     def_label !tailrec_entry_point;
     emit_all true fundecl.fun_body;

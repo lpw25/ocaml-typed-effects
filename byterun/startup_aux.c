@@ -45,7 +45,7 @@ uintnat caml_init_max_stack_wsz = Max_stack_def;
 extern int caml_parser_trace;
 uintnat caml_trace_level = 0;
 #ifdef PROFILING
-uintnat caml_init_fiber_wsz = (Stack_threshold * 64) / sizeof(value);
+uintnat caml_init_fiber_wsz = Profile_slop + (Stack_threshold * 2) / sizeof(value);
 #else
 uintnat caml_init_fiber_wsz = (Stack_threshold * 2) / sizeof(value);
 #endif
