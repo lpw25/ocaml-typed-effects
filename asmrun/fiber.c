@@ -74,14 +74,14 @@ void caml_restore_stack ()
   }
 }
 
-value caml_alloc_main_stack ()
+value caml_alloc_main_stack (uintnat init_size)
 {
   value stack;
 
   /* Create a stack for the main program.
      The GC is not initialised yet, so we use caml_alloc_shr
      which cannot trigger it */
-  stack = caml_alloc_shr(Stack_size/sizeof(value), Stack_tag);
+  stack = caml_alloc_shr(init_size, Stack_tag);
   Stack_dirty(stack) = Val_long(0);
   Stack_handle_value(stack) = Val_long(0);
   Stack_handle_exception(stack) = Val_long(0);
@@ -92,11 +92,11 @@ value caml_alloc_main_stack ()
   return stack;
 }
 
-void caml_init_main_stack ()
+void caml_init_main_stack (uintnat init_size)
 {
   value stack;
 
-  stack = caml_alloc_main_stack ();
+  stack = caml_alloc_main_stack (init_size);
   load_stack(stack);
 }
 

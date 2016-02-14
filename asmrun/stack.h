@@ -103,8 +103,8 @@ CAMLextern void extract_location_info(frame_descr * d,
 
 /* Stack management */
 
-extern value caml_alloc_main_stack(void);
-extern void caml_init_main_stack(void);
+extern value caml_alloc_main_stack(uintnat);
+extern void caml_init_main_stack(uintnat);
 extern void caml_maybe_expand_stack(value * gc_regs);
 extern void caml_realloc_stack();
 extern value caml_alloc_stack(value hval, value hexn, value heff);
