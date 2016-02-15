@@ -907,7 +907,9 @@ let fundecl fundecl =
 
   (* Extra 1k bytes slop space if profiling is enabled. Ensures that `mcount`
    * and signal handlers do not stack overflow. *)
-  let profile_slop = Config.profile_slop * 8 in
+  let profile_slop =
+    if !Clflags.gprofile then Config.profile_slop * 8 else 0
+  in
   let s = s + profile_slop in
 
   (* Extra 48 bytes for caml_context at the bottom of OCaml stack if the

@@ -32,7 +32,7 @@
 #include "threads.h"
 
 /* Initial size of bytecode stack when a thread is created (4 Ko) */
-#define Thread_stack_size (Stack_size / 4)
+#define Thread_stack_size (Stack_size / 2)
 
 /* Max computation time before rescheduling, in milliseconds */
 #define Thread_timeout 50
@@ -259,8 +259,6 @@ static uintnat caml_thread_stack_usage(void)
   return 0;
 }
 
-extern uintnat caml_init_max_stack_wsz;
-
 /* Create and setup a new thread info block.
    This block has no associated thread descriptor and
    is not inserted in the list of threads. */
@@ -275,7 +273,7 @@ static caml_thread_t caml_thread_new_info(void)
   th->descr = Val_unit;         /* filled later */
   th->local_roots = NULL;
 #ifdef NATIVE_CODE
-  th->current_stack = caml_alloc_main_stack(caml_init_max_stack_wsz);
+  th->current_stack = caml_alloc_main_stack(Thread_stack_size);
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
   th->gc_regs_slot = NULL;
