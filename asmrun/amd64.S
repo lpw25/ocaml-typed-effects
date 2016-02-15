@@ -145,14 +145,11 @@
         movq    GREL(caml_system_sp)(%rip), REG; \
         movq    (REG), %rsp
 
-/* Switch from OCaml to C stack. Also builds a context at 
+/* Switch from OCaml to C stack. Also builds a context at
  * the bottom of the OCaml stack. Clobbers REG & %r14. */
-#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+#define SWITCH_OCAML_TO_C(REG) \
     /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
         pushq   $0 ; CFI_ADJUST(8); \
-        movq    GREL(caml_gc_regs_slot)(%rip), REG; \
-        movq    %rsp, (REG); \
         pushq   %r14; CFI_ADJUST(8); \
         SWITCH_OCAML_TO_C_NO_CTXT(REG)
 
@@ -202,13 +199,11 @@
     /* Switch to system stack */ \
         movq    G(caml_system_sp)(%rip), %rsp
 
-/* Switch from OCaml to C stack. Also builds a context at 
+/* Switch from OCaml to C stack. Also builds a context at
  * the bottom of the OCaml stack. Clobbers REG & %r14. */
-#define SWITCH_OCAML_TO_C(OFFSET,REG) \
+#define SWITCH_OCAML_TO_C(REG) \
     /* Build caml_context at the bottom of the stack */ \
-        pushq   $OFFSET; CFI_ADJUST(8); \
         pushq   $0 ; CFI_ADJUST(8); \
-        movq    %rsp, G(caml_gc_regs_slot)(%rip); \
         pushq   %r14; CFI_ADJUST(8); \
         SWITCH_OCAML_TO_C_NO_CTXT(REG)
 
@@ -221,13 +216,12 @@
 
 #endif
 
-/* Switch from C to OCaml stack. Also pops the context 
+/* Switch from C to OCaml stack. Also pops the context
  * from the bottom of the OCaml stack. Clobbers REG. */
 #define SWITCH_C_TO_OCAML(REG) \
         SWITCH_C_TO_OCAML_NO_CTXT(REG); \
     /* Pop the caml_context from the bottom of stack updating %r14 */ \
         popq    %r14; CFI_ADJUST(-8); \
-        popq    REG; CFI_ADJUST(-8); \
         popq    REG; CFI_ADJUST(-8)
 
 /* Load [TOS - %r14] into %rsp. %r14 is an offset. Clobbers %r11. */
@@ -241,7 +235,7 @@
  * preserves : %rbx, %r12, %r13 */
 #define SWITCH_OCAML_STACKS \
     /* Switch from OCaml to C */ \
-        SWITCH_OCAML_TO_C(0,%r10); \
+        SWITCH_OCAML_TO_C(%r10); \
         ENTER_FUNCTION; \
     /* Call switch stack */ \
         PREPARE_FOR_C_CALL; \
@@ -333,6 +327,20 @@
 #  define CLEANUP_AFTER_C_CALL
 #endif
 
+/* Registers holding arguments of C functions. */
+
+#if defined(SYS_mingw64) || defined(SYS_cygwin)
+#define C_ARG_1 %rcx
+#define C_ARG_2 %rdx
+#define C_ARG_3 %r8
+#define C_ARG_4 %r9
+#else
+#define C_ARG_1 %rdi
+#define C_ARG_2 %rsi
+#define C_ARG_3 %rdx
+#define C_ARG_4 %rcx
+#endif
+
         .text
 
         .globl  G(caml_system__code_begin)
@@ -343,7 +351,7 @@ G(caml_system__code_begin):
 /* Allocation */
 
 #define SAVE_ALL_REGS_AND_CALL(TARGET_FUN)                                     \
-    /* Build array of registers, save it into caml_gc_regs_slot */             \
+    /* Build array of registers, save it into OCaml stack's gc_regs slot */    \
         pushq   %r11; CFI_ADJUST (8);                                          \
         pushq   %r10; CFI_ADJUST (8);                                          \
         pushq   %r13; CFI_ADJUST (8);                                          \
@@ -357,8 +365,10 @@ G(caml_system__code_begin):
         pushq   %rbx; CFI_ADJUST (8);                                          \
         pushq   %rax; CFI_ADJUST (8);                                          \
     /* Update in OCaml stack's context, the pointer to gc_regs */              \
-        LOAD_VAR(caml_gc_regs_slot, %r11);                                     \
-        movq    %rsp, (%r11);                                                  \
+        movq    %rsp, C_ARG_1;                                                 \
+				PREPARE_FOR_C_CALL;																										 \
+				call 		GCALL(caml_update_gc_regs_slot);															 \
+				CLEANUP_AFTER_C_CALL; 																								 \
     /* Save caml_young_ptr */                                                  \
         STORE_VAR(%r15, caml_young_ptr);                                       \
     /* Save floating-point registers */                                        \
@@ -418,7 +428,7 @@ G(caml_system__code_begin):
 
 FUNCTION(G(caml_call_gc))
         CFI_STARTPROC
-        SWITCH_OCAML_TO_C(0,%rax)
+        SWITCH_OCAML_TO_C(%rax)
         ENTER_FUNCTION
         call    LBL(do_gc)
         LEAVE_FUNCTION
@@ -443,7 +453,7 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_call_realloc_stack))
         CFI_STARTPROC
-        SWITCH_OCAML_TO_C(0,%r10)
+        SWITCH_OCAML_TO_C(%r10)
 #ifdef WITH_FRAME_POINTERS
         ENTER_FUNCTION
 #else
@@ -469,7 +479,7 @@ LBL(caml_alloc1):
         jb      LBL(100)
         ret
 LBL(100):
-        SWITCH_OCAML_TO_C(0,%rax)
+        SWITCH_OCAML_TO_C(%rax)
         ENTER_FUNCTION
         call    LBL(do_gc)
         LEAVE_FUNCTION
@@ -485,7 +495,7 @@ LBL(caml_alloc2):
         jb      LBL(101)
         ret
 LBL(101):
-        SWITCH_OCAML_TO_C(0,%rax)
+        SWITCH_OCAML_TO_C(%rax)
         ENTER_FUNCTION
         call    LBL(do_gc)
         LEAVE_FUNCTION
@@ -501,7 +511,7 @@ LBL(caml_alloc3):
         jb      LBL(102)
         ret
 LBL(102):
-        SWITCH_OCAML_TO_C(0,%rax)
+        SWITCH_OCAML_TO_C(%rax)
         ENTER_FUNCTION
         call    LBL(do_gc)
         LEAVE_FUNCTION
@@ -512,19 +522,25 @@ CFI_ENDPROC
 FUNCTION(G(caml_allocN))
 CFI_STARTPROC
 LBL(caml_allocN):
-        pushq   %rax; CFI_ADJUST(8)        /* save desired size */
         subq    %rax, %r15
         CMP_VAR(caml_young_limit, %r15)
         jb      LBL(103)
-        addq    $8, %rsp; CFI_ADJUST (-8)  /* drop desired size */
         ret
 LBL(103):
-        SWITCH_OCAML_TO_C(8,%rax)
+        /* Save desired size of system stack */
+        pushq   %rax
+        movq    GREL(caml_system_sp)(%rip), %rax
+        movq    (%rax), %rax
+        popq    -8(%rax)
+        SWITCH_OCAML_TO_C(%rax)
+        subq    $16, %rsp
         ENTER_FUNCTION
         call    LBL(do_gc)
         LEAVE_FUNCTION
         SWITCH_C_TO_OCAML(%rax)
-        popq    %rax; CFI_ADJUST(-8)       /* recover desired size */
+        movq    GREL(caml_system_sp)(%rip), %rax
+        movq    (%rax), %rax
+        movq    -8(%rax), %rax
         jmp     LBL(caml_allocN)
 CFI_ENDPROC
 
@@ -537,7 +553,7 @@ LBL(caml_c_call):
         C arguments         : %rdi, %rsi, %rdx, %rcx, %r8, and %r9
         C function          : %rax */
     /* Switch from OCaml to C */
-        SWITCH_OCAML_TO_C(0,%r10)
+        SWITCH_OCAML_TO_C(%r10)
         ENTER_FUNCTION
     /* Make the alloc ptr available to the C code */
         STORE_VAR(%r15, caml_young_ptr)
@@ -561,7 +577,7 @@ CFI_STARTPROC
         C function          : %rax
         C stack args        : begin=%r13 end=%r12 */
     /* Switch from OCaml to C */
-        SWITCH_OCAML_TO_C(0,%r10)
+        SWITCH_OCAML_TO_C(%r10)
         ENTER_FUNCTION
     /* Make the alloc ptr available to the C code */
         STORE_VAR(%r15, caml_young_ptr)
@@ -585,21 +601,6 @@ LBL(106):
     /* Return to OCaml caller */
         ret
 CFI_ENDPROC
-
-/* Registers holding arguments of C functions. */
-
-#if defined(SYS_mingw64) || defined(SYS_cygwin)
-#define C_ARG_1 %rcx
-#define C_ARG_2 %rdx
-#define C_ARG_3 %r8
-#define C_ARG_4 %r9
-#else
-#define C_ARG_1 %rdi
-#define C_ARG_2 %rsi
-#define C_ARG_3 %rdx
-#define C_ARG_4 %rcx
-#endif
-
 
 /* Start the OCaml program */
 

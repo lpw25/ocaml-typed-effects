@@ -76,7 +76,8 @@ void caml_restore_stack ()
 
 value caml_alloc_main_stack (uintnat init_size)
 {
-  value stack;
+  CAMLparam0();
+  CAMLlocal1(stack);
 
   /* Create a stack for the main program.
      The GC is not initialised yet, so we use caml_alloc_shr
@@ -89,7 +90,7 @@ value caml_alloc_main_stack (uintnat init_size)
   Stack_parent(stack) = Val_unit;
   Stack_sp(stack) = 0;
 
-  return stack;
+  CAMLreturn(stack);
 }
 
 void caml_init_main_stack (uintnat init_size)
@@ -191,7 +192,6 @@ value caml_alloc_stack (value hval, value hexn, value heff) {
   ctxt = (struct caml_context*)sp;
   ctxt->exception_ptr_offset = 2 * sizeof(value);
   ctxt->gc_regs = NULL;
-  ctxt->callback_offset = sizeof(value); /* Return address is caml_fiber_val_handler */
   Stack_sp(stack) = 3 * sizeof(value) + sizeof(struct caml_context);
 
   caml_gc_log ("Allocate stack=0x%lx of %lu words\n",
@@ -233,7 +233,7 @@ next_chunk:
   if (sp == (char*)stack_high) return;
   context = (struct caml_context*)sp;
   regs = context->gc_regs;
-  sp += sizeof(struct caml_context) + context->callback_offset;
+  sp += sizeof(struct caml_context);
 
   if (sp == (char*)stack_high) return;
   retaddr = *(uintnat*)sp;
@@ -307,6 +307,15 @@ void caml_switch_stack(value target) {
   }
   CAMLreturn0;
 }
+
+void caml_update_gc_regs_slot (value* gc_regs)
+{
+  struct caml_context *ctxt;
+  ctxt = (struct caml_context*) (((char*)Stack_high(caml_current_stack))
+                                 - Stack_sp(caml_current_stack));
+  ctxt->gc_regs = gc_regs;
+}
+
 
 uintnat (*caml_stack_usage_hook)(void) = NULL;
 

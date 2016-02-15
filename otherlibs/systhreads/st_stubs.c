@@ -68,7 +68,6 @@ struct caml_thread_struct {
 #ifdef NATIVE_CODE
   char *system_sp;             /* Saved value of caml_system_sp */
   char *system_top_of_stack;   /* Saved value of caml_system_top_of_stack */
-  value **gc_regs_slot;        /* Saved value of caml_gc_regs_slot */
   uintnat system_exnptr_offset; /* Saved value of caml_system_exnptr_offset */
   struct longjmp_buffer *exit_buf; /* For thread exit */
 #else
@@ -153,7 +152,6 @@ static void caml_thread_enter_blocking_section(void)
 #ifdef NATIVE_CODE
   curr_thread->system_sp = caml_system_sp;
   curr_thread->system_top_of_stack = caml_system_top_of_stack;
-  curr_thread->gc_regs_slot = caml_gc_regs_slot;
   curr_thread->system_exnptr_offset = caml_system_exnptr_offset;
 #else
   Stack_sp(caml_current_stack) = caml_stack_high - caml_extern_sp;
@@ -183,7 +181,6 @@ static void caml_thread_leave_blocking_section(void)
 #ifdef NATIVE_CODE
   caml_system_sp = curr_thread->system_sp;
   caml_system_top_of_stack = curr_thread->system_top_of_stack;
-  caml_gc_regs_slot = curr_thread->gc_regs_slot;
   caml_system_exnptr_offset = curr_thread->system_exnptr_offset;
 #else
   caml_trap_sp_off = curr_thread->trap_sp_off;
@@ -276,7 +273,6 @@ static caml_thread_t caml_thread_new_info(void)
   th->current_stack = caml_alloc_main_stack(Thread_stack_size);
   th->system_sp = NULL;
   th->system_top_of_stack = NULL;
-  th->gc_regs_slot = NULL;
   th->system_exnptr_offset = 0;
   th->exit_buf = NULL;
 #else

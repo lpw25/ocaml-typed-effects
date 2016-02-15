@@ -66,7 +66,6 @@
 struct caml_context {
   uintnat exception_ptr_offset; /* exception pointer offset from top of stack */
   value * gc_regs;              /* pointer to register block */
-  uintnat callback_offset;      /* Offset of callback link from OCaml part of stack. */
 };
 
 /* Structure of frame descriptors */
@@ -113,6 +112,7 @@ extern void caml_save_stack_gc(int);
 extern void caml_restore_stack_gc(void);
 extern void caml_restore_stack(void);
 extern void caml_switch_stack(value);
+extern void caml_update_gc_regs_slot(value*);
 extern uintnat caml_stack_usage (void);
 extern uintnat (*caml_stack_usage_hook)(void);
 
@@ -130,11 +130,6 @@ extern char * caml_system_sp;
 extern char * caml_system_top_of_stack;
 /* Offset of exception pointer from the top of stack */
 extern uintnat caml_system_exnptr_offset;
-/* The address of the gc_regs slot in the caml_context at the bottom of the
- * OCaml stack. During allocation and GC, the gc_regs structure is built after
- * the context is built. We use this address to update the gc_regs slot in the
- * context after the regs table is built. */
-extern value ** caml_gc_regs_slot;
 
 extern value caml_globals[];
 extern intnat caml_globals_inited;
