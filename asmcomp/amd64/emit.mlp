@@ -912,9 +912,9 @@ let fundecl fundecl =
   in
   let s = s + profile_slop in
 
-  (* Extra 48 bytes for caml_context at the bottom of OCaml stack if the
+  (* Extra 24 bytes for caml_context at the bottom of OCaml stack if the
    * function makes external calls *)
-  let s = if preproc_res.contains_external_calls then s + 48 else s in
+  let s = if preproc_res.contains_external_calls then s + 24 else s in
 
   if not preproc_res.contains_nontail_calls &&
      s < stack_threshold_size + profile_slop
@@ -933,8 +933,11 @@ let fundecl fundecl =
     let handle_overflow = new_label() in
     let after_overflow = record_frame_label live_initially Debuginfo.none in
 
-    load_symbol_addr "caml_stack_threshold" r11;
-    I.mov (mem64 QWORD 0 R11) r11;
+    if !Clflags.dlcode then begin
+      load_symbol_addr "caml_stack_threshold" r11;
+      I.mov (mem64 QWORD 0 R11) r11;
+    end else
+      I.mov (mem64_rip QWORD (emit_symbol "caml_stack_threshold")) r11;
     I.add (int s) r11;
     I.cmp r11 rsp;
     I.jb (label handle_overflow);
