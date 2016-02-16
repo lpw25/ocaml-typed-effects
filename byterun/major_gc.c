@@ -164,6 +164,8 @@ static void start_cycle (void)
 
 static value *gray_vals_ptr = NULL;  /* Local copy of gray_vals_cur */
 
+static void mark_child (value child, value* childp) __attribute__((always_inline));
+
 static void mark_child (value child, value* childp)
 {
   header_t hd;
