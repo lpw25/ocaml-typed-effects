@@ -477,12 +477,15 @@ static ST_THREAD_FUNCTION caml_thread_start(void * arg)
 
 CAMLprim value caml_thread_new(value clos)          /* ML */
 {
+  CAMLparam1(clos);
+  CAMLlocal1(stack);
   caml_thread_t th;
   st_retcode err;
 
   /* Create a thread info block */
   th = caml_thread_new_info();
   if (th == NULL) caml_raise_out_of_memory();
+  stack = th->current_stack;
   /* Equip it with a thread descriptor */
   th->descr = caml_thread_new_descriptor(clos);
   /* Add thread info block to the list of threads */
@@ -505,7 +508,7 @@ CAMLprim value caml_thread_new(value clos)          /* ML */
     st_check_error(err, "Thread.create");
     caml_tick_thread_running = 1;
   }
-  return th->descr;
+  CAMLreturn(th->descr);
 }
 
 /* Register a thread already created from C */
