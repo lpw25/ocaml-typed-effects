@@ -35,13 +35,16 @@ exception Exit
 (* Effects *)
 
 type ('a, 'b) stack
-external take_cont : ('a, 'b) continuation -> ('a, 'b) stack = "caml_bvar_take"
+external take_cont : exn -> ('a, 'b) continuation -> ('a, 'b) stack = "%take_cont"
 external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
 
+let cont_taken = Invalid_argument "continuation already taken"
+
 let continue k v =
-  resume (take_cont k) (fun x -> x) v
+  resume (take_cont cont_taken k) (fun x -> x) v
+
 let discontinue k e =
-  resume (take_cont k) (fun e -> raise e) e
+  resume (take_cont cont_taken k) (fun e -> raise e) e
 
 external perform : 'a eff -> 'a = "%perform"
 
@@ -178,7 +181,7 @@ type fpclass =
   | FP_zero
   | FP_infinite
   | FP_nan
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float -> fpclass = "caml_classify_float" "noalloc"
 
 (* String and byte sequence operations -- more in modules String and Bytes *)
 

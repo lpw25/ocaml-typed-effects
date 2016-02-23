@@ -109,7 +109,10 @@ void caml_main(char **argv)
 #ifdef DEBUG
   caml_verb_gc = 63;
 #endif
-  caml_top_of_stack = &tos;
+  caml_system_top_of_stack = &tos;
+  /* Ceil 16-byte align caml_system_top_of_stack */
+  caml_system_top_of_stack =
+    (char*)((((uintnat)caml_system_top_of_stack + 16) >> 4) << 4);
   caml_parse_ocamlrunparam();
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
@@ -128,6 +131,7 @@ void caml_main(char **argv)
     if (caml_termination_hook != NULL) caml_termination_hook(NULL);
     return;
   }
+  caml_init_main_stack(caml_init_max_stack_wsz);
   res = caml_start_program();
   if (Is_exception_result(res))
     caml_fatal_uncaught_exception(Extract_exception(res));

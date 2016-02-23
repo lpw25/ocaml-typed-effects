@@ -270,12 +270,11 @@
 /* **** asmrun/signals.c */
 #define garbage_collection caml_garbage_collection
 
-/* **** stacks.c */
-#define stack_low caml_stack_low
+/* **** fiber.c */
 #define stack_high caml_stack_high
 #define stack_threshold caml_stack_threshold
 #define extern_sp caml_extern_sp
-#define trapsp caml_trapsp
+#define trap_sp_offset caml_trap_sp_offset
 #define trap_barrier caml_trap_barrier
 
 /* **** startup.c */

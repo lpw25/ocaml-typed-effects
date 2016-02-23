@@ -524,7 +524,7 @@ type fpclass =
 (** The five classes of floating-point numbers, as determined by
    the {!Pervasives.classify_float} function. *)
 
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float -> fpclass = "caml_classify_float" "noalloc"
 (** Return the class of the given floating-point number:
    normal, subnormal, zero, infinite, or not a number. *)
 

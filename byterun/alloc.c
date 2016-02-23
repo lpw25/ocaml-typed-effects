@@ -22,7 +22,7 @@
 #include "caml/major_gc.h"
 #include "caml/memory.h"
 #include "caml/mlvalues.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 #define Setup_for_gc
 #define Restore_after_gc
@@ -46,6 +46,7 @@ CAMLexport value caml_alloc (mlsize_t wosize, tag_t tag)
     if (tag < No_scan_tag){
       for (i = 0; i < wosize; i++) Field (result, i) = Val_unit;
     }
+    if (tag == Stack_tag) Stack_sp(result) = 0;
     result = caml_check_urgent_gc (result);
   }
   return result;

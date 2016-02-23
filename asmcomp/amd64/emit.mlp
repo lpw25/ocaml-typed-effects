@@ -70,6 +70,8 @@ let stack_offset = ref 0
 
 (* Layout of the stack frame *)
 
+let stack_threshold_size = Config.stack_threshold * 8 (* bytes *)
+
 let frame_required () =
   fp || !contains_calls || num_stack_slots.(0) > 0 || num_stack_slots.(1) > 0
 
@@ -498,25 +500,53 @@ let emit_instr fallthrough i =
           emit_jump s
         end
       end
-  | Lop(Iextcall(s, alloc)) ->
+  | Lop(Iextcall(s, alloc, stack_off)) ->
       add_used_symbol s;
-      if alloc then begin
-        load_symbol_addr s rax;
-        emit_call "caml_c_call";
-        record_frame i.live i.dbg;
-        if system <> S_win64 then begin
-          (* TODO: investigate why such a diff.
-             This comes from:
-             http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
+      if stack_off > 0 then
+        begin
+          I.lea (mem64 QWORD 0 RSP) r13;
+          I.lea (mem64 QWORD stack_off RSP) r12;
+          load_symbol_addr s rax;
+          emit_call "caml_c_call_stack_args";
+          record_frame i.live i.dbg;
+          if system <> S_win64 then begin
+            (* TODO: investigate why such a diff.
+                This comes from:
+                http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
 
-             If we do the same for Win64, we probably need to change
-             amd64nt.asm accordingly.
-          *)
-          load_symbol_addr "caml_young_ptr" r11;
-          I.mov (mem64 QWORD 0 R11) r15
-        end;
-      end else
-        emit_call s
+                If we do the same for Win64, we probably need to change
+                amd64nt.asm accordingly.
+            *)
+            load_symbol_addr "caml_young_ptr" r11;
+            I.mov (mem64 QWORD 0 R11) r15
+          end
+        end
+      else if alloc then
+        begin
+          load_symbol_addr s rax;
+          emit_call "caml_c_call";
+          record_frame i.live i.dbg;
+          if system <> S_win64 then begin
+            (* TODO: investigate why such a diff.
+                This comes from:
+                http://caml.inria.fr/cgi-bin/viewvc.cgi?view=revision&revision=12664
+
+                If we do the same for Win64, we probably need to change
+                amd64nt.asm accordingly.
+            *)
+            load_symbol_addr "caml_young_ptr" r11;
+            I.mov (mem64 QWORD 0 R11) r15
+          end
+        end
+      else begin
+        I.mov rsp r10;
+        load_symbol_addr "caml_system_sp" r11;
+        I.mov (mem64 QWORD 0 R11) rsp;
+        I.push r10;
+        emit_call s;
+        I.pop r10;
+        I.mov r10 rsp
+      end
   | Lop(Istackoffset n) ->
       if n < 0
       then I.add (int (-n)) rsp
@@ -753,7 +783,9 @@ let emit_instr fallthrough i =
       cfi_adjust_cfa_offset 8;
       I.push r14;
       cfi_adjust_cfa_offset 8;
-      I.mov rsp r14;
+      load_symbol_addr "caml_top_of_stack" r11;
+      I.mov (mem64 QWORD 0 R11) r14;
+      I.sub rsp r14;
       stack_offset := !stack_offset + 16
   | Lpoptrap ->
       I.pop r14;
@@ -771,7 +803,9 @@ let emit_instr fallthrough i =
           record_frame Reg.Set.empty i.dbg
       | false, _
       | true, Lambda.Raise_notrace ->
-          I.mov r14 rsp;
+          load_symbol_addr "caml_top_of_stack" r11;
+          I.mov (mem64 QWORD 0 R11) rsp;
+          I.sub r14 rsp;
           I.pop r14;
           I.ret ()
       end
@@ -797,6 +831,38 @@ let emit_profile () =
     emit_call "mcount";
     I.pop r10
   end
+
+type preproc_fun_result =
+  {max_stack_size : int;
+   contains_nontail_calls : bool;
+   contains_external_calls : bool}
+
+let preproc_fun fun_body fun_name =
+  let rec proc_instr r a i =
+    if i.desc = Lend then r else
+        let upd_size r delta =
+          {r with max_stack_size = max r.max_stack_size (a+delta)}
+        in
+        let (r',a') = match i.desc with
+          | Lop (Istackoffset n) -> (upd_size r n, a+n)
+          | Lpushtrap -> (upd_size r 16, a+16)
+          | Lpoptrap -> (r, a-16)
+          | Lop (Iextcall _ | Ialloc _ | Iintop Icheckbound
+                 | Iintop_imm (Icheckbound, _)) ->
+              ({r with contains_external_calls = true}, a)
+          | Lop (Icall_ind | Icall_imm _ ) ->
+              ({r with contains_nontail_calls = true}, a)
+          | _ -> (r, a)
+        in
+        proc_instr r' a' i.next
+  in
+  let fs = frame_size () in
+  let r =
+    {max_stack_size = fs;
+     contains_nontail_calls = false;
+     contains_external_calls = false}
+  in
+  proc_instr r fs fun_body
 
 (* Emission of a function declaration *)
 
@@ -835,9 +901,57 @@ let fundecl fundecl =
       cfi_adjust_cfa_offset n;
     end;
   end;
-  def_label !tailrec_entry_point;
-  emit_all true fundecl.fun_body;
-  List.iter emit_call_gc !call_gc_sites;
+
+  let preproc_res = preproc_fun fundecl.fun_body fundecl.fun_name in
+  let s = !Clflags.stack_slop + preproc_res.max_stack_size in
+
+  (* Extra 1k bytes slop space if profiling is enabled. Ensures that `mcount`
+   * and signal handlers do not stack overflow. *)
+  let profile_slop =
+    if !Clflags.gprofile then Config.profile_slop * 8 else 0
+  in
+  let s = s + profile_slop in
+
+  (* Extra 24 bytes for caml_context at the bottom of OCaml stack if the
+   * function makes external calls *)
+  let s = if preproc_res.contains_external_calls then s + 24 else s in
+
+  if not preproc_res.contains_nontail_calls &&
+     s < stack_threshold_size + profile_slop
+  then begin
+    def_label !tailrec_entry_point;
+    emit_all true fundecl.fun_body;
+    List.iter emit_call_gc !call_gc_sites;
+  end
+  else begin
+    (* XXX KC: fundecl.fun_body.live does not capture liveness at the start of
+    the function properly. *)
+    let live_initially =
+      Reg.Set.(fold (fun r s -> add {r with typ = Addr} s)
+        fundecl.fun_args empty)
+    in
+    let handle_overflow = new_label() in
+    let after_overflow = record_frame_label live_initially Debuginfo.none in
+
+    if !Clflags.dlcode then begin
+      load_symbol_addr "caml_stack_threshold" r11;
+      I.mov (mem64 QWORD 0 R11) r11;
+    end else
+      I.mov (mem64_rip QWORD (emit_symbol "caml_stack_threshold")) r11;
+    I.add (int s) r11;
+    I.cmp r11 rsp;
+    I.jb (label handle_overflow);
+    def_label !tailrec_entry_point;
+    emit_all true fundecl.fun_body;
+
+    List.iter emit_call_gc !call_gc_sites;
+
+    def_label handle_overflow;
+    emit_call "caml_call_realloc_stack";
+    def_label after_overflow;
+    I.jmp (label !tailrec_entry_point);
+  end;
+
   emit_call_bound_errors ();
   cfi_endproc ();
   begin match system with
@@ -882,9 +996,11 @@ let begin_assembly() =
   if system = S_win64 then begin
     D.extrn "caml_young_ptr" QWORD;
     D.extrn "caml_young_limit" QWORD;
-    D.extrn "caml_exception_pointer" QWORD;
+    D.extrn "caml_stack_threshold" QWORD;
     D.extrn "caml_call_gc" NEAR;
+    D.extrn "caml_call_realloc_stack" NEAR;
     D.extrn "caml_c_call" NEAR;
+    D.extrn "caml_c_call_stack_args" NEAR;
     D.extrn "caml_allocN" NEAR;
     D.extrn "caml_alloc1" NEAR;
     D.extrn "caml_alloc2" NEAR;
@@ -892,6 +1008,9 @@ let begin_assembly() =
     D.extrn "caml_ml_array_bound_error" NEAR;
     D.extrn "caml_raise_exn" NEAR;
     D.extrn "caml_reraise_exn" NEAR;
+    D.extrn "caml_resume" NEAR;
+    D.extrn "caml_perform" NEAR;
+    D.extrn "caml_delegate" NEAR;
   end;
 
 

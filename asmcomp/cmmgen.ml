@@ -2050,7 +2050,6 @@ and transl_prim_3 p arg1 arg2 arg3 dbg =
           check_bound unsafe dbg (sub_int (Cop(Cload Word,[field_address ba 5]))
                                           (Cconst_int 7)) idx
                       (unaligned_set_64 ba_data idx newval))))))
-
   | _ ->
     fatal_error "Cmmgen.transl_prim_3"
 

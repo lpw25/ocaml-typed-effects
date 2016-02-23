@@ -21,16 +21,15 @@ typedef void (*scanning_action) (value, value *);
 
 void caml_oldify_local_roots (void);
 void caml_darken_all_roots (void);
-void caml_do_roots (scanning_action);
-#ifndef NATIVE_CODE
+void caml_do_roots (scanning_action, int);
 CAMLextern void caml_do_local_roots (scanning_action,
-                                     struct caml__roots_block *);
-#else
-CAMLextern void caml_do_local_roots(scanning_action f, char * bottom_of_stack,
-                                    uintnat last_retaddr, value * gc_regs,
-                                    struct caml__roots_block * local_roots);
-#endif
+                                     struct caml__roots_block *,
+                                     value* stackp,
+                                     int);
+CAMLextern void (*caml_scan_roots_hook) (scanning_action, int);
 
-CAMLextern void (*caml_scan_roots_hook) (scanning_action);
+#ifdef DEBUG
+void caml_print_heap (void);
+#endif
 
 #endif /* CAML_ROOTS_H */

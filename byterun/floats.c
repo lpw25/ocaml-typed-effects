@@ -24,7 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/misc.h"
 #include "caml/reverse.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 #ifdef _MSC_VER
 #include <float.h>

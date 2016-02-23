@@ -46,7 +46,7 @@
 #include "caml/mlvalues.h"
 #include "caml/osdeps.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #include "caml/sys.h"
 #include "caml/gc_ctrl.h"
 
@@ -105,9 +105,6 @@ CAMLprim value caml_sys_exit(value retcode)
     caml_gc_message(0x400, "## Total allocated words: %ld\n", (long)allocated_words);
   }
 
-#ifndef NATIVE_CODE
-  caml_debugger(PROGRAM_EXIT);
-#endif
   exit(Int_val(retcode));
   return Val_unit;
 }

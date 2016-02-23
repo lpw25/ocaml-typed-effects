@@ -101,9 +101,11 @@ frame_descr * caml_next_frame_descriptor(uintnat * pc, char ** sp)
     } else {
       /* Special frame marking the top of a stack chunk for an ML callback.
          Skip C portion of stack and continue with next ML stack chunk. */
-      struct caml_context * next_context = Callback_link(*sp);
-      *sp = next_context->bottom_of_stack;
-      *pc = next_context->last_retaddr;
+      caml_fatal_error ("caml_next_frame_descriptor");
+      /* XXX KC */
+      /* struct caml_context * next_context = Callback_link(*sp);
+         *sp = next_context->bottom_of_stack;
+         *pc = next_context->last_retaddr; */
       /* A null sp means no more ML stack chunks; stop here. */
       if (*sp == NULL) return NULL;
     }
@@ -162,12 +164,18 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
   intnat max_frames = Long_val(max_frames_value);
   intnat trace_size;
 
+#if 0
   /* first compute the size of the trace */
   {
-    uintnat pc = caml_last_return_address;
+    /* XXX KC */
+    /* uintnat pc = caml_last_return_address; */
     /* note that [caml_bottom_of_stack] always points to the most recent
      * frame, independently of the [Stack_grows_upwards] setting */
-    char * sp = caml_bottom_of_stack;
+
+    /* XXX KC */
+    /* char * sp = caml_bottom_of_stack; */
+    char* sp = NULL;
+    caml_fatal_error ("caml_get_current_callstack(1)");
     char * limitsp = caml_top_of_stack;
 
     trace_size = 0;
@@ -184,13 +192,18 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
 #endif
     }
   }
+#endif
 
   trace = caml_alloc((mlsize_t) trace_size, 0);
 
+#if 0
   /* then collect the trace */
   {
     uintnat pc = caml_last_return_address;
-    char * sp = caml_bottom_of_stack;
+    /* XXX KC */
+    /* char * sp = caml_bottom_of_stack; */
+    char* sp = NULL;
+    caml_fatal_error ("caml_get_current_callstack(2)");
     intnat trace_pos;
 
     for (trace_pos = 0; trace_pos < trace_size; trace_pos++) {
@@ -199,6 +212,7 @@ CAMLprim value caml_get_current_callstack(value max_frames_value) {
       Field(trace, trace_pos) = Val_Descrptr(descr);
     }
   }
+#endif
 
   CAMLreturn(trace);
 }

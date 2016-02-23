@@ -22,5 +22,6 @@ extern uintnat caml_init_heap_chunk_sz;
 extern uintnat caml_init_heap_wsz;
 extern uintnat caml_init_max_stack_wsz;
 extern uintnat caml_trace_level;
+extern uintnat caml_init_fiber_wsz;
 
 extern void caml_parse_ocamlrunparam (void);

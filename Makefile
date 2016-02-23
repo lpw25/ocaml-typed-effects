@@ -18,6 +18,7 @@ CAMLYACC ?= boot/ocamlyacc
 include stdlib/StdlibModules
 
 CAMLC=$(CAMLRUN) boot/ocamlc -nostdlib -I boot
+#CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -runtime-variant d -I asmrun -I stdlib -I otherlibs/dynlink
 CAMLOPT=$(CAMLRUN) ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
 COMPFLAGS=-strict-sequence -w +33..39+48+50 -warn-error A -bin-annot \
           -safe-string $(INCLUDES)
@@ -138,7 +139,7 @@ defaultentry:
 	@echo "Please refer to the installation instructions in file INSTALL."
 	@echo "If you've just unpacked the distribution, something like"
 	@echo "	./configure"
-	@echo "	make world"
+	@echo "	make world.opt"
 	@echo "	make install"
 	@echo "should work.  But see the file INSTALL for more details."
 
@@ -157,7 +158,6 @@ world:
 
 # Compile also native code compiler and libraries, fast
 world.opt:
-	$(error Algebraic effects branch doesn't yet support native code compiler. `make world` will build the bytecode compiler)
 	$(MAKE) coldstart
 	$(MAKE) opt.opt
 
@@ -550,6 +550,9 @@ compilerlibs/ocamloptcomp.cmxa: $(ASMCOMP:.cmo=.cmx)
 partialclean::
 	rm -f compilerlibs/ocamloptcomp.cmxa compilerlibs/ocamloptcomp.a
 
+#XXX KC
+#ocamlopt.opt: asmrun/libasmrund.a compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
+
 ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
 	$(CAMLOPT) $(LINKFLAGS) -o ocamlopt.opt \
@@ -844,6 +847,7 @@ package-macosx:
 
 clean::
 	rm -rf package-macosx/*.pkg package-macosx/*.dmg
+	make -Cnative-tests clean
 
 # Default rules
 

@@ -21,25 +21,11 @@
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
-#include "caml/stacks.h"
-
-#ifdef NATIVE_CODE
-#include "frame_descriptors.h"
-
-/* Communication with [caml_start_program] and [caml_call_gc]. */
-
-char * caml_top_of_stack;
-char * caml_bottom_of_stack = NULL; /* no stack initially */
-uintnat caml_last_return_address = 1; /* not in OCaml code initially */
-value * caml_gc_regs;
-intnat caml_globals_inited = 0;
-static intnat caml_globals_scanned = 0;
-
-#endif
+#include "caml/fiber.h"
 
 CAMLexport struct caml__roots_block *caml_local_roots = NULL;
 
-CAMLexport void (*caml_scan_roots_hook) (scanning_action f) = NULL;
+CAMLexport void (*caml_scan_roots_hook) (scanning_action f, int) = NULL;
 
 /* FIXME should rename to [caml_oldify_young_roots] and synchronise with
    asmrun/roots.c */
@@ -68,38 +54,42 @@ void caml_oldify_local_roots (void)
   /* Finalised values */
   caml_final_do_young_roots (&caml_oldify_one);
   /* Hook */
-  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one);
+  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(&caml_oldify_one, 0);
 }
+
 
 /* Call [caml_darken] on all roots */
 
 void caml_darken_all_roots (void)
 {
-  caml_do_roots (caml_darken);
+  caml_do_roots (caml_darken, 0);
 }
 
-void caml_do_roots (scanning_action f)
+void caml_do_roots (scanning_action f, int is_compaction)
 {
   /* Global variables */
   f(caml_global_data, &caml_global_data);
   /* The stack and the local C roots */
-  caml_do_local_roots(f, caml_local_roots);
+  caml_do_local_roots(f, caml_local_roots, &caml_current_stack, is_compaction);
   /* Global C roots */
   caml_scan_global_roots(f);
   /* Finalised values */
   caml_final_do_strong_roots (f);
   /* Hook */
-  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f);
+  if (caml_scan_roots_hook != NULL) (*caml_scan_roots_hook)(f, is_compaction);
 }
 
 CAMLexport void caml_do_local_roots (scanning_action f,
-                                     struct caml__roots_block *local_roots)
+                                     struct caml__roots_block *local_roots,
+                                     value* stackp,
+                                     int is_compaction)
 {
   struct caml__roots_block *lr;
   int i, j;
   value * sp;
 
-  f (caml_current_stack, &caml_current_stack);
+  if (!is_compaction) caml_scan_stack (f, *stackp);
+  f (*stackp, stackp);
 
   for (lr = local_roots; lr != NULL; lr = lr->next) {
     for (i = 0; i < lr->ntables; i++){

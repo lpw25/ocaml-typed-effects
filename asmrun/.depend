@@ -5,7 +5,7 @@ alloc.o: alloc.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/stacks.h ../byterun/caml/memory.h
+ ../byterun/caml/fiber.h ../byterun/caml/memory.h ../byterun/caml/roots.h
 array.o: array.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -39,7 +39,7 @@ compact.o: compact.c ../byterun/caml/address_class.h \
  ../byterun/caml/gc.h ../byterun/caml/gc_ctrl.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/weak.h
+ ../byterun/caml/weak.h stack.h
 compare.o: compare.c ../byterun/caml/custom.h ../byterun/caml/mlvalues.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
@@ -89,6 +89,13 @@ fail.o: fail.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/printexc.h ../byterun/caml/signals.h stack.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/callback.h
+fiber.o: fiber.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
+ ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h stack.h ../byterun/caml/startup_aux.h
 finalise.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -97,6 +104,16 @@ finalise.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/signals.h
+fix_code.o: fix_code.c ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/debugger.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/fix_code.h ../byterun/caml/instruct.h \
+ ../byterun/caml/intext.h ../byterun/caml/io.h ../byterun/caml/md5.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/reverse.h
 floats.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -104,8 +121,8 @@ floats.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h \
- ../byterun/caml/reverse.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/reverse.h ../byterun/caml/fiber.h \
+ ../byterun/caml/memory.h ../byterun/caml/roots.h
 freelist.o: freelist.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/freelist.h ../byterun/caml/misc.h \
@@ -173,10 +190,10 @@ io.o: io.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
 lexing.o: lexing.c ../byterun/caml/fail.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/stacks.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h
 main.o: main.c ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h ../byterun/caml/sys.h
@@ -191,7 +208,7 @@ major_gc.o: major_gc.c ../byterun/caml/compact.h ../byterun/caml/config.h \
  ../byterun/caml/freelist.h ../byterun/caml/gc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/roots.h ../byterun/caml/weak.h
+ ../byterun/caml/roots.h ../byterun/caml/weak.h ../byterun/caml/fiber.h
 md5.o: md5.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -207,9 +224,9 @@ memory.o: memory.c ../byterun/caml/address_class.h ../byterun/caml/misc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/signals.h
+ ../byterun/caml/address_class.h ../byterun/caml/alloc.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/signals.h
 meta.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -220,8 +237,8 @@ meta.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/prims.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/prims.h ../byterun/caml/fiber.h ../byterun/caml/memory.h \
+ ../byterun/caml/roots.h
 minor_gc.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/fail.h ../byterun/caml/misc.h ../byterun/caml/config.h \
@@ -233,7 +250,7 @@ minor_gc.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/signals.h ../byterun/caml/weak.h
+ ../byterun/caml/signals.h ../byterun/caml/weak.h ../byterun/caml/fiber.h
 misc.o: misc.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
@@ -282,19 +299,6 @@ roots.o: roots.c ../byterun/caml/finalise.h ../byterun/caml/roots.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h stack.h \
  ../byterun/caml/roots.h
-signals_asm.o: signals_asm.c ../byterun/caml/fail.h \
- ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
- ../byterun/caml/globroots.h ../byterun/caml/memory.h \
- ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/misc.h ../byterun/caml/mlvalues.h stack.h \
- ../byterun/caml/roots.h ../byterun/caml/address_class.h \
- ../byterun/caml/misc.h ../byterun/caml/config.h \
- ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
- ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
- ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
- ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
- ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 signals.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -306,13 +310,14 @@ signals.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/signals.h ../byterun/caml/signals_machdep.h \
  ../byterun/caml/sys.h
-startup_aux.o: startup_aux.c ../byterun/caml/backtrace.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+signals_asm.o: signals_asm.c ../byterun/caml/fail.h \
+ ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
- ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
- ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
+ ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
+ ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
+ ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
+ ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 startup.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -327,6 +332,13 @@ startup.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
  ../byterun/caml/printexc.h stack.h ../byterun/caml/startup_aux.h \
  ../byterun/caml/sys.h
+startup_aux.o: startup_aux.c ../byterun/caml/backtrace.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
+ ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
 str.o: str.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -337,11 +349,11 @@ sys.o: sys.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/debugger.h \
  ../byterun/caml/fail.h ../byterun/caml/instruct.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
- ../byterun/caml/signals.h ../byterun/caml/stacks.h \
+ ../byterun/caml/signals.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/sys.h \
- ../byterun/caml/gc_ctrl.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h \
+ ../byterun/caml/sys.h ../byterun/caml/gc_ctrl.h
 terminfo.o: terminfo.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/alloc.h ../byterun/caml/misc.h ../byterun/caml/config.h \
@@ -368,7 +380,7 @@ alloc.d.o: alloc.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/stacks.h ../byterun/caml/memory.h
+ ../byterun/caml/fiber.h ../byterun/caml/memory.h ../byterun/caml/roots.h
 array.d.o: array.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -402,7 +414,7 @@ compact.d.o: compact.c ../byterun/caml/address_class.h \
  ../byterun/caml/gc.h ../byterun/caml/gc_ctrl.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/weak.h
+ ../byterun/caml/weak.h stack.h
 compare.d.o: compare.c ../byterun/caml/custom.h ../byterun/caml/mlvalues.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
@@ -452,6 +464,13 @@ fail.d.o: fail.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/printexc.h ../byterun/caml/signals.h stack.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/callback.h
+fiber.d.o: fiber.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
+ ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h stack.h ../byterun/caml/startup_aux.h
 finalise.d.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -460,6 +479,16 @@ finalise.d.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/signals.h
+fix_code.d.o: fix_code.c ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/debugger.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/fix_code.h ../byterun/caml/instruct.h \
+ ../byterun/caml/intext.h ../byterun/caml/io.h ../byterun/caml/md5.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/reverse.h
 floats.d.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -467,8 +496,8 @@ floats.d.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h \
- ../byterun/caml/reverse.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/reverse.h ../byterun/caml/fiber.h \
+ ../byterun/caml/memory.h ../byterun/caml/roots.h
 freelist.d.o: freelist.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/freelist.h ../byterun/caml/misc.h \
@@ -536,10 +565,10 @@ io.d.o: io.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
 lexing.d.o: lexing.c ../byterun/caml/fail.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/stacks.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h
 main.d.o: main.c ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h ../byterun/caml/sys.h
@@ -554,7 +583,8 @@ major_gc.d.o: major_gc.c ../byterun/caml/compact.h ../byterun/caml/config.h \
  ../byterun/caml/freelist.h ../byterun/caml/gc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/roots.h ../byterun/caml/weak.h
+ ../byterun/caml/roots.h ../byterun/caml/weak.h ../byterun/caml/fiber.h \
+ ../byterun/caml/uthash.h
 md5.d.o: md5.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -570,9 +600,9 @@ memory.d.o: memory.c ../byterun/caml/address_class.h ../byterun/caml/misc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/signals.h
+ ../byterun/caml/address_class.h ../byterun/caml/alloc.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/signals.h
 meta.d.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -583,8 +613,8 @@ meta.d.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/prims.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/prims.h ../byterun/caml/fiber.h ../byterun/caml/memory.h \
+ ../byterun/caml/roots.h
 minor_gc.d.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/fail.h ../byterun/caml/misc.h ../byterun/caml/config.h \
@@ -596,7 +626,7 @@ minor_gc.d.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/signals.h ../byterun/caml/weak.h
+ ../byterun/caml/signals.h ../byterun/caml/weak.h ../byterun/caml/fiber.h
 misc.d.o: misc.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
@@ -645,15 +675,6 @@ roots.d.o: roots.c ../byterun/caml/finalise.h ../byterun/caml/roots.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h stack.h \
  ../byterun/caml/roots.h
-signals_asm.d.o: signals_asm.c ../byterun/caml/fail.h \
- ../byterun/caml/address_class.h \
- ../byterun/caml/misc.h ../byterun/caml/config.h \
- ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
- ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
- ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
- ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
- ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 signals.d.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -665,13 +686,14 @@ signals.d.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/signals.h ../byterun/caml/signals_machdep.h \
  ../byterun/caml/sys.h
-startup_aux.d.o: startup_aux.c ../byterun/caml/backtrace.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+signals_asm.d.o: signals_asm.c ../byterun/caml/fail.h \
+ ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
- ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
- ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
+ ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
+ ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
+ ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
+ ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 startup.d.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -686,6 +708,13 @@ startup.d.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
  ../byterun/caml/printexc.h stack.h ../byterun/caml/startup_aux.h \
  ../byterun/caml/sys.h
+startup_aux.d.o: startup_aux.c ../byterun/caml/backtrace.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
+ ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
 str.d.o: str.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -696,11 +725,11 @@ sys.d.o: sys.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/debugger.h \
  ../byterun/caml/fail.h ../byterun/caml/instruct.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
- ../byterun/caml/signals.h ../byterun/caml/stacks.h \
+ ../byterun/caml/signals.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/sys.h \
- ../byterun/caml/gc_ctrl.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h \
+ ../byterun/caml/sys.h ../byterun/caml/gc_ctrl.h
 terminfo.d.o: terminfo.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/alloc.h ../byterun/caml/misc.h ../byterun/caml/config.h \
@@ -727,7 +756,7 @@ alloc.p.o: alloc.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/stacks.h ../byterun/caml/memory.h
+ ../byterun/caml/fiber.h ../byterun/caml/memory.h ../byterun/caml/roots.h
 array.p.o: array.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -761,7 +790,7 @@ compact.p.o: compact.c ../byterun/caml/address_class.h \
  ../byterun/caml/gc.h ../byterun/caml/gc_ctrl.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/weak.h
+ ../byterun/caml/weak.h stack.h
 compare.p.o: compare.c ../byterun/caml/custom.h ../byterun/caml/mlvalues.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
@@ -811,6 +840,13 @@ fail.p.o: fail.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/printexc.h ../byterun/caml/signals.h stack.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/callback.h
+fiber.p.o: fiber.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
+ ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h stack.h ../byterun/caml/startup_aux.h
 finalise.p.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -819,6 +855,16 @@ finalise.p.o: finalise.c ../byterun/caml/callback.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/signals.h
+fix_code.p.o: fix_code.c ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/debugger.h ../byterun/caml/misc.h \
+ ../byterun/caml/config.h ../byterun/caml/mlvalues.h \
+ ../byterun/caml/fix_code.h ../byterun/caml/instruct.h \
+ ../byterun/caml/intext.h ../byterun/caml/io.h ../byterun/caml/md5.h \
+ ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/reverse.h
 floats.p.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -826,8 +872,8 @@ floats.p.o: floats.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h \
- ../byterun/caml/reverse.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/reverse.h ../byterun/caml/fiber.h \
+ ../byterun/caml/memory.h ../byterun/caml/roots.h
 freelist.p.o: freelist.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/freelist.h ../byterun/caml/misc.h \
@@ -895,10 +941,10 @@ io.p.o: io.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
 lexing.p.o: lexing.c ../byterun/caml/fail.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/stacks.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h
 main.p.o: main.c ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/misc.h ../byterun/caml/sys.h
@@ -913,7 +959,7 @@ major_gc.p.o: major_gc.c ../byterun/caml/compact.h ../byterun/caml/config.h \
  ../byterun/caml/freelist.h ../byterun/caml/gc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/roots.h ../byterun/caml/weak.h
+ ../byterun/caml/roots.h ../byterun/caml/weak.h ../byterun/caml/fiber.h
 md5.p.o: md5.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -929,9 +975,9 @@ memory.p.o: memory.c ../byterun/caml/address_class.h ../byterun/caml/misc.h \
  ../byterun/caml/gc_ctrl.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/signals.h
+ ../byterun/caml/address_class.h ../byterun/caml/alloc.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/signals.h
 meta.p.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -942,8 +988,8 @@ meta.p.o: meta.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/address_class.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h \
- ../byterun/caml/prims.h ../byterun/caml/stacks.h \
- ../byterun/caml/memory.h
+ ../byterun/caml/prims.h ../byterun/caml/fiber.h ../byterun/caml/memory.h \
+ ../byterun/caml/roots.h
 minor_gc.p.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/fail.h ../byterun/caml/misc.h ../byterun/caml/config.h \
@@ -955,7 +1001,7 @@ minor_gc.p.o: minor_gc.c ../byterun/caml/config.h \
  ../byterun/caml/major_gc.h ../byterun/caml/memory.h \
  ../byterun/caml/minor_gc.h ../byterun/caml/misc.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/roots.h \
- ../byterun/caml/signals.h ../byterun/caml/weak.h
+ ../byterun/caml/signals.h ../byterun/caml/weak.h ../byterun/caml/fiber.h
 misc.p.o: misc.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
@@ -1004,14 +1050,6 @@ roots.p.o: roots.c ../byterun/caml/finalise.h ../byterun/caml/roots.h \
  ../byterun/caml/major_gc.h ../byterun/caml/minor_gc.h \
  ../byterun/caml/misc.h ../byterun/caml/mlvalues.h stack.h \
  ../byterun/caml/roots.h
-signals_asm.p.o: signals_asm.c ../byterun/caml/fail.h \
- ../byterun/caml/misc.h ../byterun/caml/config.h \
- ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
- ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
- ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
- ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
- ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 signals.p.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -1023,13 +1061,14 @@ signals.p.o: signals.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/roots.h ../byterun/caml/memory.h \
  ../byterun/caml/signals.h ../byterun/caml/signals_machdep.h \
  ../byterun/caml/sys.h
-startup_aux.p.o: startup_aux.c ../byterun/caml/backtrace.h \
- ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+signals_asm.p.o: signals_asm.c ../byterun/caml/fail.h \
+ ../byterun/caml/misc.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
- ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
- ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
- ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
+ ../byterun/caml/mlvalues.h ../byterun/caml/memory.h ../byterun/caml/gc.h \
+ ../byterun/caml/major_gc.h ../byterun/caml/freelist.h \
+ ../byterun/caml/minor_gc.h ../byterun/caml/address_class.h \
+ ../byterun/caml/osdeps.h ../byterun/caml/signals.h \
+ ../byterun/caml/signals_machdep.h signals_osdep.h stack.h
 startup.p.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
@@ -1044,6 +1083,13 @@ startup.p.o: startup.c ../byterun/caml/callback.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
  ../byterun/caml/printexc.h stack.h ../byterun/caml/startup_aux.h \
  ../byterun/caml/sys.h
+startup_aux.p.o: startup_aux.c ../byterun/caml/backtrace.h \
+ ../byterun/caml/mlvalues.h ../byterun/caml/config.h \
+ ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
+ ../byterun/caml/misc.h ../byterun/caml/exec.h ../byterun/caml/memory.h \
+ ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
+ ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
+ ../byterun/caml/address_class.h ../byterun/caml/startup_aux.h
 str.p.o: str.c ../byterun/caml/alloc.h ../byterun/caml/misc.h \
  ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/../../config/s.h ../byterun/caml/mlvalues.h \
@@ -1054,11 +1100,11 @@ sys.p.o: sys.c ../byterun/caml/config.h ../byterun/caml/../../config/m.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/debugger.h \
  ../byterun/caml/fail.h ../byterun/caml/instruct.h \
  ../byterun/caml/mlvalues.h ../byterun/caml/osdeps.h \
- ../byterun/caml/signals.h ../byterun/caml/stacks.h \
+ ../byterun/caml/signals.h ../byterun/caml/fiber.h \
  ../byterun/caml/memory.h ../byterun/caml/gc.h ../byterun/caml/major_gc.h \
  ../byterun/caml/freelist.h ../byterun/caml/minor_gc.h \
- ../byterun/caml/address_class.h ../byterun/caml/sys.h \
- ../byterun/caml/gc_ctrl.h
+ ../byterun/caml/address_class.h ../byterun/caml/roots.h \
+ ../byterun/caml/sys.h ../byterun/caml/gc_ctrl.h
 terminfo.p.o: terminfo.c ../byterun/caml/config.h \
  ../byterun/caml/../../config/m.h ../byterun/caml/../../config/s.h \
  ../byterun/caml/alloc.h ../byterun/caml/misc.h ../byterun/caml/config.h \

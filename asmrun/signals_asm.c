@@ -166,9 +166,11 @@ DECLARE_SIGNAL_HANDLER(trap_handler)
     sigprocmask(SIG_UNBLOCK, &mask, NULL);
   }
 #endif
-  caml_exception_pointer = (char *) CONTEXT_EXCEPTION_POINTER;
+  caml_system_exnptr_offset = CONTEXT_EXNPTR_OFFSET;
   caml_young_ptr = (char *) CONTEXT_YOUNG_PTR;
-  caml_bottom_of_stack = (char *) CONTEXT_SP;
+  /* XXX KC */
+  /* caml_bottom_of_stack = (char *) CONTEXT_SP; */
+  caml_fatal_error ("DECLARE_SIGNAL_HANDLER");
   caml_last_return_address = (uintnat) CONTEXT_PC;
   caml_array_bound_error();
 }
@@ -224,8 +226,8 @@ DECLARE_SIGNAL_HANDLER(segv_handler)
 #endif
 #else
     /* Raise a Stack_overflow exception straight from this signal handler */
-#if defined(CONTEXT_YOUNG_PTR) && defined(CONTEXT_EXCEPTION_POINTER)
-    caml_exception_pointer = (char *) CONTEXT_EXCEPTION_POINTER;
+#if defined(CONTEXT_YOUNG_PTR) && defined(CONTEXT_EXNPTR_OFFSET)
+    caml_system_exnptr_offset = CONTEXT_EXNPTR_OFFSET;
     caml_young_ptr = (value *) CONTEXT_YOUNG_PTR;
 #endif
     caml_raise_stack_overflow();
