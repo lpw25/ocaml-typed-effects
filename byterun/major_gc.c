@@ -26,7 +26,25 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "caml/weak.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
+#ifdef DEBUG
+#include "caml/uthash.h"
+#endif
+
+#ifdef DEBUG
+typedef struct __caml_object_map {
+  value pointer;
+  UT_hash_handle hh;
+} caml_object_map;
+
+typedef struct __caml_object_list {
+  value pointer;
+  struct __caml_object_list* next;
+} caml_object_list;
+
+caml_object_map *print_obj_done = NULL;
+caml_object_list *print_obj_todo = NULL;
+#endif
 
 #if defined (NATIVE_CODE) && defined (NO_NAKED_POINTERS)
 #define NATIVE_CODE_AND_NO_NAKED_POINTERS
@@ -115,10 +133,12 @@ void caml_darken (value v, value *p /* not used */)
     CAMLassert (!Is_blue_hd (h));
     if (Is_white_hd (h)){
       if (t < No_scan_tag){
+        // caml_gc_log ("caml_darken: v=%p white-->gray\n", (void*)v);
         Hd_val (v) = Grayhd_hd (h);
         *gray_vals_cur++ = v;
         if (gray_vals_cur >= gray_vals_end) realloc_gray_vals ();
       }else{
+        // caml_gc_log ("caml_darken: v=%p white-->black\n", (void*)v);
         Hd_val (v) = Blackhd_hd (h);
       }
     }
@@ -130,26 +150,74 @@ static void start_cycle (void)
   Assert (caml_gc_phase == Phase_idle);
   Assert (gray_vals_cur == gray_vals);
   caml_gc_message (0x01, "Starting new major GC cycle\n", 0);
+#if 0 && defined(DEBUG)
+  caml_print_heap ();
+#endif
   caml_darken_all_roots();
   caml_gc_phase = Phase_mark;
   caml_gc_subphase = Subphase_main;
   markhp = NULL;
 #ifdef DEBUG
   ++ major_gc_counter;
-  caml_heap_check ();
 #endif
+}
+
+static value *gray_vals_ptr = NULL;  /* Local copy of gray_vals_cur */
+
+static void mark_child (value child, value* childp) __attribute__((always_inline));
+
+static void mark_child (value child, value* childp)
+{
+  header_t hd;
+#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
+  if (Is_block (child)
+        && Wosize_val (child) > 0  /* Atoms never need to be marked. */
+        /* Closure blocks contain code pointers at offsets that cannot
+           be reliably determined, so we always use the page table when
+           marking such values. */
+        && (!marking_closure || Is_in_heap (child))) {
+    /* See [caml_darken] for a description of this assertion. */
+    CAMLassert (Is_in_heap (child) || Is_black_hd (Hd_val (child)));
+#else
+  if (Is_block (child) && Is_in_heap (child)) {
+#endif
+    hd = Hd_val (child);
+    if (Tag_hd (hd) == Forward_tag){
+      value f = Forward_val (child);
+      if (Is_block (f)
+          && (!Is_in_value_area(f) || Tag_val (f) == Forward_tag
+              || Tag_val (f) == Lazy_tag || Tag_val (f) == Double_tag)){
+        /* Do not short-circuit the pointer. */
+      }else{
+        *childp = f;
+      }
+    }
+    else if (Tag_hd(hd) == Infix_tag) {
+      child -= Infix_offset_val(child);
+      hd = Hd_val(child);
+    }
+    if (Is_white_hd (hd)){
+      Hd_val (child) = Grayhd_hd (hd);
+      *gray_vals_ptr++ = child;
+      if (gray_vals_ptr >= gray_vals_end) {
+        gray_vals_cur = gray_vals_ptr;
+        realloc_gray_vals ();
+        gray_vals_ptr = gray_vals_cur;
+      }
+    }
+  }
 }
 
 static void mark_slice (intnat work)
 {
-  value *gray_vals_ptr;  /* Local copy of gray_vals_cur */
-  value v, child;
+  value v;
   header_t hd;
   mlsize_t size, i;
 #ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
   int marking_closure = 0;
 #endif
 
+  Assert (gray_vals_ptr == NULL);
   if (caml_major_slice_begin_hook != NULL) (*caml_major_slice_begin_hook) ();
   caml_gc_message (0x40, "Marking %ld words\n", work);
   caml_gc_message (0x40, "Subphase = %ld\n", caml_gc_subphase);
@@ -162,49 +230,18 @@ static void mark_slice (intnat work)
       marking_closure =
         (Tag_hd (hd) == Closure_tag || Tag_hd (hd) == Infix_tag);
 #endif
-      Assert (Is_gray_hd (hd));
-      Hd_val (v) = Blackhd_hd (hd);
+      Assert (Is_gray_hd (hd) ||
+              (Tag_hd (hd) == Stack_tag &&
+               Color_hd(hd) == Caml_black));
       size = Wosize_hd (hd);
-      if (Tag_hd (hd) < No_scan_tag){
-        for (i = 0; i < size; i++){
-          child = Field (v, i);
-#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
-          if (Is_block (child)
-                && Wosize_val (child) > 0  /* Atoms never need to be marked. */
-                /* Closure blocks contain code pointers at offsets that cannot
-                   be reliably determined, so we always use the page table when
-                   marking such values. */
-                && (!marking_closure || Is_in_heap (child))) {
-#else
-          if (Is_block (child) && Is_in_heap (child)) {
-#endif
-            hd = Hd_val (child);
-            if (Tag_hd (hd) == Forward_tag){
-              value f = Forward_val (child);
-              if (Is_block (f)
-                  && (!Is_in_value_area(f) || Tag_val (f) == Forward_tag
-                      || Tag_val (f) == Lazy_tag || Tag_val (f) == Double_tag)){
-                /* Do not short-circuit the pointer. */
-              }else{
-                Field (v, i) = f;
-              }
-            }
-            else if (Tag_hd(hd) == Infix_tag) {
-              child -= Infix_offset_val(child);
-              hd = Hd_val(child);
-            }
-#ifdef NATIVE_CODE_AND_NO_NAKED_POINTERS
-            /* See [caml_darken] for a description of this assertion. */
-            CAMLassert (Is_in_heap (child) || Is_black_hd (hd));
-#endif
-            if (Is_white_hd (hd)){
-              Hd_val (child) = Grayhd_hd (hd);
-              *gray_vals_ptr++ = child;
-              if (gray_vals_ptr >= gray_vals_end) {
-                gray_vals_cur = gray_vals_ptr;
-                realloc_gray_vals ();
-                gray_vals_ptr = gray_vals_cur;
-              }
+      if (Color_hd(hd) != Caml_black) {
+        Hd_val (v) = Blackhd_hd (hd);
+        if (Tag_hd (hd) < No_scan_tag) {
+          if (Tag_hd (hd) == Stack_tag) {
+            caml_scan_stack (mark_child, v);
+          } else {
+            for (i = 0; i < size; i++) {
+              mark_child (Field(v,i), &Field(v,i));
             }
           }
         }
@@ -323,6 +360,7 @@ static void mark_slice (intnat work)
     }
   }
   gray_vals_cur = gray_vals_ptr;
+  gray_vals_ptr = NULL;
   if (caml_major_slice_end_hook != NULL) (*caml_major_slice_end_hook) ();
 }
 
@@ -472,7 +510,6 @@ intnat caml_major_collection_slice (intnat howmuch)
 
   if (caml_gc_phase == Phase_idle) caml_compact_heap_maybe ();
 
-
   caml_stat_major_words += caml_allocated_words;
   caml_allocated_words = 0;
   caml_dependent_allocated = 0;
@@ -573,3 +610,93 @@ void caml_init_major_heap (asize_t heap_size)
   caml_allocated_words = 0;
   caml_extra_heap_resources = 0.0;
 }
+
+#ifdef DEBUG
+
+void caml_print_obj_add_ptr (value v, value *p) {
+  caml_object_map *me = NULL;
+
+  if (Is_block(v) && Is_in_heap(v)) {
+    caml_gc_log ("%p ", (void*)v);
+    HASH_FIND_PTR (print_obj_done, &v, me);
+    if (!me) {
+      caml_object_list *le = (caml_object_list*) malloc (sizeof(caml_object_list));
+      le->pointer = v;
+      le->next = print_obj_todo;
+      print_obj_todo = le;
+    }
+  }
+}
+
+void caml_print_obj (value v, value* p) {
+  caml_object_map *e = NULL;
+  header_t hd;
+  mlsize_t sz, i;
+  tag_t tag;
+
+  if (Is_block(v) && Is_in_heap(v)) {
+    HASH_FIND_PTR (print_obj_done, &v, e);
+    if (!e) {
+      hd = Hd_val(v);
+      tag = Tag_hd (hd);
+      sz = Wosize_hd (hd);
+
+      caml_gc_log ("OBJECT(%p,h=%lx,t=%u,c=%lx,s=%lu,y=%d)\n",
+                   (void*)v, hd, tag, Color_hd(hd), sz, Is_young(v));
+
+      e = (caml_object_map*) malloc (sizeof(caml_object_map));
+      e->pointer = v;
+      HASH_ADD_PTR (print_obj_done, pointer, e);
+
+      if (tag < Infix_tag) {
+        if (tag == Stack_tag) {
+          caml_scan_stack (caml_print_obj_add_ptr, v);
+        } else {
+          value field;
+          for (i = 0; i < sz; i++) {
+            field = Field (v,i);
+            caml_print_obj_add_ptr(field, &field);
+          }
+        }
+      } else if (tag >= No_scan_tag) {
+      } else if (tag == Infix_tag) {
+        mlsize_t offset = Infix_offset_hd (hd);
+        caml_print_obj (v-offset, p);
+      } else {
+        caml_gc_log ("caml_print_obj: Forward_tag not implemented\n");
+      }
+
+      caml_gc_log ("\n");
+    }
+  }
+}
+
+void caml_print_heap (void)
+{
+  caml_object_list* le;
+  caml_object_map *me, *tmp;
+
+  print_obj_done = NULL;
+  print_obj_todo = NULL;
+
+  caml_do_roots (caml_print_obj, 0);
+  while (print_obj_todo != NULL) {
+    le = print_obj_todo;
+    print_obj_todo = print_obj_todo->next;
+    caml_print_obj (le->pointer, &le->pointer);
+    free(le);
+  }
+  HASH_ITER(hh, print_obj_done, me, tmp) {
+    HASH_DEL(print_obj_done, me);
+    free(me);
+  }
+}
+
+int is_block_is_young (value v) {
+  if (Is_block(v) && Is_young(v)) {
+    return 1;
+  }
+  return 0;
+}
+
+#endif

@@ -7,13 +7,9 @@
 (*  Copyright 1996 Institut National de Recherche en Informatique et   *)
 (*  en Automatique.  All rights reserved.  This file is distributed    *)
 (*  under the terms of the GNU Library General Public License, with    *)
-(*  the special exception on linking described in file ../../LICENSE.  *)
+(*  the special exception on linking described in file ../LICENSE.     *)
 (*                                                                     *)
 (***********************************************************************)
-
-(* Same as ../../stdlib/pervasives.ml, except that I/O functions have
-   been redefined to not block the whole process, but only the calling
-   thread. *)
 
 (* type 'a option = None | Some of 'a *)
 
@@ -37,6 +33,7 @@ let invalid_arg s = raise(Invalid_argument s)
 exception Exit
 
 (* Effects *)
+
 type ('a, 'b) stack
 external take_cont : ('a, 'b) continuation -> ('a, 'b) stack = "caml_bvar_take"
 external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
@@ -45,6 +42,8 @@ let continue k v =
   resume (take_cont k) (fun x -> x) v
 let discontinue k e =
   resume (take_cont k) (fun e -> raise e) e
+
+external perform : 'a eff -> 'a = "%perform"
 
 let delegate e k =
   match perform e with
@@ -179,7 +178,7 @@ type fpclass =
   | FP_zero
   | FP_infinite
   | FP_nan
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float -> fpclass = "caml_classify_float" "noalloc"
 
 (* String and byte sequence operations -- more in modules String and Bytes *)
 
@@ -269,7 +268,6 @@ let rec ( @ ) l1 l2 =
     [] -> l2
   | hd :: tl -> hd :: (tl @ l2)
 
-
 (* Array index operators *)
 external  ( .() ) : 'a array -> int -> 'a = "%array_opt_get"
 external  ( .() <- ) : 'a array -> int -> 'a -> unit = "%array_opt_set"
@@ -291,23 +289,6 @@ let stdin = open_descriptor_in 0
 let stdout = open_descriptor_out 1
 let stderr = open_descriptor_out 2
 
-(* Non-blocking stuff *)
-
-external thread_wait_read_prim : Unix.file_descr -> unit = "thread_wait_read"
-external thread_wait_write_prim : Unix.file_descr -> unit = "thread_wait_write"
-
-let thread_wait_read fd = thread_wait_read_prim fd
-let thread_wait_write fd = thread_wait_write_prim fd
-
-external descr_inchan : in_channel -> Unix.file_descr
-                      = "caml_channel_descriptor"
-external descr_outchan : out_channel -> Unix.file_descr
-                       = "caml_channel_descriptor"
-
-let wait_inchan ic = thread_wait_read (descr_inchan ic)
-
-let wait_outchan oc len = thread_wait_write (descr_outchan oc)
-
 (* General output functions *)
 
 type open_flag =
@@ -326,15 +307,7 @@ let open_out name =
 let open_out_bin name =
   open_out_gen [Open_wronly; Open_creat; Open_trunc; Open_binary] 0o666 name
 
-external flush_partial : out_channel -> bool = "caml_ml_flush_partial"
-
-let rec flush oc =
-  let success =
-    try
-      flush_partial oc
-    with Sys_blocked_io ->
-      wait_outchan oc (-1); false in
-  if success then () else flush oc
+external flush : out_channel -> unit = "caml_ml_flush"
 
 external out_channels_list : unit -> out_channel list
                            = "caml_ml_out_channels_list"
@@ -342,44 +315,21 @@ external out_channels_list : unit -> out_channel list
 let flush_all () =
   let rec iter = function
       [] -> ()
-    | a::l ->
-        begin try
-            flush a
-        with Sys_error _ ->
-          () (* ignore channels closed during a preceding flush. *)
-        end;
-        iter l
+    | a :: l -> (try flush a with _ -> ()); iter l
   in iter (out_channels_list ())
 
-external unsafe_output_partial : out_channel -> bytes -> int -> int -> int
-                        = "caml_ml_output_partial"
+external unsafe_output : out_channel -> bytes -> int -> int -> unit
+                       = "caml_ml_output"
+external unsafe_output_string : out_channel -> string -> int -> int -> unit
+                              = "caml_ml_output"
 
-let rec unsafe_output oc buf pos len =
-  if len > 0 then begin
-    let written =
-      try
-        unsafe_output_partial oc buf pos len
-      with Sys_blocked_io ->
-        wait_outchan oc len; 0 in
-    unsafe_output oc buf (pos + written) (len - written)
-  end
-
-external output_char_blocking : out_channel -> char -> unit
-                              = "caml_ml_output_char"
-external output_byte_blocking : out_channel -> int -> unit
-                              = "caml_ml_output_char"
-
-let rec output_char oc c =
-  try
-    output_char_blocking oc c
-  with Sys_blocked_io ->
-    wait_outchan oc 1; output_char oc c
+external output_char : out_channel -> char -> unit = "caml_ml_output_char"
 
 let output_bytes oc s =
   unsafe_output oc s 0 (bytes_length s)
 
 let output_string oc s =
-  unsafe_output oc (bytes_unsafe_of_string s) 0 (string_length s)
+  unsafe_output_string oc s 0 (string_length s)
 
 let output oc s ofs len =
   if ofs < 0 || len < 0 || ofs > bytes_length s - len
@@ -387,34 +337,22 @@ let output oc s ofs len =
   else unsafe_output oc s ofs len
 
 let output_substring oc s ofs len =
-  output oc (bytes_unsafe_of_string s) ofs len
+  if ofs < 0 || len < 0 || ofs > string_length s - len
+  then invalid_arg "output_substring"
+  else unsafe_output_string oc s ofs len
 
-let rec output_byte oc b =
-  try
-    output_byte_blocking oc b
-  with Sys_blocked_io ->
-    wait_outchan oc 1; output_byte oc b
+external output_byte : out_channel -> int -> unit = "caml_ml_output_char"
+external output_binary_int : out_channel -> int -> unit = "caml_ml_output_int"
 
-let output_binary_int oc n =
-  output_byte oc (n asr 24);
-  output_byte oc (n asr 16);
-  output_byte oc (n asr 8);
-  output_byte oc n
+external marshal_to_channel : out_channel -> 'a -> unit list -> unit
+     = "caml_output_value"
+let output_value chan v = marshal_to_channel chan v []
 
-external marshal_to_string : 'a -> unit list -> string
-                           = "caml_output_value_to_string"
-
-let output_value oc v = output_string oc (marshal_to_string v [])
-
-external seek_out_blocking : out_channel -> int -> unit = "caml_ml_seek_out"
-
-let seek_out oc pos = flush oc; seek_out_blocking oc pos
-
+external seek_out : out_channel -> int -> unit = "caml_ml_seek_out"
 external pos_out : out_channel -> int = "caml_ml_pos_out"
 external out_channel_length : out_channel -> int = "caml_ml_channel_size"
 external close_out_channel : out_channel -> unit = "caml_ml_close_channel"
-
-let close_out oc = (try flush oc with _ -> ()); close_out_channel oc
+let close_out oc = flush oc; close_out_channel oc
 let close_out_noerr oc =
   (try flush oc with _ -> ());
   (try close_out_channel oc with _ -> ())
@@ -432,23 +370,10 @@ let open_in name =
 let open_in_bin name =
   open_in_gen [Open_rdonly; Open_binary] 0 name
 
-external input_char_blocking : in_channel -> char = "caml_ml_input_char"
-external input_byte_blocking : in_channel -> int = "caml_ml_input_char"
+external input_char : in_channel -> char = "caml_ml_input_char"
 
-let rec input_char ic =
-  try
-    input_char_blocking ic
-  with Sys_blocked_io ->
-    wait_inchan ic; input_char ic
-
-external unsafe_input_blocking : in_channel -> bytes -> int -> int -> int
-                               = "caml_ml_input"
-
-let rec unsafe_input ic s ofs len =
-  try
-    unsafe_input_blocking ic s ofs len
-  with Sys_blocked_io ->
-    wait_inchan ic; unsafe_input ic s ofs len
+external unsafe_input : in_channel -> bytes -> int -> int -> int
+                      = "caml_ml_input"
 
 let input ic s ofs len =
   if ofs < 0 || len < 0 || ofs > bytes_length s - len
@@ -473,56 +398,39 @@ let really_input_string ic len =
   really_input ic s 0 len;
   bytes_unsafe_to_string s
 
-external bytes_set : bytes -> int -> char -> unit = "%string_safe_set"
+external input_scan_line : in_channel -> int = "caml_ml_input_scan_line"
 
-let input_line ic =
-  let buf = ref (bytes_create 128) in
-  let pos = ref 0 in
-  begin try
-    while true do
-      if !pos = bytes_length !buf then begin
-        let newbuf = bytes_create (2 * !pos) in
-        bytes_blit !buf 0 newbuf 0 !pos;
-        buf := newbuf
-      end;
-      let c = input_char ic in
-      if c = '\n' then raise Exit;
-      bytes_set !buf !pos c;
-      incr pos
-    done
-  with Exit -> ()
-     | End_of_file -> if !pos = 0 then raise End_of_file
-  end;
-  let res = bytes_create !pos in
-  bytes_blit !buf 0 res 0 !pos;
-  bytes_unsafe_to_string res
+let input_line chan =
+  let rec build_result buf pos = function
+    [] -> buf
+  | hd :: tl ->
+      let len = bytes_length hd in
+      bytes_blit hd 0 buf (pos - len) len;
+      build_result buf (pos - len) tl in
+  let rec scan accu len =
+    let n = input_scan_line chan in
+    if n = 0 then begin                   (* n = 0: we are at EOF *)
+      match accu with
+        [] -> raise End_of_file
+      | _  -> build_result (bytes_create len) len accu
+    end else if n > 0 then begin          (* n > 0: newline found in buffer *)
+      let res = bytes_create (n - 1) in
+      ignore (unsafe_input chan res 0 (n - 1));
+      ignore (input_char chan);           (* skip the newline *)
+      match accu with
+        [] -> res
+      |  _ -> let len = len + n - 1 in
+              build_result (bytes_create len) len (res :: accu)
+    end else begin                        (* n < 0: newline not found *)
+      let beg = bytes_create (-n) in
+      ignore(unsafe_input chan beg 0 (-n));
+      scan (beg :: accu) (len - n)
+    end
+  in bytes_unsafe_to_string (scan [] 0)
 
-let rec input_byte ic =
-  try
-    input_byte_blocking ic
-  with Sys_blocked_io ->
-    wait_inchan ic; input_byte ic
-
-let input_binary_int ic =
-  let b1 = input_byte ic in
-  let n1 = if b1 >= 128 then b1 - 256 else b1 in
-  let b2 = input_byte ic in
-  let b3 = input_byte ic in
-  let b4 = input_byte ic in
-  (n1 lsl 24) + (b2 lsl 16) + (b3 lsl 8) + b4
-
-external unmarshal : bytes -> int -> 'a = "caml_input_value_from_string"
-external marshal_data_size : bytes -> int -> int = "caml_marshal_data_size"
-
-let input_value ic =
-  let header = bytes_create 20 in
-  really_input ic header 0 20;
-  let bsize = marshal_data_size header 0 in
-  let buffer = bytes_create (20 + bsize) in
-  bytes_blit header 0 buffer 0 20;
-  really_input ic buffer 20 bsize;
-  unmarshal buffer 0
-
+external input_byte : in_channel -> int = "caml_ml_input_char"
+external input_binary_int : in_channel -> int = "caml_ml_input_int"
+external input_value : in_channel -> 'a = "caml_input_value"
 external seek_in : in_channel -> int -> unit = "caml_ml_seek_in"
 external pos_in : in_channel -> int = "caml_ml_pos_in"
 external in_channel_length : in_channel -> int = "caml_ml_channel_size"

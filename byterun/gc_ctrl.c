@@ -25,11 +25,11 @@
 #ifdef NATIVE_CODE
 #include "stack.h"
 #else
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 #endif
 
 #ifndef NATIVE_CODE
-extern uintnat caml_max_stack_size;    /* defined in stacks.c */
+extern uintnat caml_max_stack_size;    /* defined in fiber.c */
 #endif
 
 double caml_stat_minor_words = 0.0,
@@ -77,7 +77,14 @@ static void check_head (value v)
   }
 }
 
-static void check_block (header_t *hp)
+static void check_field (value v, value *p) {
+  if (Is_block (v) && Is_in_heap (v)){
+    check_head (v);
+    Assert (Color_val (v) != Caml_blue);
+  }
+}
+
+void check_block (header_t *hp)
 {
   mlsize_t i;
   value v = Val_hp (hp);
@@ -102,14 +109,14 @@ static void check_block (header_t *hp)
     Assert (0);
     break;
 
+  case Stack_tag:
+    caml_scan_stack(check_field, v);
+    break;
+
   default:
     Assert (Tag_hp (hp) < No_scan_tag);
-    for (i = 0; i < Wosize_hp (hp); i++){
-      f = Field (v, i);
-      if (Is_block (f) && Is_in_heap (f)){
-        check_head (f);
-        Assert (Color_val (f) != Caml_blue);
-      }
+    for (i = 0; i < Wosize_hp (hp); i++) {
+      check_field (Field (v,i), NULL);
     }
   }
 }

@@ -44,6 +44,11 @@ uintnat caml_init_heap_wsz = Init_heap_def;
 uintnat caml_init_max_stack_wsz = Max_stack_def;
 extern int caml_parser_trace;
 uintnat caml_trace_level = 0;
+#ifdef PROFILING
+uintnat caml_init_fiber_wsz = Profile_slop + (Stack_threshold * 2) / sizeof(value);
+#else
+uintnat caml_init_fiber_wsz = (Stack_threshold * 2) / sizeof(value);
+#endif
 
 
 static void scanmult (char *opt, uintnat *var)
@@ -82,6 +87,7 @@ void caml_parse_ocamlrunparam(void)
       case 's': scanmult (opt, &caml_init_minor_heap_wsz); break;
       case 't': scanmult (opt, &caml_trace_level); break;
       case 'v': scanmult (opt, &caml_verb_gc); break;
+      case 'f': scanmult (opt, &caml_init_fiber_wsz); break;
       }
       while (*opt != '\0'){
         if (*opt++ == ',') break;

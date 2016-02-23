@@ -24,7 +24,11 @@
 #include "caml/mlvalues.h"
 #include "caml/roots.h"
 #include "caml/weak.h"
-#include "caml/stacks.h"
+#ifdef NATIVE_CODE
+#include "stack.h"
+#else
+#include "caml/fiber.h"
+#endif
 
 extern uintnat caml_percent_free;                   /* major_gc.c */
 extern void caml_shrink_heap (char *);              /* memory.c */
@@ -45,11 +49,6 @@ extern void caml_shrink_heap (char *);              /* memory.c */
   XXX (see [caml_register_global_roots])
   XXX Should be able to fix it to only assume 2-byte alignment.
 */
-#define Make_ehd(s,t,c) (((s) << 10) | (t) << 2 | (c))
-#define Whsize_ehd(h) Whsize_hd (h)
-#define Wosize_ehd(h) Wosize_hd (h)
-#define Tag_ehd(h) (((h) >> 2) & 0xFF)
-#define Ecolor(w) ((w) & 3)
 
 typedef uintnat word;
 
@@ -178,7 +177,6 @@ static void do_compaction (void)
     }
   }
 
-
   /* Second pass: invert pointers.
      Link infix headers in each block in an inverted list of inverted lists.
      Don't forget roots and weak pointers. */
@@ -186,7 +184,7 @@ static void do_compaction (void)
     /* Invert roots first because the threads library needs some heap
        data structures to find its roots.  Fortunately, it doesn't need
        the headers (see above). */
-    caml_do_roots (invert_root);
+    caml_do_roots (invert_root, 1);
     caml_final_do_weak_roots (invert_root);
 
     ch = caml_heap_start;
@@ -214,7 +212,12 @@ static void do_compaction (void)
         }
 
         if (t < No_scan_tag){
-          for (i = 1; i < sz; i++) invert_pointer_at (&(p[i]));
+          if (t == Stack_tag) {
+            value stack = (value)(&(p[1]));
+            caml_scan_stack_high(invert_root, stack, (value*)p+sz);
+          } else {
+            for (i = 1; i < sz; i++) invert_pointer_at (&(p[i]));
+          }
         }
         p += sz;
       }

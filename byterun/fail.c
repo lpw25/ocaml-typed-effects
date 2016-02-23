@@ -24,7 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/printexc.h"
 #include "caml/signals.h"
-#include "caml/stacks.h"
+#include "caml/fiber.h"
 
 CAMLexport struct longjmp_buffer * caml_external_raise = NULL;
 value caml_exn_bucket;

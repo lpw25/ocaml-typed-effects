@@ -124,8 +124,11 @@ typedef uint64_t uintnat;
 #define Page_log 12             /* A page is 4 kilobytes. */
 #define Page_size (1 << Page_log)
 
+/* Size of extra stack slop space if profiling is enabled (words) */
+#define Profile_slop 128
+
 /* Initial size of stack (bytes). */
-#define Stack_size (4096 * sizeof(value))
+#define Stack_size (1024 * sizeof(value))
 
 /* Minimum free size of stack (bytes); below that, it is reallocated. */
 #define Stack_threshold (16 * sizeof(value))

@@ -190,6 +190,8 @@ let read_OCAMLPARAM ppf position =
       | "runtime-variant" -> runtime_variant := v
       | "cc" -> c_compiler := Some v
 
+      | "stack-slop" -> stack_slop := 8 * int_of_string v
+
       (* assembly sources *)
       |  "s" ->
         set "s" [ Clflags.keep_asm_file ; Clflags.keep_startup_file ] v
