@@ -341,6 +341,15 @@
 #define C_ARG_4 %rcx
 #endif
 
+/* Stack-local variables */
+
+#define Stack_sp(REG)               (REG)
+#define Stack_dirty(REG)            8(REG)
+#define Stack_handle_value(REG)     16(REG)
+#define Stack_handle_exception(REG) 24(REG)
+#define Stack_handle_effect(REG)    32(REG)
+#define Stack_parent(REG)           40(REG)
+
         .text
 
         .globl  G(caml_system__code_begin)
@@ -619,9 +628,13 @@ LBL(caml_start_program):
     /* Save system stack state. System stack is captured unalinged. Hence, any
      * OCaml to C calls are expected to explicitly align stack using
      * ENTER_FUNCTION and such. */
-        subq    $8, %rsp; CFI_ADJUST(8)
         PUSH_VAR(caml_system_exnptr_offset)
         PUSH_VAR(caml_system_sp)
+    /* Save the reference to parent stack on C stack and reset it in 
+     * the OCaml stack */
+        LOAD_VAR(caml_current_stack, %r13)
+        pushq   Stack_parent(%r13)
+        movq    $1, Stack_parent(%r13)
     /* Build a handler for exceptions raised in C */
         lea     LBL(115)(%rip), %r13
         pushq   %r13; CFI_ADJUST(8)
@@ -638,8 +651,7 @@ LBL(caml_start_program):
         pushq   %rbx; CFI_ADJUST(8)
         pushq   %rdi; CFI_ADJUST(8)
         pushq   %rsi; CFI_ADJUST(8)
-    /* Create a register array since caml_init_main_stack may GC? */
-    /* XXX KC: Is this true? */
+    /* Create a register array since caml_maybe_expand_stack may GC */
         movq    %rsp, C_ARG_1
     /* Expand the current stack if needed */
         LEA_VAR(caml_maybe_expand_stack, %r12)
@@ -678,11 +690,12 @@ LBL(110):
         SWITCH_OCAML_TO_C_NO_CTXT(%r10)
     /* Pop the C exception handler */
         addq    $16, %rsp; CFI_ADJUST(-16)
+    /* Restore previous parent stack */
+        LOAD_VAR(caml_current_stack, %r10)
+        popq    Stack_parent(%r10)
     /* Restore previous system stack state */
         POP_VAR(caml_system_sp)
         POP_VAR(caml_system_exnptr_offset)
-    /* Adjust stack */
-        addq    $8, %rsp; CFI_ADJUST(-8)
     /* Restore callee-save registers. */
         POP_CALLEE_SAVE_REGS
     /* Return to caller. */
@@ -800,13 +813,13 @@ CFI_STARTPROC
     /* In handler. %rax has exception */
         mov     %rax, %rbx
         LOAD_VAR(caml_current_stack, %rsi)
-        movq    $0, (%rsi)        /* zero SP */
-        movq    24(%rsi), %r12    /* exception handler */
-        movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
+        movq    $0, Stack_sp(%rsi)                  /* zero SP */
+        movq    Stack_handle_exception(%rsi), %r12  /* exception handler */
+        movq    Stack_parent(%rsi), %rdi            /* parent stack. Never NULL here. */
     /* Reset stack */
-        movq    $1, 16(%rsi)
-        movq    $1, 24(%rsi)
-        movq    $1, 32(%rsi)
+        movq    $1, Stack_handle_value(%rsi)
+        movq    $1, Stack_handle_exception(%rsi)
+        movq    $1, Stack_handle_effect(%rsi)
     /* Switch stacks */
         SWITCH_OCAML_STACKS
     /* Invoke exception handler */
@@ -821,15 +834,15 @@ CFI_STARTPROC
     /* In handler. %rax has value */
         mov     %rax, %rbx
         LOAD_VAR(caml_current_stack, %rsi)
-        movq    $0, (%rsi)        /* zero SP */
-        movq    16(%rsi), %r12    /* value handler */
-        movq    40(%rsi), %rdi    /* parent stack. Never NULL here. */
+        movq    $0, Stack_sp(%rsi)                /* zero SP */
+        movq    Stack_handle_value(%rsi), %r12    /* value handler */
+        movq    Stack_parent(%rsi), %rdi          /* parent stack. Never NULL here. */
     /* Reset stack. First pop off fiber exn handler. */
         popq    %r10
         popq    %r10
-        movq    $1, 16(%rsi)
-        movq    $1, 24(%rsi)
-        movq    $1, 32(%rsi)
+        movq    $1, Stack_handle_value(%rsi)
+        movq    $1, Stack_handle_exception(%rsi)
+        movq    $1, Stack_handle_effect(%rsi)
     /* Switch stacks */
         SWITCH_OCAML_STACKS
     /* Invoke value handler */
@@ -843,12 +856,12 @@ FUNCTION(G(caml_perform))
 CFI_STARTPROC
     /* In handler. %rax has effect */
         mov     %rax, %r12
-        LOAD_VAR(caml_current_stack, %rbx) /* Second argument */
-        movq    40(%rbx), %rdi    /* Parent stack. */
-        cmpq    $1, %rdi          /* Parent is NULL? */
+        LOAD_VAR(caml_current_stack, %rbx)      /* Second argument */
+        movq    Stack_parent(%rbx), %rdi        /* Parent stack. */
+        cmpq    $1, %rdi                        /* Parent is NULL? */
         je      LBL(112)
-        movq    32(%rbx), %r13    /* effect handler (third argument) */
-        movq    $1, 40(%rbx)      /* Set parent stack of performer to NULL */
+        movq    Stack_handle_effect(%rbx), %r13 /* effect handler (third argument) */
+        movq    $1, Stack_parent(%rbx)          /* Set parent stack of performer to NULL */
     /* Switch stacks */
         SWITCH_OCAML_STACKS
     /* Invoke effect handler */
@@ -867,17 +880,17 @@ CFI_STARTPROC
     /* %rax -> effect (first argument), %rbx -> performer */
         movq    %rax, %r12
         LOAD_VAR(caml_current_stack, %rax)
-        movq    40(%rax), %rdi  /* Parent stack */
-        cmpq    $1, %rdi        /* Parent is Null? */
+        movq    Stack_parent(%rax), %rdi         /* Parent stack */
+        cmpq    $1, %rdi                         /* Parent is Null? */
         je      LBL(113)
-        movq    %rbx, 40(%rax)  /* Set performer as parent */
-        movq    32(%rax), %r13  /* Save effect handler (callee-saved) */
-        movq    %rax, %rbx      /* Save current stack (callee-saved & second argument) */
+        movq    %rbx, Stack_parent(%rax)         /* Set performer as parent */
+        movq    Stack_handle_effect(%rax), %r13  /* Save effect handler (callee-saved) */
+        movq    %rax, %rbx                       /* Save current stack (callee-saved & second argument) */
     /* Switch stacks */
         SWITCH_OCAML_STACKS
     /* Invoke effect handler */
-        movq    %r12, %rax      /* First argument */
-        movq    %r13, %rdi      /* Third argument */
+        movq    %r12, %rax                       /* First argument */
+        movq    %r13, %rdi                       /* Third argument */
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
 LBL(113):
@@ -895,8 +908,8 @@ CFI_STARTPROC
     /* Rewind parent pointers to find the performer */
 LBL(114):
         movq    %rax, %rdi
-        movq    40(%rdi), %rax
-        movq    %rcx, 40(%rdi)
+        movq    Stack_parent(%rdi), %rax
+        movq    %rcx, Stack_parent(%rdi)
         cmpq    $1, %rax
         movq    %rdi, %rcx
         jne     LBL(114)

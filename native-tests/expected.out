@@ -61,3 +61,10 @@ Fatal error: exception Unhandled
 [C] Call c_to_caml
 [C] Enter caml_to_c
 [C] Call c_to_caml
+[Caml] Call caml_to_c
+[Caml] Enter c_to_caml
+[Caml] c_to_caml: perform effect
+[Caml] Caught Unhandled, perform effect
+[Caml] Caught effect
+[C] Enter caml_to_c
+[C] Call c_to_caml
