@@ -236,8 +236,7 @@ value caml_interprete(code_t prog, asize_t prog_size)
     caml_thread_code(raise_unhandled_code,
                      sizeof(raise_unhandled_code));
 #endif
-    value raise_unhandled =
-      caml_alloc_small(1, Closure_tag);
+    raise_unhandled = caml_alloc_small(1, Closure_tag);
     Field(raise_unhandled, 0) = Val_bytecode(raise_unhandled_code);
     caml_register_global_root(&raise_unhandled);
     caml_register_global_root(&caml_global_data);
