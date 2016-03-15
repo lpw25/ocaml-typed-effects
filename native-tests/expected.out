@@ -68,3 +68,10 @@ Fatal error: exception Unhandled
 [Caml] Caught effect
 [C] Enter caml_to_c
 [C] Call c_to_caml
+Hello
+Hello, again!
+intercepting request..
+Hello
+Fatal error: exception Invalid_argument("continuation already taken")
+Hello
+Hello, again!

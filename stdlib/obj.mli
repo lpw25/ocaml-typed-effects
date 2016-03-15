@@ -68,3 +68,5 @@ val marshal : t -> bytes
   [@@ocaml.deprecated "Use Marshal.to_bytes instead."]
 val unmarshal : bytes -> int -> t * int
   [@@ocaml.deprecated "Use Marshal.from_bytes and Marshal.total_size instead."]
+
+val clone : ('a,'b) continuation -> ('a,'b) continuation
