@@ -264,6 +264,34 @@ void caml_clean_stack(value stack)
   Stack_dirty(stack) = Val_long(0);
 }
 
+CAMLprim value caml_clone_cont (value cont)
+{
+  CAMLparam1(cont);
+  CAMLlocal1(new_cont);
+  value source, target;
+  value* slot;
+
+  if (Field (cont, 0) == Val_unit)
+    caml_invalid_argument ("continuation already taken");
+  source = Field (cont, 0);
+
+  new_cont = caml_alloc (1, 0);
+  slot = &Field(new_cont, 0);
+
+  do {
+    Assert (Is_block (source) && Tag_val(source) == Stack_tag);
+
+    target = caml_alloc (Wosize_val(source), Stack_tag);
+    memcpy ((void*)target, (void*)source, Wosize_val(source) * sizeof(value));
+    caml_modify (slot, target);
+
+    slot = &Stack_parent(target);
+    source = Stack_parent(source);
+  } while (source != Val_unit);
+
+  CAMLreturn(new_cont);
+}
+
 value* caml_scan_stack_high (scanning_action f, value stack,
                              value* stack_high)
 {
