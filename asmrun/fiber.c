@@ -27,25 +27,29 @@ uintnat caml_last_return_address = 1; /* not in OCaml code initially */
 CAMLprim value caml_clone_cont (value cont)
 {
   CAMLparam1(cont);
-  CAMLlocal1(new_cont);
-  value source, target;
-  value* slot;
+  CAMLlocal3(new_cont, prev_target, source);
+  value target;
 
   if (Field (cont, 0) == Val_unit)
     caml_invalid_argument ("continuation already taken");
-  source = Field (cont, 0);
 
+  prev_target = Val_unit;
+  source = Field (cont, 0);
   new_cont = caml_alloc (1, 0);
-  slot = &Field(new_cont, 0);
 
   do {
     Assert (Is_block (source) && Tag_val(source) == Stack_tag);
 
     target = caml_alloc (Wosize_val(source), Stack_tag);
     memcpy ((void*)target, (void*)source, Wosize_val(source) * sizeof(value));
-    caml_modify (slot, target);
 
-    slot = &Stack_parent(target);
+    if (prev_target == Val_unit) {
+      caml_modify (&Field(new_cont, 0), target);
+    } else {
+      caml_modify (&Stack_parent(prev_target), target);
+    }
+
+    prev_target = target;
     source = Stack_parent(source);
   } while (source != Val_unit);
 

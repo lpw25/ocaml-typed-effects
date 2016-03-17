@@ -831,6 +831,7 @@ CFI_ENDPROC
 
 FUNCTION(G(caml_fiber_val_handler))
 CFI_STARTPROC
+LBL(111):
     /* In handler. %rax has value */
         mov     %rax, %rbx
         LOAD_VAR(caml_current_stack, %rsi)
@@ -927,8 +928,12 @@ G(caml_system__code_end):
         .globl  G(caml_system__frametable)
         .align  EIGHT_ALIGN
 G(caml_system__frametable):
-        .quad   1           /* one descriptors */
+        .quad   2           /* two descriptors */
         .quad   LBL(108)    /* return address into callback */
+        .value  -1          /* negative frame size => use callback link */
+        .value  0           /* no roots here */
+        .align  EIGHT_ALIGN
+        .quad   LBL(111)    /* return address into fiber_val_handler */
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
         .align  EIGHT_ALIGN
