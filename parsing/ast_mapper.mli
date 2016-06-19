@@ -68,6 +68,7 @@ type mapper = {
                            -> constructor_declaration;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
+  effect_type: mapper -> effect_type -> effect_type;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor

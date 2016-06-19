@@ -39,6 +39,7 @@ type mapper = {
                          -> extension_constructor;
   effect_constructor: mapper -> T.extension_constructor
                          -> effect_constructor;
+  effect_desc: mapper -> T.effect_desc -> effect_desc;
   include_declaration: mapper -> T.include_declaration -> include_declaration;
   include_description: mapper -> T.include_description -> include_description;
   label_declaration: mapper -> T.label_declaration -> label_declaration;
@@ -706,8 +707,11 @@ let core_type sub ct =
   let desc = match ct.ctyp_desc with
       Ttyp_any -> Ptyp_any
     | Ttyp_var s -> Ptyp_var s
-    | Ttyp_arrow (label, ct1, ct2) ->
-        Ptyp_arrow (label, sub.typ sub ct1, sub.typ sub ct2)
+    | Ttyp_arrow (label, ct1, eft, ct2) ->
+        Ptyp_arrow
+          (label, sub.typ sub ct1,
+           Misc.may_map (sub.effect_desc sub) eft.eft_desc,
+           sub.typ sub ct2)
     | Ttyp_tuple list -> Ptyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (_path, lid, list) ->
         Ptyp_constr (map_loc sub lid,
@@ -747,6 +751,10 @@ and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->
       string_is_prefix "self-" (Ident.name id)
   | _ -> false
+
+let effect_desc sub efd =
+  { pefd_constrs = List.map fst efd.efd_constrs;
+    pefd_var = efd.efd_var; }
 
 let class_field sub cf =
   let loc = sub.location sub cf.cf_loc; in
@@ -810,6 +818,7 @@ let default_mapper =
     type_extension = type_extension;
     extension_constructor = extension_constructor;
     effect_constructor = effect_constructor;
+    effect_desc = effect_desc;
     value_description = value_description;
     pat = pattern;
     expr = expression;

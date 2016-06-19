@@ -157,10 +157,11 @@ let rec core_type i ppf x =
   match x.ctyp_desc with
   | Ttyp_any -> line i ppf "Ttyp_any\n";
   | Ttyp_var (s) -> line i ppf "Ttyp_var %s\n" s;
-  | Ttyp_arrow (l, ct1, ct2) ->
+  | Ttyp_arrow (l, ct1, eft, ct2) ->
       line i ppf "Ttyp_arrow\n";
       arg_label i ppf l;
       core_type i ppf ct1;
+      effect_type i ppf eft;
       core_type i ppf ct2;
   | Ttyp_tuple l ->
       line i ppf "Ttyp_tuple\n";
@@ -199,6 +200,17 @@ let rec core_type i ppf x =
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
   core_type i ppf t
+
+and effect_type i ppf x =
+  option i effect_desc ppf x.eft_desc
+
+and effect_desc i ppf x =
+  line i ppf "effect_desc\n";
+  let i = i+1 in
+  line i ppf "peft_constrs =\n";
+  list (i+1) longident_x_path ppf x.efd_constrs;
+  line i ppf "peft_var =\n";
+  option (i+1) string_loc ppf x.efd_var
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;
@@ -833,6 +845,9 @@ and string_x_expression i ppf (s, _, e) =
 and longident_x_expression i ppf (li, _, e) =
   line i ppf "%a\n" fmt_longident li;
   expression (i+1) ppf e;
+
+and longident_x_path i ppf (li, _) =
+  line i ppf "%a\n" fmt_longident li
 
 and label_x_expression i ppf (l, e, _) =
   line i ppf "<arg>\n";

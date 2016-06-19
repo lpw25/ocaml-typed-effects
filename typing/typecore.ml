@@ -1537,9 +1537,9 @@ and is_nonexpansive_opt = function
 
 let rec approx_type env sty =
   match sty.ptyp_desc with
-    Ptyp_arrow (p, _, sty) ->
+    Ptyp_arrow (p, _, _, sty) ->
       let ty1 = if is_optional p then type_option (newvar ()) else newvar () in
-      newty (Tarrow (p, ty1, approx_type env sty, Cok))
+      newty (Tarrow (p, ty1, Placeholder, approx_type env sty, Cok))
   | Ptyp_tuple args ->
       newty (Ttuple (List.map (approx_type env) args))
   | Ptyp_constr (lid, ctl) ->
@@ -1559,9 +1559,9 @@ let rec type_approx env sexp =
     Pexp_let (_, _, e) -> type_approx env e
   | Pexp_fun (p, _, _, e) ->
       let ty = if is_optional p then type_option (newvar ()) else newvar () in
-      newty (Tarrow(p, ty, type_approx env e, Cok))
+      newty (Tarrow(p, ty, Placeholder, type_approx env e, Cok))
   | Pexp_function ({pc_rhs=e}::_) ->
-      newty (Tarrow(Nolabel, newvar (), type_approx env e, Cok))
+      newty (Tarrow(Nolabel, newvar (), Placeholder, type_approx env e, Cok))
   | Pexp_match (_, {pc_rhs=e}::_) -> type_approx env e
   | Pexp_try (e, _) -> type_approx env e
   | Pexp_tuple l -> newty (Ttuple(List.map (type_approx env) l))
@@ -1594,7 +1594,7 @@ let rec list_labels_aux env visited ls ty_fun =
   if List.memq ty visited then
     List.rev ls, false
   else match ty.desc with
-    Tarrow (l, _, ty_res, _) ->
+    Tarrow (l, _, _, ty_res, _) ->
       list_labels_aux env (ty::visited) (l::ls) ty_res
   | _ ->
       List.rev ls, is_Tvar ty
@@ -1960,7 +1960,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         let ty = expand_head env ty_fun in
         if List.memq ty seen then () else
         match ty.desc with
-          Tarrow (l, ty_arg, ty_fun, com) ->
+          Tarrow (l, ty_arg, Placeholder, ty_fun, com) ->
             (try unify_var env (newvar()) ty_arg with Unify _ -> assert false);
             lower_args (ty::seen) ty_fun
         | _ -> ()
@@ -2838,7 +2838,7 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   re {
   exp_desc = Texp_function(l,cases, partial);
     exp_loc = loc; exp_extra = [];
-    exp_type = instance env (newgenty (Tarrow(l, ty_arg, ty_res, Cok)));
+    exp_type = instance env (newgenty (Tarrow(l, ty_arg, Placeholder, ty_res, Cok)));
     exp_attributes = attrs;
     exp_env = env }
 
@@ -3174,7 +3174,7 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
     | _ -> false
   in
   match expand_head env ty_expected' with
-    {desc = Tarrow(Nolabel,ty_arg,ty_res,_); level = lv} when is_inferred sarg ->
+    {desc = Tarrow(Nolabel,ty_arg,Placeholder,ty_res,_); level = lv} when is_inferred sarg ->
       (* apply optional arguments when expected type is "" *)
       (* we must be very careful about not breaking the semantics *)
       if !Clflags.principal then begin_def ();
@@ -3185,10 +3185,10 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
       end;
       let rec make_args args ty_fun =
         match (expand_head env ty_fun).desc with
-        | Tarrow (l,ty_arg,ty_fun,_) when is_optional l ->
+        | Tarrow (l,ty_arg,Placeholder,ty_fun,_) when is_optional l ->
             let ty = option_none (instance env ty_arg) sarg.pexp_loc in
             make_args ((l, Some ty, Optional) :: args) ty_fun
-        | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
+        | Tarrow (l,_,Placeholder,ty_res',_) when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
         | Tvar _ ->  List.rev args, ty_fun, false
         |  _ -> [], texp.exp_type, false
@@ -3253,7 +3253,7 @@ and type_application env funct sargs =
   (* funct.exp_type may be generic *)
   let result_type omitted ty_fun =
     List.fold_left
-      (fun ty_fun (l,ty,lv) -> newty2 lv (Tarrow(l,ty,ty_fun,Cok)))
+      (fun ty_fun (l,ty,lv) -> newty2 lv (Tarrow(l,ty,Placeholder,ty_fun,Cok)))
       ty_fun omitted
   in
   let has_label l ty_fun =
@@ -3286,9 +3286,9 @@ and type_application env funct sargs =
               in
               if ty_fun.level >= t1.level && not_identity funct.exp_desc then
                 Location.prerr_warning sarg1.pexp_loc Warnings.Unused_argument;
-              unify env ty_fun (newty (Tarrow(l1,t1,t2,Clink(ref Cunknown))));
+              unify env ty_fun (newty (Tarrow(l1,t1,Placeholder,t2,Clink(ref Cunknown))));
               (t1, t2)
-          | Tarrow (l,t1,t2,_) when l = l1
+          | Tarrow (l,t1,Placeholder,t2,_) when l = l1
             || !Clflags.classic && l1 = Nolabel && not (is_optional l) ->
               (t1, t2)
           | td ->
@@ -3335,8 +3335,8 @@ and type_application env funct sargs =
   let warned = ref false in
   let rec type_args args omitted ty_fun ty_fun0 ty_old sargs more_sargs =
     match expand_head env ty_fun, expand_head env ty_fun0 with
-      {desc=Tarrow (l, ty, ty_fun, com); level=lv} as ty_fun',
-      {desc=Tarrow (_, ty0, ty_fun0, _)}
+      {desc=Tarrow (l, ty, Placeholder, ty_fun, com); level=lv} as ty_fun',
+      {desc=Tarrow (_, ty0, Placeholder, ty_fun0, _)}
       when (sargs <> [] || more_sargs <> []) && commu_repr com = Cok ->
         let may_warn loc w =
           if not !warned && !Clflags.principal && lv <> generic_level

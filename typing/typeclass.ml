@@ -122,7 +122,7 @@ let rec constructor_type constr cty =
   | Cty_signature sign ->
       constr
   | Cty_arrow (l, ty, cty) ->
-      Ctype.newty (Tarrow (l, ty, constructor_type constr cty, Cok))
+      Ctype.newty (Tarrow (l, ty, Placeholder, constructor_type constr cty, Cok))
 
 let rec class_body cty =
   match cty with
@@ -682,7 +682,7 @@ let rec class_field self_loc cl_num self_type meths vars
           (* Read the generalized type *)
           let (_, ty) = Meths.find lab.txt !meths in
           let meth_type =
-            Btype.newgenty (Tarrow(Nolabel, self_type, ty, Cok)) in
+            Btype.newgenty (Tarrow(Nolabel, self_type, Placeholder, ty, Cok)) in
           Ctype.raise_nongen_level ();
           vars := vars_local;
           let texp = type_expect met_env meth_expr meth_type in
@@ -707,7 +707,7 @@ let rec class_field self_loc cl_num self_type meths vars
           Ctype.raise_nongen_level ();
           let meth_type =
             Ctype.newty
-              (Tarrow (Nolabel, self_type,
+              (Tarrow (Nolabel, self_type, Placeholder,
                        Ctype.instance_def Predef.type_unit, Cok)) in
           vars := vars_local;
           let texp = type_expect met_env expr meth_type in
@@ -1182,7 +1182,7 @@ let rec approx_declaration cl =
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
         else Ctype.newvar () in
-      Ctype.newty (Tarrow (l, arg, approx_declaration cl, Cok))
+      Ctype.newty (Tarrow (l, arg, Placeholder, approx_declaration cl, Cok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
   | Pcl_constraint (cl, _) ->
@@ -1195,7 +1195,7 @@ let rec approx_description ct =
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
         else Ctype.newvar () in
-      Ctype.newty (Tarrow (l, arg, approx_description ct, Cok))
+      Ctype.newty (Tarrow (l, arg, Placeholder, approx_description ct, Cok))
   | _ -> Ctype.newvar ()
 
 (*******************************)

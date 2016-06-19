@@ -138,9 +138,9 @@ let rec raw_type ppf ty =
 and raw_type_list tl = raw_list raw_type tl
 and raw_type_desc ppf = function
     Tvar name -> fprintf ppf "Tvar %a" print_name name
-  | Tarrow(l,t1,t2,c) ->
-      fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%s)@]"
-        (string_of_label l) raw_type t1 raw_type t2
+  | Tarrow(l,t1,eft,t2,c) ->
+      fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%a,@,%s)@]"
+        (string_of_label l) raw_type t1 raw_effect_type eft raw_type t2
         (safe_commu_repr [] c)
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
@@ -195,6 +195,9 @@ and raw_field ppf = function
           match !e with None -> fprintf ppf " None"
           | Some f -> fprintf ppf "@,@[<1>(%a)@]" raw_field f)
   | Rabsent -> fprintf ppf "Rabsent"
+
+and raw_effect_type ppf = function
+  | Placeholder -> fprintf ppf "Placeholder"
 
 let raw_type_expr ppf t =
   visited := [];
@@ -472,7 +475,7 @@ let rec mark_loops_rec visited ty =
     let visited = px :: visited in
     match ty.desc with
     | Tvar _ -> add_named_var ty
-    | Tarrow(_, ty1, ty2, _) ->
+    | Tarrow(_, ty1, Placeholder, ty2, _) ->
         mark_loops_rec visited ty1; mark_loops_rec visited ty2
     | Ttuple tyl -> List.iter (mark_loops_rec visited) tyl
     | Tconstr(p, tyl, _) ->
@@ -553,7 +556,7 @@ let rec tree_of_typexp sch ty =
     match ty.desc with
     | Tvar _ ->
         Otyp_var (is_non_gen sch ty, name_of_type ty)
-    | Tarrow(l, ty1, ty2, _) ->
+    | Tarrow(l, ty1, Placeholder, ty2, _) ->
         let pr_arrow l ty1 ty2 =
           let lab =
             if !print_labels || is_optional l then string_of_label l else ""

@@ -23,7 +23,7 @@ type type_expr =
 
 and type_desc =
     Tvar of string option
-  | Tarrow of arg_label * type_expr * type_expr * commutable
+  | Tarrow of arg_label * type_expr * effect_desc * type_expr * commutable
   | Ttuple of type_expr list
   | Tconstr of Path.t * type_expr list * abbrev_memo ref
   | Tobject of type_expr * (Path.t * type_expr list) option ref
@@ -66,6 +66,9 @@ and commutable =
     Cok
   | Cunknown
   | Clink of commutable ref
+
+and effect_desc =
+  | Placeholder
 
 module TypeOps : sig
   type t = type_expr

@@ -238,8 +238,8 @@ let varify_constructors var_names t =
       | Ptyp_var x ->
           check_variable var_names t.ptyp_loc x;
           Ptyp_var x
-      | Ptyp_arrow (label,core_type,core_type') ->
-          Ptyp_arrow(label, loop core_type, loop core_type')
+      | Ptyp_arrow (label,core_type,e,core_type') ->
+          Ptyp_arrow(label, loop core_type, e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
       | Ptyp_constr( { txt = Lident s }, []) when List.mem s var_names ->
           Ptyp_var s
@@ -395,6 +395,18 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
+let mkeffect constrs varo =
+  { pefd_constrs = constrs;
+    pefd_var = varo; }
+
+let pure_effect = mkeffect [] None
+
+let tilde_effect_with_constrs constrs pos =
+    mkeffect constrs (Some (mkrhs "~" pos))
+
+let tilde_effect pos =
+    tilde_effect_with_constrs [] pos
+
 %}
 
 /* Tokens */
@@ -428,6 +440,7 @@ let class_of_let_bindings lbs body =
 %token END
 %token EOF
 %token EQUAL
+%token EQUALGREATER
 %token EXCEPTION
 %token EXTERNAL
 %token FALSE
@@ -475,6 +488,7 @@ let class_of_let_bindings lbs body =
 %token MINUS
 %token MINUSDOT
 %token MINUSGREATER
+%token MINUSLBRACKET
 %token MODULE
 %token MUTABLE
 %token <nativeint> NATIVEINT
@@ -496,6 +510,8 @@ let class_of_let_bindings lbs body =
 %token QUOTE
 %token RBRACE
 %token RBRACKET
+%token RBRACKETMINUSGREATER
+%token RBRACKETTILDEGREATER
 %token REC
 %token RPAREN
 %token SEMI
@@ -508,6 +524,8 @@ let class_of_let_bindings lbs body =
 %token STRUCT
 %token THEN
 %token TILDE
+%token TILDEGREATER
+%token TILDELBRACKET
 %token TO
 %token TRUE
 %token TRY
@@ -562,7 +580,8 @@ The precedences must be listed from low to high.
 %left     BAR                           /* pattern (p|p|p) */
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/expr_comma_list (e,e,e) */
-%right    MINUSGREATER                  /* core_type2 (t -> t -> t) */
+%right    MINUSGREATER EQUALGREATER TILDEGREATER MINUSLBRACKET TILDELBRACKET
+                                        /* core_type2 (t -> t -> t) */
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
 %nonassoc below_EQUAL
@@ -579,7 +598,7 @@ The precedences must be listed from low to high.
 %nonassoc prec_constant_constructor     /* cf. simple_expr (C versus C x) */
 %nonassoc prec_constr_appl              /* above AS BAR COLONCOLON COMMA */
 %nonassoc below_SHARP
-%nonassoc SHARP SHARPOP                 /* simple_expr/toplevel_directive */
+%nonassoc SHARP                        /* simple_expr/toplevel_directive */
 %left     SHARPOP
 %nonassoc below_DOT
 %nonassoc DOT
@@ -2038,14 +2057,43 @@ core_type_no_attr:
 core_type2:
     simple_core_type_or_tuple
       { $1 }
-  | QUESTION LIDENT COLON core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow(Optional $2 , $4, $6)) }
-  | OPTLABEL core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow(Optional $1 , $2, $4)) }
-  | LIDENT COLON core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow(Labelled $1, $3, $5)) }
-  | core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow(Nolabel, $1, $3)) }
+  | QUESTION LIDENT COLON core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow(Optional $2 , $4, $5, $6)) }
+  | OPTLABEL core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow(Optional $1 , $2, $3, $4)) }
+  | LIDENT COLON core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow((Labelled $1, $3, $4, $5))) }
+  | core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow(Nolabel, $1, $2, $3)) }
+;
+
+arrow:
+  | MINUSGREATER
+      { None }
+  | EQUALGREATER
+      { Some pure_effect }
+  | TILDEGREATER
+      { Some (tilde_effect 1) }
+  | MINUSLBRACKET effect_desc RBRACKETMINUSGREATER
+      { Some $2 }
+  | TILDELBRACKET effect_desc_constructors RBRACKETTILDEGREATER
+      { Some (tilde_effect_with_constrs $2 3) }
+;
+
+effect_desc_constructors:
+  | /* empty */
+      { [] }
+  | type_longident
+      { [mkrhs $1 1] }
+  | effect_desc_constructors BAR type_longident
+      { (mkrhs $3 3) :: $1 }
+;
+
+effect_desc:
+  | effect_desc_constructors
+      { mkeffect $1 None }
+  | effect_desc_constructors BAR BANG ident
+      { mkeffect $1 (Some (mkrhs $4 4)) }
 ;
 
 simple_core_type:

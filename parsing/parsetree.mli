@@ -54,7 +54,7 @@ and core_type_desc =
         (*  _ *)
   | Ptyp_var of string
         (* 'a *)
-  | Ptyp_arrow of arg_label * core_type * core_type
+  | Ptyp_arrow of arg_label * core_type * effect_type * core_type
         (* T1 -> T2       Simple
            ~l:T1 -> T2    Labelled
            ?l:T1 -> T2    Otional
@@ -133,6 +133,14 @@ and row_field =
         *)
   | Rinherit of core_type
         (* [ T ] *)
+
+and effect_type = effect_desc option
+
+and effect_desc =
+  {
+    pefd_constrs : Longident.t loc list;
+    pefd_var : string loc option;
+  }
 
 (* Patterns *)
 

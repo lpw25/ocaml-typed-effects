@@ -953,7 +953,7 @@ and transl_exp0 e =
               Lprim(Pmakeblock(Obj.forward_tag, Immutable), [transl_exp e])
           (* the following cannot be represented as float/forward/lazy:
              optimize *)
-          | Tarrow(_,_,_,_) | Ttuple _ | Tpackage _ | Tobject(_,_) | Tnil
+          | Tarrow(_,_,_,_,_) | Ttuple _ | Tpackage _ | Tobject(_,_) | Tnil
           | Tvariant _
               -> transl_exp e
           (* optimize predefined types (excepted float) *)

@@ -214,10 +214,12 @@ let rec iter_row f row =
       Misc.may (fun (_,l) -> List.iter f l) row.row_name
   | _ -> assert false
 
+let iter_effect_type f eft = ()
+
 let iter_type_expr f ty =
   match ty.desc with
     Tvar _              -> ()
-  | Tarrow (_, ty1, ty2, _) -> f ty1; f ty2
+  | Tarrow (_, ty1, eft, ty2, _) -> f ty1; iter_effect_type f eft; f ty2
   | Ttuple l            -> List.iter f l
   | Tconstr (_, l, _)   -> List.iter f l
   | Tobject(ty, {contents = Some (_, p)})
@@ -393,7 +395,8 @@ let rec norm_univar ty =
 
 let rec copy_type_desc ?(keep_names=false) f = function
     Tvar _ as ty        -> if keep_names then ty else Tvar None
-  | Tarrow (p, ty1, ty2, c)-> Tarrow (p, f ty1, f ty2, copy_commu c)
+  | Tarrow (p, ty1, Placeholder, ty2, c)->
+      Tarrow (p, f ty1, Placeholder, f ty2, copy_commu c)
   | Ttuple l            -> Ttuple (List.map f l)
   | Tconstr (p, l, _)   -> Tconstr (p, List.map f l, ref Mnil)
   | Tobject(ty, {contents = Some (p, tl)})

@@ -635,7 +635,7 @@ let compute_variance env visited vari ty =
     visited := TypeMap.add ty vari !visited;
     let compute_same = compute_variance_rec vari in
     match ty.desc with
-      Tarrow (_, ty1, ty2, _) ->
+      Tarrow (_, ty1, Placeholder, ty2, _) ->
         let open Variance in
         let v = conjugate vari in
         let v1 =

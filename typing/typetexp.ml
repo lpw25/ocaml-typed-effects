@@ -243,6 +243,9 @@ let find_label =
 let find_all_labels =
   find_component Env.lookup_all_labels (fun lid -> Unbound_label lid)
 
+let find_effect env loc lid =
+  failwith "Not implemented"
+
 let find_class env loc lid =
   let (path, decl) as r =
     find_component Env.lookup_class (fun lid -> Unbound_class lid) env loc lid
@@ -430,16 +433,17 @@ let rec transl_type env policy styp =
       end
     in
     ctyp (Ttyp_var name) ty
-  | Ptyp_arrow(l, st1, st2) ->
+  | Ptyp_arrow(l, st1, seft, st2) ->
     let cty1 = transl_type env policy st1 in
+    let eft = transl_effect_type env seft in
     let cty2 = transl_type env policy st2 in
     let ty1 = cty1.ctyp_type in
     let ty1 =
       if Btype.is_optional l
       then newty (Tconstr(Predef.path_option,[ty1], ref Mnil))
       else ty1 in
-    let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, Cok)) in
-    ctyp (Ttyp_arrow (l, cty1, cty2)) ty
+    let ty = newty (Tarrow(l, ty1, eft.eft_type, cty2.ctyp_type, Cok)) in
+    ctyp (Ttyp_arrow (l, cty1, eft, cty2)) ty
   | Ptyp_tuple stl ->
     if List.length stl < 2 then
       Syntaxerr.ill_formed_ast loc "Tuples must have at least 2 components.";
@@ -767,6 +771,24 @@ and transl_fields loc env policy seen o =
       if List.mem s seen then raise (Error (loc, env, Repeated_method_label s));
       let ty2 = transl_fields loc env policy (s :: seen) o l in
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
+
+and transl_effect_type env eft =
+  match eft with
+  | None ->
+      { eft_desc = None;
+        eft_type = Placeholder; }
+  | Some desc ->
+      let efd_constrs =
+        List.map
+          (fun lid ->
+            let path = find_effect env lid.loc lid.txt in
+              lid, path)
+          desc.pefd_constrs
+      in
+      let efd_var = desc.pefd_var in
+      let eft_desc = Some { efd_constrs; efd_var } in
+      let eft_type = Placeholder in
+      { eft_desc; eft_type }
 
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =
