@@ -380,7 +380,7 @@ and row_field =
 
 and effect_type = {
   eft_desc: effect_desc option;
-  eft_type: Types.effect_desc;
+  eft_type: Types.type_expr;
 }
 
 and effect_desc = {

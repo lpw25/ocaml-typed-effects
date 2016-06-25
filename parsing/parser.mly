@@ -401,11 +401,8 @@ let mkeffect constrs varo =
 
 let pure_effect = mkeffect [] None
 
-let tilde_effect_with_constrs constrs pos =
-    mkeffect constrs (Some (mkrhs "~" pos))
-
 let tilde_effect pos =
-    tilde_effect_with_constrs [] pos
+    mkeffect [] (Some (mkrhs "~" pos))
 
 %}
 
@@ -418,6 +415,7 @@ let tilde_effect pos =
 %token ASSERT
 %token BACKQUOTE
 %token BANG
+%token BANGTILDE
 %token BAR
 %token BARBAR
 %token BARRBRACKET
@@ -511,7 +509,6 @@ let tilde_effect pos =
 %token RBRACE
 %token RBRACKET
 %token RBRACKETMINUSGREATER
-%token RBRACKETTILDEGREATER
 %token REC
 %token RPAREN
 %token SEMI
@@ -525,7 +522,6 @@ let tilde_effect pos =
 %token THEN
 %token TILDE
 %token TILDEGREATER
-%token TILDELBRACKET
 %token TO
 %token TRUE
 %token TRY
@@ -580,7 +576,7 @@ The precedences must be listed from low to high.
 %left     BAR                           /* pattern (p|p|p) */
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/expr_comma_list (e,e,e) */
-%right    MINUSGREATER EQUALGREATER TILDEGREATER MINUSLBRACKET TILDELBRACKET
+%right    MINUSGREATER EQUALGREATER TILDEGREATER MINUSLBRACKET
                                         /* core_type2 (t -> t -> t) */
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
@@ -2076,8 +2072,6 @@ arrow:
       { Some (tilde_effect 1) }
   | MINUSLBRACKET effect_desc RBRACKETMINUSGREATER
       { Some $2 }
-  | TILDELBRACKET effect_desc_constructors RBRACKETTILDEGREATER
-      { Some (tilde_effect_with_constrs $2 3) }
 ;
 
 effect_desc_constructors:
@@ -2094,6 +2088,16 @@ effect_desc:
       { mkeffect $1 None }
   | effect_desc_constructors BAR BANG ident
       { mkeffect $1 (Some (mkrhs $4 4)) }
+  | BANG ident
+      { mkeffect [] (Some (mkrhs $2 2)) }
+  | effect_desc_constructors BAR BANG TILDE
+      { mkeffect $1 (Some (mkrhs "~" 4)) }
+  | BANG TILDE
+      { mkeffect [] (Some (mkrhs "~" 2)) }
+  | effect_desc_constructors BAR BANGTILDE
+      { mkeffect $1 (Some (mkrhs "~" 3)) }
+  | BANGTILDE
+      { mkeffect [] (Some (mkrhs "~" 1)) }
 ;
 
 simple_core_type:

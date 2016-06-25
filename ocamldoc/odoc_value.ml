@@ -70,7 +70,7 @@ let update_value_parameters_text v =
 let parameter_list_from_arrows typ =
   let rec iter t =
     match t.Types.desc with
-      Types.Tarrow (l, t1, t2, _) ->
+      Types.Tarrow (l, t1, _, t2, _) ->
         (l, t1) :: (iter t2)
     | Types.Tlink texp
     | Types.Tsubst texp ->
@@ -84,7 +84,9 @@ let parameter_list_from_arrows typ =
     | Types.Tnil
     | Types.Tunivar _
     | Types.Tpackage _
-    | Types.Tvariant _ ->
+    | Types.Tvariant _
+    | Types.Teffect _
+    | Types.Tenil ->
         []
   in
   iter typ

@@ -276,7 +276,7 @@ class printer  ()= object(self:'self)
         pp f (* "%a%a@;" *) "%a%a"
           (fun f l -> match l with
           |[] -> ()
-          |[x]-> pp f "%a@;" self#core_type1  x
+          |[x] -> pp f "%a@;" self#core_type1  x
           | _ -> self#list ~first:"(" ~last:")@;" self#core_type ~sep:"," f l)
           l self#longident_loc li
     | Ptyp_variant (l, closed, low) ->
@@ -678,6 +678,7 @@ class printer  ()= object(self:'self)
           (self#option self#core_type ~first:" : " ~last:" ") cto1 (* no sep hint*)
           self#core_type ct
     | Pexp_variant (l, None) -> pp f "`%s" l
+
     | Pexp_record (l, eo) ->
         let longident_x_expression f ( li, e) =
           match e.pexp_desc with

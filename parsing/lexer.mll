@@ -459,8 +459,6 @@ rule token = parse
   | "-[" { MINUSLBRACKET }
   | "]->" { RBRACKETMINUSGREATER }
   | "~>" { TILDEGREATER }
-  | "~[" { TILDELBRACKET }
-  | "]~>" { RBRACKETTILDEGREATER }
   | "=>" { EQUALGREATER }
   | "."  { DOT }
   | ".." { DOTDOT }
@@ -499,7 +497,7 @@ rule token = parse
   | "+=" { PLUSEQ }
   | "-"  { MINUS }
   | "-." { MINUSDOT }
-
+  | "!~" { BANGTILDE }
   | "!" symbolchar +
             { PREFIXOP(Lexing.lexeme lexbuf) }
   | ['~' '?'] symbolchar +

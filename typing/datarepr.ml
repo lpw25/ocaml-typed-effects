@@ -44,7 +44,7 @@ let free_vars ?(param=false) ty =
   unmark_type ty;
   !ret
 
-let newgenconstr path tyl = newgenty (Tconstr (path, tyl, ref Mnil))
+let newgenconstr path sort tyl = newgenty (Tconstr (path, tyl, sort, ref Mnil))
 
 let constructor_args cd_args cd_res path rep =
   let tyl =
@@ -70,6 +70,7 @@ let constructor_args cd_args cd_res path rep =
           type_params;
           type_arity = List.length type_params;
           type_kind = Type_record (lbls, rep);
+          type_sort = Stype;
           type_private = Public;
           type_manifest = None;
           type_variance = List.map (fun _ -> Variance.full) type_params;
@@ -79,11 +80,11 @@ let constructor_args cd_args cd_res path rep =
         }
       in
       existentials,
-      [ newgenconstr path type_params ],
+      [ newgenconstr path Stype type_params ],
       Some tdecl
 
 let constructor_descrs ty_path decl cstrs =
-  let ty_res = newgenconstr ty_path decl.type_params in
+  let ty_res = newgenconstr ty_path decl.type_sort decl.type_params in
   let num_consts = ref 0 and num_nonconsts = ref 0  and num_normal = ref 0 in
   List.iter
     (fun {cd_args; cd_res; _} ->
@@ -134,7 +135,7 @@ let extension_descr path_ext ext =
   let ty_res =
     match ext.ext_ret_type with
         Some type_ret -> type_ret
-      | None -> newgenconstr ext.ext_type_path ext.ext_type_params
+      | None -> newgenconstr ext.ext_type_path Stype ext.ext_type_params
   in
   let existentials, cstr_args, cstr_inlined =
     constructor_args ext.ext_args ext.ext_ret_type
@@ -212,6 +213,6 @@ let constructors_of_type ty_path decl =
 let labels_of_type ty_path decl =
   match decl.type_kind with
   | Type_record(labels, rep) ->
-      label_descrs (newgenconstr ty_path decl.type_params)
+      label_descrs (newgenconstr ty_path decl.type_sort decl.type_params)
         labels rep decl.type_private
   | Type_variant _ | Type_abstract | Type_open -> []

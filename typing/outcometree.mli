@@ -42,11 +42,15 @@ type out_value =
   | Oval_tuple of out_value list
   | Oval_variant of string * out_value option
 
+type out_sort =
+  | Osrt_type
+  | Osrt_effect
+
 type out_type =
   | Otyp_abstract
   | Otyp_open
-  | Otyp_alias of out_type * string
-  | Otyp_arrow of string * out_type * out_type
+  | Otyp_alias of out_type * (string * out_sort)
+  | Otyp_arrow of string * out_type * out_arrow * out_type
   | Otyp_class of bool * out_ident * out_type list
   | Otyp_constr of out_ident * out_type list
   | Otyp_manifest of out_type * out_type
@@ -55,15 +59,22 @@ type out_type =
   | Otyp_stuff of string
   | Otyp_sum of (string * out_type list * out_type option) list
   | Otyp_tuple of out_type list
-  | Otyp_var of bool * string
+  | Otyp_var of bool * (string * out_sort)
   | Otyp_variant of
       bool * out_variant * bool * (string list) option
-  | Otyp_poly of string list * out_type
+  | Otyp_poly of (string * out_sort) list * out_type
   | Otyp_module of string * string list * out_type list
+  | Otyp_effects of out_ident list * out_type option
 
 and out_variant =
   | Ovar_fields of (string * bool * out_type list) list
   | Ovar_name of out_ident * out_type list
+
+and out_arrow =
+  | Oarr_simple
+  | Oarr_pure
+  | Oarr_tilde
+  | Oarr_effects of out_ident list * out_type option
 
 type out_class_type =
   | Octy_constr of out_ident * out_type list

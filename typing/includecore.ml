@@ -48,7 +48,7 @@ let private_flags decl1 decl2 =
 
 let is_absrow env ty =
   match ty.desc with
-    Tconstr(Pident id, _, _) ->
+    Tconstr(Pident id, _, _, _) ->
       begin match Ctype.expand_head env ty with
         {desc=Tobject _|Tvariant _} -> true
       | _ -> false
@@ -246,7 +246,8 @@ let type_declarations ?(equality = false) env name decl1 id decl2 =
         then [] else [Manifest]
     | (None, Some ty2) ->
         let ty1 =
-          Btype.newgenty (Tconstr(Pident id, decl2.type_params, ref Mnil))
+          Btype.newgenty
+            (Tconstr(Pident id, decl2.type_params, decl2.type_sort, ref Mnil))
         in
         if Ctype.equal env true decl1.type_params decl2.type_params then
           if Ctype.equal env false [ty1] [ty2] then []
@@ -281,10 +282,10 @@ let extension_constructors env id ext1 ext2 =
   in
   Env.mark_extension_used usage env ext1 (Ident.name id);
   let ty1 =
-    Btype.newgenty (Tconstr(ext1.ext_type_path, ext1.ext_type_params, ref Mnil))
+    Btype.newgenty (Tconstr(ext1.ext_type_path, ext1.ext_type_params, Stype, ref Mnil))
   in
   let ty2 =
-    Btype.newgenty (Tconstr(ext2.ext_type_path, ext2.ext_type_params, ref Mnil))
+    Btype.newgenty (Tconstr(ext2.ext_type_path, ext2.ext_type_params, Stype, ref Mnil))
   in
   if Ctype.equal env true
        (ty1 :: ext1.ext_type_params)
@@ -309,7 +310,7 @@ let extension_constructors env id ext1 ext2 =
 let encode_val (mut, ty) rem =
   begin match mut with
     Asttypes.Mutable   -> Predef.type_unit
-  | Asttypes.Immutable -> Btype.newgenvar ()
+  | Asttypes.Immutable -> Btype.newgenvar Stype
   end
   ::ty::rem
 

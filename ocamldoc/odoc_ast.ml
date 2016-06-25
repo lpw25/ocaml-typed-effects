@@ -274,7 +274,7 @@ module Analyser =
         | Typedtree.Tpat_construct (_, cons_desc, _) when
             (* we give a name to the parameter only if it unit *)
             (match cons_desc.cstr_res.desc with
-              Tconstr (p, _, _) ->
+              Tconstr (p, _, _, _) ->
                 Path.same p Predef.path_unit
             | _ ->
                 false)
@@ -603,7 +603,7 @@ module Analyser =
             in
             let real_type =
               match met_type.Types.desc with
-              Tarrow (_, _, t, _) ->
+              Tarrow (_, _, _, t, _) ->
                 t
             |  _ ->
                 (* ?!? : not an arrow type ! return the original type *)
@@ -645,7 +645,7 @@ module Analyser =
           in
           let real_type =
             match exp.exp_type.desc with
-              Tarrow (_, _, t,_) ->
+              Tarrow (_, _, _, t,_) ->
                 t
             |  _ ->
                 (* ?!? : not an arrow type ! return the original type *)

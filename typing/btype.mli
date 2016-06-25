@@ -29,8 +29,17 @@ val newty2: int -> type_desc -> type_expr
         (* Create a type *)
 val newgenty: type_desc -> type_expr
         (* Create a generic type *)
-val newgenvar: ?name:string -> unit -> type_expr
+val newgenvar: ?name:string -> type_sort -> type_expr
         (* Return a fresh generic variable *)
+
+val tvar_none : type_desc
+  (** Tvar(None, Vtype) *)
+
+val tunivar_none : type_desc
+  (** Tunivar(None, Vtype) *)
+
+val evar_none : type_desc
+  (** Tvar(None, Veffect) *)
 
 (* Use Tsubst instead
 val newmarkedvar: int -> type_expr
@@ -43,6 +52,9 @@ val newmarkedgenvar: unit -> type_expr
 
 val is_Tvar: type_expr -> bool
 val is_Tunivar: type_expr -> bool
+
+val type_sort : type_expr -> type_sort
+
 val dummy_method: label
 val default_mty: module_type option -> module_type
 

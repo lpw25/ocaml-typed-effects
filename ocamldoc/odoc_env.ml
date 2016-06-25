@@ -187,12 +187,12 @@ let subst_type env t =
       deja_vu := t :: !deja_vu;
       Btype.iter_type_expr iter t;
       match t.Types.desc with
-      | Types.Tconstr (p, [ty], a) when Path.same p Predef.path_option ->
+      | Types.Tconstr (p, [ty], s, a) when Path.same p Predef.path_option ->
           ()
-      | Types.Tconstr (p, l, a) ->
+      | Types.Tconstr (p, l, s, a) ->
           let new_p =
             Odoc_name.to_path (full_type_name env (Odoc_name.from_path p)) in
-          t.Types.desc <- Types.Tconstr (new_p, l, a)
+          t.Types.desc <- Types.Tconstr (new_p, l, s, a)
       | Types.Tpackage (p, n, l) ->
           let new_p =
             Odoc_name.to_path (full_module_type_name env (Odoc_name.from_path p)) in
