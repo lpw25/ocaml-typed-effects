@@ -148,6 +148,9 @@ val apply:
 val open_effects_covariant : Env.t -> type_expr -> type_expr
 val open_effects_contravariant : Env.t -> type_expr -> type_expr
 
+val close_effects_covariant : Env.t -> type_expr -> unit
+val close_effects_contravariant : Env.t -> type_expr -> unit
+
 val expand_head_once: Env.t -> type_expr -> type_expr
 val expand_head: Env.t -> type_expr -> type_expr
 val try_expand_once_opt: Env.t -> type_expr -> type_expr

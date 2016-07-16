@@ -2017,6 +2017,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       end_def ();
       if is_nonexpansive arg then generalize arg.exp_type
       else generalize_expansive env arg.exp_type;
+      close_effects_covariant env arg.exp_type;
       let rec split_cases valc exnc effc conts = function
         | [] -> List.rev valc, List.rev exnc, List.rev effc, List.rev conts
         | {pc_lhs = {ppat_desc=Ppat_exception p}} as c :: rest ->
@@ -4040,6 +4041,10 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   List.iter
     (fun pat -> iter_pattern (fun pat -> generalize pat.pat_type) pat)
     pat_list;
+  List.iter
+    (fun pat ->
+      iter_pattern (fun pat -> close_effects_covariant env pat.pat_type) pat)
+    pat_list;
   let l = List.combine pat_list exp_list in
   let l =
     List.map2
@@ -4077,6 +4082,7 @@ let type_expression env sexp eff_expected =
   end_def();
   if is_nonexpansive exp then generalize exp.exp_type
   else generalize_expansive env exp.exp_type;
+  close_effects_covariant env exp.exp_type;
   match sexp.pexp_desc with
     Pexp_ident lid ->
       (* Special case for keeping type variables when looking-up a variable *)
