@@ -1853,6 +1853,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
         | true, Rejected | false, Required ->
             raise (Error (loc, env, Inlined_record_escape));
         end;
+        let ty = instance env (open_effects_covariant env desc.val_type) in
         rue {
           exp_desc =
             begin match desc.val_kind with
@@ -1879,7 +1880,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
                 Texp_ident(path, lid, desc)
           end;
           exp_loc = loc; exp_extra = [];
-          exp_type = instance env desc.val_type;
+          exp_type = ty;
           exp_attributes = sexp.pexp_attributes;
           exp_env = env }
       end

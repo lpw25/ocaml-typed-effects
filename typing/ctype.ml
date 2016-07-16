@@ -4109,13 +4109,14 @@ let collect_effect_change l =
 let rec find_visited ty ((co, cn) as vari) = function
   | [] -> raise Not_found
   | (ty', (co', cn'), stub, depth) :: rest ->
-      if ty == ty && co = co' && cn = cn' then (stub, Equiv depth)
+      if ty == ty' && co = co' && cn = cn' then (stub, Equiv depth)
       else find_visited ty vari rest
 
 let rec open_effects env depth visited vari ty =
   let (co, cn) = vari in
   let ty = repr ty in
-  if ty.level <> generic_level || ((not co) && (not cn)) then ty, Unchanged
+  if ty.level <> generic_level then ty, Unchanged
+  else if ((not co) && (not cn)) then ty, Unchanged
   else try
     find_visited ty vari visited
   with Not_found ->
