@@ -52,6 +52,7 @@ val newmarkedgenvar: unit -> type_expr
 
 val is_Tvar: type_expr -> bool
 val is_Tunivar: type_expr -> bool
+val is_Tenil: type_expr -> bool
 
 val type_sort : type_expr -> type_sort
 
@@ -131,6 +132,7 @@ val copy_row:
     (type_expr -> type_expr) ->
     bool -> row_desc -> bool -> type_expr -> row_desc
 val copy_kind: field_kind -> field_kind
+val copy_commu : commutable -> commutable
 
 val save_desc: type_expr -> type_desc -> unit
         (* Save a type description *)
