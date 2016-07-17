@@ -272,7 +272,8 @@ type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr
   | CC_Value of type_expr * bool * string * type_expr
 val closed_class:
-        type_expr list -> class_signature -> closed_class_failure option
+        Env.t -> type_expr list -> class_signature ->
+        closed_class_failure option
         (* Check whether all type variables are bound *)
 
 val unalias: type_expr -> type_expr

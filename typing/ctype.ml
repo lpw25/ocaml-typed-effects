@@ -317,10 +317,10 @@ let diff_effects env effs1 effs2  =
   in
   remove_common effs1 [] effs2
 
-let build_effects level =
+let build_effects level effs rest =
   List.fold_right
     (fun ec ty -> newty2 level (Teffect(ec, ty)))
-
+    effs rest
 
                   (**********************************************)
                   (*  Miscellaneous operations on object types  *)
@@ -656,18 +656,53 @@ let closed_extension_constructor ext =
     unmark_extension_constructor ext;
     Some ty
 
-(* TODO: remove this hack once leijnization is implemented *)
-let close_type ty =
+let is_evar ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tvar(_, Seffect) -> true
+  | _ -> false
+
+let rec mem_close_pure_visited ty pure = function
+  | [] -> false
+  | (ty', pure') :: rest ->
+      if ty == ty' && pure = pure' then true
+      else mem_close_pure_visited ty pure rest
+
+let rec close_pure_evars env visited evars pure ty =
+  let ty = repr ty in
+  if mem_close_pure_visited ty pure !visited then ()
+  else begin
+    visited := (ty, pure) :: !visited;
+    match ty.desc with
+    | Tvar(_, Seffect) ->
+        if pure && List.memq ty evars then begin
+          link_type ty (newty2 ty.level Tenil)
+        end
+    | Teffect(ec, ty) ->
+        if equal_effect env Placeholder ec then
+          close_pure_evars env visited evars true ty
+        else
+          close_pure_evars env visited evars pure ty
+    | _    ->
+        iter_type_expr (close_pure_evars env visited evars pure) ty
+  end
+
+(* TODO: Can we do better than this hack? *)
+let close_type env ty =
+  let vars = free_vars ty in
+  let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
+  if List.length evars > 0 then
+    close_pure_evars env (ref []) (List.map fst evars) false ty;
   List.iter
-    (fun (v, real) ->
-      match v.desc with
-      | Tvar(_, Seffect) ->
-          let eff =
-            newty2 v.level (Teffect(Placeholder, newty2 v.level Tenil))
-          in
-            link_type v eff
-      | _ -> raise (Non_closed (v, real)))
-    (free_vars ty)
+    (fun (v, _) ->
+      if is_evar v then begin
+        let eff =
+          newty2 v.level (Teffect(Placeholder, newty2 v.level Tenil))
+        in
+          link_type v eff
+      end)
+    evars;
+  List.iter (fun (v, real) -> raise (Non_closed (v, real))) others
 
 type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr
@@ -675,7 +710,7 @@ type closed_class_failure =
 
 exception CCFailure of closed_class_failure
 
-let closed_class params sign =
+let closed_class env params sign =
   let ty = object_fields (repr sign.csig_self) in
   let (fields, rest) = flatten_fields ty in
   List.iter mark_type params;
@@ -688,7 +723,7 @@ let closed_class params sign =
     List.iter
       (fun (lab, kind, ty) ->
         if field_kind_repr kind = Fpresent then
-        try close_type ty with Non_closed (ty0, real) ->
+        try close_type env ty with Non_closed (ty0, real) ->
           raise (CCFailure (CC_Method (ty0, real, lab, ty))))
       fields;
     mark_type_params (repr sign.csig_self);
