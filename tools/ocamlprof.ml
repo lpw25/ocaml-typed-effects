@@ -266,6 +266,10 @@ and rw_exp iflag sexp =
   | Pexp_constraint(sarg, _) | Pexp_coerce(sarg, _, _) ->
     rewrite_exp iflag sarg
 
+  | Pexp_perform(_, None) -> ()
+  | Pexp_perform(_, Some sarg) ->
+    rewrite_exp iflag sarg
+
   | Pexp_send (sobj, _) ->
     rewrite_exp iflag sobj
 
@@ -290,7 +294,7 @@ and rw_exp iflag sexp =
   | Pexp_object cl ->
       List.iter (rewrite_class_field iflag) cl.pcstr_fields
 
-  | Pexp_newtype (_, sexp) -> rewrite_exp iflag sexp
+  | Pexp_newtype (_, _, sexp) -> rewrite_exp iflag sexp
   | Pexp_open (_ovf, _, e) -> rewrite_exp iflag e
   | Pexp_pack (smod) -> rewrite_mod iflag smod
   | Pexp_extension _ -> ()

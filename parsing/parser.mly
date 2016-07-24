@@ -220,23 +220,26 @@ let exp_of_label lbl pos =
 let pat_of_label lbl pos =
   mkpat (Ppat_var (mkrhs (Longident.last lbl) pos))
 
-let check_variable vl loc v =
-  if List.mem v vl then
-    raise Syntaxerr.(Error(Variable_in_scope(loc,v)))
+let check_variable newtypes loc v s =
+  if List.mem (v, s) newtypes then
+    raise Syntaxerr.(Error(Variable_in_scope(loc, v, s)))
 
-let varify_constructors var_names t =
+let varify_constructors newtypes t =
   let rec loop t =
     let desc =
       match t.ptyp_desc with
       | Ptyp_any -> Ptyp_any
-      | Ptyp_var x ->
-          check_variable var_names t.ptyp_loc x;
-          Ptyp_var x
+      | Ptyp_var (name, sort) ->
+          check_variable newtypes t.ptyp_loc name sort;
+          Ptyp_var (name, sort)
       | Ptyp_arrow (label,core_type,e,core_type') ->
           Ptyp_arrow(label, loop core_type, e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
-      | Ptyp_constr( { txt = Lident s }, []) when List.mem s var_names ->
-          Ptyp_var s
+      | Ptyp_constr( { txt = Lident n }, []) as desc -> begin
+          match List.find (fun (n', _) -> n = n') newtypes with
+          | (_, sort) -> Ptyp_var(n, sort)
+          | exception Not_found -> desc
+        end
       | Ptyp_constr(longident, lst) ->
           Ptyp_constr(longident, List.map loop lst)
       | Ptyp_object (lst, o) ->
@@ -244,17 +247,21 @@ let varify_constructors var_names t =
             (List.map (fun (s, attrs, t) -> (s, attrs, loop t)) lst, o)
       | Ptyp_class (longident, lst) ->
           Ptyp_class (longident, List.map loop lst)
-      | Ptyp_alias(core_type, string) ->
-          check_variable var_names t.ptyp_loc string;
-          Ptyp_alias(loop core_type, string)
+      | Ptyp_alias(core_type, name, sort) ->
+          check_variable newtypes t.ptyp_loc name sort;
+          Ptyp_alias(loop core_type, name, sort)
       | Ptyp_variant(row_field_list, flag, lbl_lst_option) ->
           Ptyp_variant(List.map loop_row_field row_field_list,
                        flag, lbl_lst_option)
-      | Ptyp_poly(string_lst, core_type) ->
-          List.iter (check_variable var_names t.ptyp_loc) string_lst;
-          Ptyp_poly(string_lst, loop core_type)
+      | Ptyp_poly(vars, core_type) ->
+          List.iter
+            (fun (name, sort) -> check_variable newtypes t.ptyp_loc name sort)
+            vars;
+          Ptyp_poly(vars, loop core_type)
       | Ptyp_package(longident,lst) ->
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
+      | Ptyp_effect desc ->
+          Ptyp_effect (loop_effect_desc desc)
       | Ptyp_extension (s, arg) ->
           Ptyp_extension (s, arg)
     in
@@ -265,16 +272,22 @@ let varify_constructors var_names t =
           Rtag(label,attrs,flag,List.map loop lst)
       | Rinherit t ->
           Rinherit (loop t)
+  and loop_effect_desc desc =
+    match desc.pefd_row with
+    | None -> desc
+    | Some t -> { desc with pefd_row = Some (loop t) }
   in
   loop t
 
 let wrap_type_annotation newtypes core_type body =
   let exp = mkexp(Pexp_constraint(body,core_type)) in
   let exp =
-    List.fold_right (fun newtype exp -> mkexp (Pexp_newtype (newtype, exp)))
+    List.fold_right
+      (fun (newtype, sort) exp -> mkexp (Pexp_newtype (newtype, sort, exp)))
       newtypes exp
   in
-  (exp, ghtyp(Ptyp_poly(newtypes,varify_constructors newtypes core_type)))
+  let typ = varify_constructors (List.rev newtypes) core_type in
+  (exp, ghtyp(Ptyp_poly(newtypes, typ)))
 
 let wrap_exp_attrs body (ext, attrs) =
   (* todo: keep exact location for the entire attribute *)
@@ -396,14 +409,15 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
-let mkeffect effects varo =
+let mkeffect effects rowo =
   { pefd_effects = effects;
-    pefd_var = varo; }
+    pefd_row = rowo; }
 
 let pure_effect = mkeffect [] None
 
-let tilde_effect pos =
-    mkeffect [] (Some (mkrhs "~" pos))
+let tilde_effect =
+  let row = mktyp (Ptyp_var("~", Effect)) in
+    mkeffect [] (Some row)
 
 %}
 
@@ -500,6 +514,7 @@ let tilde_effect pos =
 %token OR
 /* %token PARSER */
 %token PERCENT
+%token PERFORM
 %token PLUS
 %token PLUSDOT
 %token PLUSEQ
@@ -1088,7 +1103,7 @@ method_:
   | override_flag private_flag label COLON poly_type EQUAL seq_expr
       { mkloc $3 (rhs_loc 3), $2,
         Cfk_concrete ($1, ghexp(Pexp_poly($7, Some $5))) }
-  | override_flag private_flag label COLON TYPE lident_list
+  | override_flag private_flag label COLON TYPE poly_type_list
     DOT core_type EQUAL seq_expr
       { let exp, poly = wrap_type_annotation $6 $8 $10 in
         mkloc $3 (rhs_loc 3), $2,
@@ -1269,8 +1284,8 @@ expr:
   | FUN ext_attributes labeled_simple_pattern fun_def
       { let (l,o,p) = $3 in
         mkexp_attrs (Pexp_fun(l, o, p, $4)) $2 }
-  | FUN ext_attributes LPAREN TYPE LIDENT RPAREN fun_def
-      { mkexp_attrs (Pexp_newtype($5, $7)) $2 }
+  | FUN ext_attributes LPAREN TYPE LIDENT type_sort RPAREN fun_def
+      { mkexp_attrs (Pexp_newtype($5, $6, $8)) $2 }
   | MATCH ext_attributes seq_expr WITH opt_bar match_cases
       { mkexp_attrs (Pexp_match($3, List.rev $6)) $2 }
   | TRY ext_attributes seq_expr WITH opt_bar match_cases
@@ -1292,6 +1307,10 @@ expr:
   | FOR ext_attributes pattern EQUAL seq_expr direction_flag seq_expr DO
     seq_expr DONE
       { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
+  | PERFORM ext_attributes constr_longident %prec below_SHARP
+      { mkexp_attrs (Pexp_perform(mkrhs $3 3, None)) $2 }
+  | PERFORM ext_attributes constr_longident simple_expr %prec below_SHARP
+      { mkexp_attrs (Pexp_perform(mkrhs $3 3, Some $4)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -1495,9 +1514,24 @@ label_expr:
 label_ident:
     LIDENT   { ($1, mkexp(Pexp_ident(mkrhs (Lident $1) 1))) }
 ;
-lident_list:
-    LIDENT                            { [$1] }
-  | LIDENT lident_list                { $1 :: $2 }
+poly_type_list_multi:
+    LIDENT
+      { [$1, Type] }
+  | LPAREN LIDENT COLON EFFECT RPAREN
+      { [$2, Effect] }
+  | LPAREN LIDENT COLON TYPE RPAREN
+      { [$2, Type] }
+  | LIDENT poly_type_list_multi
+      { ($1, Type) :: $2 }
+  | LPAREN LIDENT COLON EFFECT RPAREN poly_type_list_multi
+      { ($2, Effect) :: $6 }
+  | LPAREN LIDENT COLON TYPE RPAREN poly_type_list_multi
+      { ($2, Type) :: $6 }
+;
+poly_type_list:
+  | poly_type_list_multi              { $1 }
+  | LIDENT COLON EFFECT               { [$1, Effect] }
+  | LIDENT COLON TYPE                 { [$1, Type] }
 ;
 let_binding_body:
     val_ident fun_binding
@@ -1506,7 +1540,7 @@ let_binding_body:
       { (ghpat(Ppat_constraint(mkpatvar $1 1,
                                ghtyp(Ptyp_poly(List.rev $3,$5)))),
          $7) }
-  | val_ident COLON TYPE lident_list DOT core_type EQUAL seq_expr
+  | val_ident COLON TYPE poly_type_list DOT core_type EQUAL seq_expr
       { let exp, poly = wrap_type_annotation $4 $6 $8 in
         (ghpat(Ppat_constraint(mkpatvar $1 1, poly)), exp) }
   | pattern EQUAL seq_expr
@@ -1537,8 +1571,8 @@ strict_binding:
       { $2 }
   | labeled_simple_pattern fun_binding
       { let (l, o, p) = $1 in ghexp(Pexp_fun(l, o, p, $2)) }
-  | LPAREN TYPE LIDENT RPAREN fun_binding
-      { mkexp(Pexp_newtype($3, $5)) }
+  | LPAREN TYPE LIDENT type_sort RPAREN fun_binding
+      { mkexp(Pexp_newtype($3, $4, $6)) }
 ;
 match_cases:
     match_case { [$1] }
@@ -1558,8 +1592,8 @@ fun_def:
        let (l,o,p) = $1 in
        ghexp(Pexp_fun(l, o, p, $2))
       }
-  | LPAREN TYPE LIDENT RPAREN fun_def
-      { mkexp(Pexp_newtype($3, $5)) }
+  | LPAREN TYPE LIDENT type_sort RPAREN fun_def
+      { mkexp(Pexp_newtype($3, $4, $6)) }
 ;
 expr_comma_list:
     expr_comma_list COMMA expr                  { $3 :: $1 }
@@ -1605,8 +1639,14 @@ computation_pattern:
       { $1 }
   | EXCEPTION pattern %prec prec_constr_appl
       { mkpat(Ppat_exception $2) }
-  | EFFECT pattern COMMA pattern
-      { mkpat(Ppat_effect($2, $4)) }
+  | EFFECT constr_longident
+      { mkpat(Ppat_effect(mkrhs $2 2, None, None)) }
+  | EFFECT constr_longident simple_pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, None)) }
+  | EFFECT constr_longident COMMA pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, None, Some $4)) }
+  | EFFECT constr_longident simple_pattern COMMA pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, Some $5)) }
 
 pattern:
     simple_pattern
@@ -1743,25 +1783,34 @@ type_declarations:
 ;
 
 type_declaration:
-    TYPE nonrec_flag optional_type_parameters LIDENT type_kind constraints
-    post_item_attributes
-      { let (kind, priv, manifest) = $5 in
-          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $6) ~kind
-            ~priv ?manifest ~attrs:(add_nonrec $2 $7 2)
+    TYPE nonrec_flag optional_type_parameters LIDENT type_sort type_kind
+    constraints post_item_attributes
+      { let (kind, priv, manifest) = $6 in
+          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $7) ~sort:$5
+            ~kind ~priv ?manifest ~attrs:(add_nonrec $2 $8 2)
             ~loc:(symbol_rloc ()) ~docs:(symbol_docs ()) }
 ;
 and_type_declaration:
-    AND optional_type_parameters LIDENT type_kind constraints
+    AND optional_type_parameters LIDENT type_sort type_kind constraints
     post_item_attributes
-      { let (kind, priv, manifest) = $4 in
-          Type.mk (mkrhs $3 3) ~params:$2 ~cstrs:(List.rev $5)
-            ~kind ~priv ?manifest ~attrs:$6 ~loc:(symbol_rloc ())
+      { let (kind, priv, manifest) = $5 in
+          Type.mk (mkrhs $3 3) ~params:$2 ~cstrs:(List.rev $6)
+            ~sort:$4 ~kind ~priv ?manifest ~attrs:$7 ~loc:(symbol_rloc ())
             ~text:(symbol_text ()) ~docs:(symbol_docs ()) }
 ;
 constraints:
         constraints CONSTRAINT constrain        { $3 :: $1 }
       | /* empty */                             { [] }
 ;
+type_sort:
+    /* empty */
+      { Type }
+  | COLON TYPE
+      { Type }
+  | COLON EFFECT
+      { Effect }
+;
+
 type_kind:
     /*empty*/
       { (Ptype_abstract, Public, None) }
@@ -1797,7 +1846,8 @@ optional_type_parameter_list:
   | optional_type_parameter_list COMMA optional_type_parameter    { $3 :: $1 }
 ;
 optional_type_variable:
-    QUOTE ident                                 { mktyp(Ptyp_var $2) }
+    QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
   | UNDERSCORE                                  { mktyp(Ptyp_any) }
 ;
 
@@ -1816,7 +1866,8 @@ type_variance:
   | MINUS                                       { Contravariant }
 ;
 type_variable:
-    QUOTE ident                                 { mktyp(Ptyp_var $2) }
+    QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
 ;
 type_parameter_list:
     type_parameter                              { [$1] }
@@ -2024,8 +2075,14 @@ with_type_binder:
 /* Polymorphic types */
 
 typevar_list:
-        QUOTE ident                             { [$2] }
-      | typevar_list QUOTE ident                { $3 :: $1 }
+        QUOTE ident                             { [$2, Type] }
+      | BANG ident                              { [$2, Effect] }
+      | BANG TILDE                              { ["~", Effect] }
+      | BANGTILDE                               { ["~", Effect] }
+      | typevar_list QUOTE ident                { ($3, Type) :: $1 }
+      | typevar_list BANG ident                 { ($3, Effect) :: $1 }
+      | typevar_list BANG TILDE                 { ("~", Effect) :: $1 }
+      | typevar_list BANGTILDE                  { ("~", Effect) :: $1 }
 ;
 poly_type:
         core_type
@@ -2052,7 +2109,9 @@ core_type_no_attr:
     core_type2
       { $1 }
   | core_type2 AS QUOTE ident
-      { mktyp(Ptyp_alias($1, $4)) }
+      { mktyp(Ptyp_alias($1, $4, Type)) }
+  | core_type2 AS BANG ident
+      { mktyp(Ptyp_alias($1, $4, Effect)) }
 ;
 core_type2:
     simple_core_type_or_tuple
@@ -2073,7 +2132,7 @@ arrow:
   | EQUALGREATER
       { Some pure_effect }
   | TILDEGREATER
-      { Some (tilde_effect 1) }
+      { Some tilde_effect }
   | MINUSLBRACKET effect_desc RBRACKETMINUSGREATER
       { Some $2 }
 ;
@@ -2090,18 +2149,34 @@ effect_desc_effects:
 effect_desc:
   | effect_desc_effects
       { mkeffect $1 None }
+  | effect_desc_effects BAR DOTDOT AS core_type
+      { mkeffect $1 (Some $5) }
+  | DOTDOT AS core_type
+      { mkeffect [] (Some $3) }
+  | effect_desc_effects BAR DOTDOT
+      { let row = mktyp Ptyp_any in
+          mkeffect $1 (Some row) }
+  | DOTDOT
+      { let row = mktyp Ptyp_any in
+          mkeffect [] (Some row) }
   | effect_desc_effects BAR BANG ident
-      { mkeffect $1 (Some (mkrhs $4 4)) }
+      { let row = mktyp(Ptyp_var($4, Effect)) in
+          mkeffect $1 (Some row) }
   | BANG ident
-      { mkeffect [] (Some (mkrhs $2 2)) }
+      { let row = mktyp(Ptyp_var($2, Effect)) in
+        mkeffect [] (Some row) }
   | effect_desc_effects BAR BANG TILDE
-      { mkeffect $1 (Some (mkrhs "~" 4)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect $1 (Some row) }
   | BANG TILDE
-      { mkeffect [] (Some (mkrhs "~" 2)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect [] (Some row) }
   | effect_desc_effects BAR BANGTILDE
-      { mkeffect $1 (Some (mkrhs "~" 3)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect $1 (Some row) }
   | BANGTILDE
-      { mkeffect [] (Some (mkrhs "~" 1)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect [] (Some row) }
 ;
 
 simple_core_type:
@@ -2120,7 +2195,13 @@ simple_core_type_no_attr:
 
 simple_core_type2:
     QUOTE ident
-      { mktyp(Ptyp_var $2) }
+      { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident
+      { mktyp(Ptyp_var($2, Effect)) }
+  | BANG TILDE
+      { mktyp(Ptyp_var("~", Effect)) }
+  | BANGTILDE
+      { mktyp(Ptyp_var("~", Effect)) }
   | UNDERSCORE
       { mktyp(Ptyp_any) }
   | type_longident
@@ -2157,6 +2238,8 @@ simple_core_type2:
       { mktyp(Ptyp_variant(List.rev $3, Closed, Some [])) }
   | LBRACKETLESS opt_bar row_field_list GREATER name_tag_list RBRACKET
       { mktyp(Ptyp_variant(List.rev $3, Closed, Some (List.rev $5))) }
+  | BANG LBRACKET effect_desc RBRACKET
+      { mktyp(Ptyp_effect $3) }
   | LPAREN MODULE package_type RPAREN
       { mktyp(Ptyp_package $3) }
   | extension
@@ -2460,6 +2543,7 @@ single_attr_id:
   | OF { "of" }
   | OPEN { "open" }
   | OR { "or" }
+  | PERFORM { "perform" }
   | PRIVATE { "private" }
   | REC { "rec" }
   | SIG { "sig" }

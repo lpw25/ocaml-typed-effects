@@ -36,7 +36,7 @@ and type_desc =
   | Tlink of type_expr
   | Tsubst of type_expr         (* for copying *)
   | Tvariant of row_desc
-  | Tunivar of string option
+  | Tunivar of string option * type_sort
   | Tpoly of type_expr * type_expr list
   | Tpackage of Path.t * Longident.t list * type_expr list
   | Teffect of Path.t * type_expr
@@ -156,6 +156,8 @@ type effect_constructor_description =
     ecstr_res: type_expr option;         (* Type of the result *)
     ecstr_existentials: type_expr list;  (* List of existentials *)
     ecstr_args: type_expr list;          (* Type of the arguments *)
+    ecstr_arity: int;                    (* Number of arguments *)
+    ecstr_constructors: int;             (* Number of constructors *)
     ecstr_loc: Location.t;
     ecstr_attributes: Parsetree.attributes;
    }

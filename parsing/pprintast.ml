@@ -92,6 +92,10 @@ let type_variance = function
   | Covariant -> "+"
   | Contravariant -> "-"
 
+let type_sort = function
+  | Type -> ""
+  | Effect -> ": effect"
+
 type construct =
   [ `cons of expression list
   | `list of expression list
@@ -213,7 +217,11 @@ class printer  ()= object(self:'self)
     | Private -> pp f "private@ "
 
   method constant_string f s = pp f "%S" s
-  method tyvar f str = pp f "'%s" str
+  method tyvar f v =
+    match v with
+    | (str, Type) -> pp f "'%s" str
+    | (str, Effect) -> pp f "!%s" str
+
   method string_quot f x = pp f "`%s" x
 
           (* c ['a,'b] *)
@@ -242,16 +250,25 @@ class printer  ()= object(self:'self)
     match x with
     | None -> pp f "->"
     | Some e  ->
-        match e.pefd_effects, e.pefd_var with
+        match e.pefd_effects, e.pefd_row with
         | [], None -> pp f "=>"
         | effs, None ->
             pp f "-[%a]->" effects effs
-        | [], Some { txt = "~" } -> pp f "~>"
-        | effs, Some { txt = "~" } ->
-            pp f "~[%a]~>" effects effs
-        | [], Some { txt = s } -> pp f "-[!%s]->" s
-        | effs, Some { txt = s } ->
+        | [], Some { ptyp_desc = Ptyp_var("~", Effect) } ->
+            pp f "~>"
+        | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
+            pp f "-[!%s]->" s
+        | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
             pp f "-[%a|!%s]->" effects effs s
+        | [], Some { ptyp_desc = Ptyp_any } ->
+            pp f "-[..]->"
+        | effs, Some { ptyp_desc = Ptyp_any } ->
+            pp f "-[%a | ..]->" effects effs
+        | [], Some t ->
+            pp f "-[.. as %a]->" self#core_type t
+        | effs, Some t ->
+            pp f "-[%a | .. as %a]->" effects effs self#core_type t
+
 
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
@@ -262,8 +279,8 @@ class printer  ()= object(self:'self)
     | Ptyp_arrow (l, ct1, eft, ct2) ->
         pp f "@[<2>%a@;%a@;%a@]" (* FIXME remove parens later *)
           self#type_with_label (l,ct1) self#arrow eft self#core_type ct2
-    | Ptyp_alias (ct, s) ->
-        pp f "@[<2>%a@;as@;'%s@]" self#core_type1 ct s
+    | Ptyp_alias (ct, name, sort) ->
+        pp f "@[<2>%a@;as@;%a@]" self#core_type1 ct self#tyvar (name, sort)
     | Ptyp_poly (sl, ct) ->
         pp f "@[<2>%a%a@]"
           (fun f l ->
@@ -280,7 +297,7 @@ class printer  ()= object(self:'self)
     if x.ptyp_attributes <> [] then self#core_type f x
     else match x.ptyp_desc with
     | Ptyp_any -> pp f "_";
-    | Ptyp_var s -> self#tyvar f  s;
+    | Ptyp_var (name, sort) -> self#tyvar f (name, sort);
     | Ptyp_tuple l ->  pp f "(%a)" (self#list self#core_type1 ~sep:"*@;") l
     | Ptyp_constr (li, l) ->
         pp f (* "%a%a@;" *) "%a%a"
@@ -422,8 +439,11 @@ class printer  ()= object(self:'self)
         pp f "@[<2>(lazy@;%a)@]" self#pattern1 p
     | Ppat_exception p ->
         pp f "@[<2>exception@;%a@]" self#pattern1 p
-    | Ppat_effect(p1, p2) ->
-        pp f "@[<2>effect@;%a@;%a@]" self#pattern1 p1 self#pattern1 p2
+    | Ppat_effect(li, p1, p2) ->
+        pp f "@[<2>effect@;%a@;%a@;%a@]"
+           self#longident_loc li
+           (self#option self#pattern1) p1
+           (self#option ~first:", " self#pattern1) p2
     | Ppat_extension e -> self#extension f e
     | _ -> self#paren true self#pattern f x
 
@@ -679,8 +699,8 @@ class printer  ()= object(self:'self)
     | Pexp_constant c -> self#constant f c;
     | Pexp_pack me ->
         pp f "(module@;%a)"  self#module_expr me
-    | Pexp_newtype (lid, e) ->
-        pp f "fun@;(type@;%s)@;->@;%a"  lid  self#expression  e
+    | Pexp_newtype (lid, s, e) ->
+        pp f "fun@;(type@;%s%s)@;->@;%a" lid (type_sort s) self#expression e
     | Pexp_tuple l ->
         pp f "@[<hov2>(%a)@]"  (self#list self#simple_expr  ~sep:",@;")  l
     | Pexp_constraint (e, ct) ->
@@ -1089,8 +1109,8 @@ class printer  ()= object(self:'self)
             pp f "%a@ %a" self#simple_pattern p pp_print_pexp_function e
           else
             pp f "%a@ %a" self#label_exp (label,eo,p) pp_print_pexp_function e
-      | Pexp_newtype (str,e) ->
-          pp f "(type@ %s)@ %a" str pp_print_pexp_function e
+      | Pexp_newtype (str,s,e) ->
+          pp f "(type@ %s%s)@ %a" str (type_sort s) pp_print_pexp_function e
       | _ -> pp f "=@;%a" self#expression x in
     if x.pexp_attributes <> [] then
       pp f "%a@;=@;%a" self#pattern p self#expression x

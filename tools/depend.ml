@@ -37,17 +37,21 @@ let add bv lid =
 
 let addmodule bv lid = add_path bv lid.txt
 
+let add_opt add_fn bv = function
+    None -> ()
+  | Some x -> add_fn bv x
+
 let rec add_type bv ty =
   match ty.ptyp_desc with
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
   | Ptyp_arrow(_, t1, eft, t2) ->
-      add_type bv t1; add_effect_type bv eft; add_type bv t2
+      add_type bv t1; add_opt add_effect_desc bv eft; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) -> List.iter (fun (_, _, t) -> add_type bv t) fl
   | Ptyp_class(c, tl) -> add bv c; List.iter (add_type bv) tl
-  | Ptyp_alias(t, _) -> add_type bv t
+  | Ptyp_alias(t, _, _) -> add_type bv t
   | Ptyp_variant(fl, _, _) ->
       List.iter
         (function Rtag(_,_,_,stl) -> List.iter (add_type bv) stl
@@ -55,20 +59,16 @@ let rec add_type bv ty =
         fl
   | Ptyp_poly(_, t) -> add_type bv t
   | Ptyp_package pt -> add_package_type bv pt
+  | Ptyp_effect efd -> add_effect_desc bv efd
   | Ptyp_extension _ -> ()
 
 and add_package_type bv (lid, l) =
   add bv lid;
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
 
-and add_effect_type bv eft =
-  match eft with
-  | None -> ()
-  | Some desc -> List.iter (add bv) desc.pefd_effects
-
-let add_opt add_fn bv = function
-    None -> ()
-  | Some x -> add_fn bv x
+and add_effect_desc bv efd =
+  List.iter (add bv) efd.pefd_effects;
+  add_opt add_type bv efd.pefd_row
 
 let add_constructor_decl bv pcd =
   List.iter (add_type bv) pcd.pcd_args; Misc.may (add_type bv) pcd.pcd_res
@@ -95,7 +95,7 @@ let add_extension_constructor bv ext =
 
 let add_effect_constructor bv ec =
   List.iter (add_type bv) ec.pec_args;
-  Misc.may (add_type bv) ec.pec_res
+  add_opt add_type bv ec.pec_res
 
 let add_effect_declaration bv eff =
   add_opt add bv eff.peff_manifest;
@@ -154,7 +154,8 @@ let rec add_pattern bv pat =
   | Ppat_lazy p -> add_pattern bv p
   | Ppat_unpack id -> pattern_bv := StringSet.add id.txt !pattern_bv
   | Ppat_exception p -> add_pattern bv p
-  | Ppat_effect(p1, p2) -> add_pattern bv p1; add_pattern bv p2
+  | Ppat_effect(li, p1, p2) ->
+      add bv li; add_opt add_pattern bv p1; add_opt add_pattern bv p2
   | Ppat_extension _ -> ()
 
 let add_pattern bv pat =
@@ -198,6 +199,7 @@ let rec add_expr bv exp =
   | Pexp_constraint(e1, ty2) ->
       add_expr bv e1;
       add_type bv ty2
+  | Pexp_perform(c, opte) -> add bv c; add_opt add_expr bv opte
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e
@@ -209,7 +211,7 @@ let rec add_expr bv exp =
   | Pexp_poly (e, t) -> add_expr bv e; add_opt add_type bv t
   | Pexp_object { pcstr_self = pat; pcstr_fields = fieldl } ->
       let bv = add_pattern bv pat in List.iter (add_class_field bv) fieldl
-  | Pexp_newtype (_, e) -> add_expr bv e
+  | Pexp_newtype (_, _, e) -> add_expr bv e
   | Pexp_pack m -> add_module bv m
   | Pexp_open (_ovf, m, e) -> open_module bv m.txt; add_expr bv e
   | Pexp_extension _ -> ()

@@ -154,10 +154,10 @@ let merge_constraint initial_env loc sg constr =
     | (Sig_type(id, decl, rs) :: rem, [s],
        Pwith_type (_, ({ptype_kind = Ptype_abstract} as sdecl)))
       when Ident.name id = s && Typedecl.is_fixed_type sdecl ->
+        let params = List.map Typetexp.approx_type_param sdecl.ptype_params in
         let decl_row =
-          { type_params =
-              List.map (fun _ -> Btype.newgenvar Stype) sdecl.ptype_params;
-            type_arity = List.length sdecl.ptype_params;
+          { type_params = params;
+            type_arity = List.length params;
             type_sort = Stype;
             type_kind = Type_abstract;
             type_private = Private;
@@ -251,8 +251,8 @@ let merge_constraint initial_env loc sg constr =
             when List.length stl = List.length sdecl.ptype_params ->
               List.iter2 (fun x (y, _) ->
                 match x, y with
-                  {ptyp_desc=Ptyp_var sx}, {ptyp_desc=Ptyp_var sy}
-                    when sx = sy -> ()
+                  {ptyp_desc=Ptyp_var(nx, sx)}, {ptyp_desc=Ptyp_var(ny, sy)}
+                    when nx = ny && sx = sy -> ()
                 | _, _ -> raise Exit)
                 stl sdecl.ptype_params;
               lid

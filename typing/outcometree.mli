@@ -101,11 +101,11 @@ type out_module_type =
   | Omty_alias of out_ident
 and out_sig_item =
   | Osig_class of
-      bool * string * (string * (bool * bool)) list * out_class_type *
-        out_rec_status
+      bool * string * (string * out_sort * (bool * bool)) list *
+        out_class_type * out_rec_status
   | Osig_class_type of
-      bool * string * (string * (bool * bool)) list * out_class_type *
-        out_rec_status
+      bool * string * (string * out_sort * (bool * bool)) list *
+        out_class_type * out_rec_status
   | Osig_typext of out_extension_constructor * out_ext_status
   | Osig_modtype of string * out_module_type
   | Osig_module of string * out_module_type * out_rec_status
@@ -114,20 +114,20 @@ and out_sig_item =
   | Osig_value of string * out_type * string list
 and out_type_decl =
   { otype_name: string;
-    otype_params: (string * (bool * bool)) list;
+    otype_params: (string * out_sort * (bool * bool)) list;
     otype_type: out_type;
     otype_private: Asttypes.private_flag;
     otype_cstrs: (out_type * out_type) list }
 and out_extension_constructor =
   { oext_name: string;
     oext_type_name: string;
-    oext_type_params: string list;
+    oext_type_params: (string * out_sort) list;
     oext_args: out_type list;
     oext_ret_type: out_type option;
     oext_private: Asttypes.private_flag }
 and out_type_extension =
   { otyext_name: string;
-    otyext_params: string list;
+    otyext_params: (string * out_sort) list;
     otyext_constructors: (string * out_type list * out_type option) list;
     otyext_private: Asttypes.private_flag }
 and out_rec_status =

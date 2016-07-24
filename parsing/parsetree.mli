@@ -52,7 +52,7 @@ and core_type =
 and core_type_desc =
   | Ptyp_any
         (*  _ *)
-  | Ptyp_var of string
+  | Ptyp_var of string * effect_flag
         (* 'a *)
   | Ptyp_arrow of label * core_type * effect_type * core_type
         (* T1 -> T2       (label = "")
@@ -78,7 +78,7 @@ and core_type_desc =
            T #tconstr
            (T1, ..., Tn) #tconstr
          *)
-  | Ptyp_alias of core_type * string
+  | Ptyp_alias of core_type * string * effect_flag
         (* T as 'a *)
   | Ptyp_variant of row_field list * closed_flag * label list option
         (* [ `A|`B ]         (flag = Closed; labels = None)
@@ -86,7 +86,7 @@ and core_type_desc =
            [< `A|`B ]        (flag = Closed; labels = Some [])
            [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
          *)
-  | Ptyp_poly of string list * core_type
+  | Ptyp_poly of (string * effect_flag) list * core_type
         (* 'a1 ... 'an. T
 
            Can only appear in the following context:
@@ -108,6 +108,7 @@ and core_type_desc =
 
   | Ptyp_package of package_type
         (* (module S) *)
+  | Ptyp_effect of effect_desc
   | Ptyp_extension of extension
         (* [%id] *)
 
@@ -139,7 +140,7 @@ and effect_type = effect_desc option
 and effect_desc =
   {
     pefd_effects : Longident.t loc list;
-    pefd_var : string loc option;
+    pefd_row : core_type option;
   }
 
 (* Patterns *)
@@ -202,8 +203,8 @@ and pattern_desc =
          *)
   | Ppat_exception of pattern
         (* exception P *)
-  | Ppat_effect of pattern * pattern
-        (* effect P P *)
+  | Ppat_effect of Longident.t loc * pattern option * pattern option
+        (* effect E P, P *)
   | Ppat_extension of extension
         (* [%id] *)
 
@@ -294,6 +295,8 @@ and expression_desc =
         (* (E :> T)        (None, T)
            (E : T0 :> T)   (Some T0, T)
          *)
+  | Pexp_perform of Longident.t loc * expression option
+        (* perform E *)
   | Pexp_send of expression * string
         (*  E # m *)
   | Pexp_new of Longident.t loc
@@ -317,7 +320,7 @@ and expression_desc =
            for methods (not values). *)
   | Pexp_object of class_structure
         (* object ... end *)
-  | Pexp_newtype of string * expression
+  | Pexp_newtype of string * effect_flag * expression
         (* fun (type t) -> E *)
   | Pexp_pack of module_expr
         (* (module ME)
@@ -366,6 +369,7 @@ and type_declaration =
      ptype_cstrs: (core_type * core_type * Location.t) list;
            (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
      ptype_kind: type_kind;
+     ptype_sort: effect_flag;
      ptype_private: private_flag;   (* = private ... *)
      ptype_manifest: core_type option;  (* = T *)
      ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)

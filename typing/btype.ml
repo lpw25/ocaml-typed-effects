@@ -38,8 +38,9 @@ let pivot_level = 2 * lowest_level - 1
 (*** Unamed type descritions **)
 
 let tvar_none = Tvar(None, Stype)
-let tunivar_none = Tunivar None
+let tunivar_none = Tunivar(None, Stype)
 let evar_none = Tvar(None, Seffect)
+let eunivar_none = Tunivar(None, Seffect)
 
 (**** Some type creators ****)
 
@@ -70,7 +71,7 @@ let default_mty = function
 
 let rec type_sort ty =
   match ty.desc with
-  | Tvar(_, sort) -> sort
+  | Tvar(_, sort) | Tunivar(_, sort) -> sort
   | Tconstr(_, _, sort, _) -> sort
   | Tlink ty -> type_sort ty
   | Tsubst ty -> type_sort ty
@@ -80,11 +81,17 @@ let rec type_sort ty =
   | Tfield _
   | Tnil
   | Tvariant _
-  | Tunivar _
   | Tpoly _
   | Tpackage _ -> Stype
   | Teffect _
   | Tenil -> Seffect
+
+let equal_sort sort1 sort2 =
+  match sort1, sort2 with
+  | Stype, Stype -> true
+  | Seffect, Seffect -> true
+  | Stype, Seffect -> false
+  | Seffect, Stype -> false
 
 (**** Representative of a type ****)
 

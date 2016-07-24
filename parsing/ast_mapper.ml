@@ -45,7 +45,7 @@ type mapper = {
   effect_kind: mapper -> effect_kind -> effect_kind;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
-  effect_type: mapper -> effect_type -> effect_type;
+  effect_desc: mapper -> effect_desc -> effect_desc;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor
@@ -98,10 +98,10 @@ module T = struct
     let attrs = sub.attributes sub attrs in
     match desc with
     | Ptyp_any -> any ~loc ~attrs ()
-    | Ptyp_var s -> var ~loc ~attrs s
+    | Ptyp_var(n, s) -> var ~loc ~attrs n s
     | Ptyp_arrow (lab, t1, e, t2) ->
         arrow ~loc ~attrs lab (sub.typ sub t1)
-              (sub.effect_type sub e) (sub.typ sub t2)
+              (map_opt (sub.effect_desc sub) e) (sub.typ sub t2)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
@@ -110,20 +110,19 @@ module T = struct
         object_ ~loc ~attrs (List.map f l) o
     | Ptyp_class (lid, tl) ->
         class_ ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
-    | Ptyp_alias (t, s) -> alias ~loc ~attrs (sub.typ sub t) s
+    | Ptyp_alias (t, n, s) -> alias ~loc ~attrs (sub.typ sub t) n s
     | Ptyp_variant (rl, b, ll) ->
         variant ~loc ~attrs (List.map (row_field sub) rl) b ll
     | Ptyp_poly (sl, t) -> poly ~loc ~attrs sl (sub.typ sub t)
     | Ptyp_package (lid, l) ->
         package ~loc ~attrs (map_loc sub lid)
           (List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
+    | Ptyp_effect d -> effect_ (sub.effect_desc sub d)
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
-  let map_effect_type sub = function
-    | None -> None
-    | Some { pefd_effects; pefd_var } ->
-        Some { pefd_effects = List.map (map_loc sub) pefd_effects;
-               pefd_var = Misc.may_map (map_loc sub) pefd_var; }
+  let map_effect_desc sub { pefd_effects; pefd_row } =
+    { pefd_effects = List.map (map_loc sub) pefd_effects;
+      pefd_row = Misc.may_map (sub.typ sub) pefd_row; }
 
   let map_type_declaration sub
       {ptype_name; ptype_params; ptype_cstrs;
@@ -403,6 +402,8 @@ module E = struct
           (sub.typ sub t2)
     | Pexp_constraint (e, t) ->
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
+    | Pexp_perform (lid, arg) ->
+        perform_ ~loc ~attrs (map_loc sub lid) (map_opt (sub.expr sub) arg)
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
     | Pexp_new lid -> new_ ~loc ~attrs (map_loc sub lid)
     | Pexp_setinstvar (s, e) ->
@@ -418,7 +419,7 @@ module E = struct
     | Pexp_poly (e, t) ->
         poly ~loc ~attrs (sub.expr sub e) (map_opt (sub.typ sub) t)
     | Pexp_object cls -> object_ ~loc ~attrs (sub.class_structure sub cls)
-    | Pexp_newtype (s, e) -> newtype ~loc ~attrs s (sub.expr sub e)
+    | Pexp_newtype (n, s, e) -> newtype ~loc ~attrs n s (sub.expr sub e)
     | Pexp_pack me -> pack ~loc ~attrs (sub.module_expr sub me)
     | Pexp_open (ovf, lid, e) ->
         open_ ~loc ~attrs ovf (map_loc sub lid) (sub.expr sub e)
@@ -453,7 +454,9 @@ module P = struct
     | Ppat_lazy p -> lazy_ ~loc ~attrs (sub.pat sub p)
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
     | Ppat_exception p -> exception_ ~loc ~attrs (sub.pat sub p)
-    | Ppat_effect(p1, p2) -> effect_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
+    | Ppat_effect(l, p1, p2) ->
+        effect_ ~loc ~attrs (map_loc sub l)
+          (map_opt (sub.pat sub) p1) (map_opt (sub.pat sub) p2)
     | Ppat_extension x -> extension ~loc ~attrs (sub.extension sub x)
 end
 
@@ -553,7 +556,7 @@ let default_mapper =
     effect_declaration = Eff.map_declaration;
     effect_constructor = Eff.map_constructor;
     effect_kind = Eff.map_kind;
-    effect_type = T.map_effect_type;
+    effect_desc = T.map_effect_desc;
     value_description =
       (fun this {pval_name; pval_type; pval_prim; pval_loc;
                  pval_attributes} ->

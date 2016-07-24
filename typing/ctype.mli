@@ -90,6 +90,10 @@ val equal_effect: Env.t -> Path.t -> Path.t -> bool
 val flatten_effects:
         type_expr -> Path.t list * type_expr
 
+val equal_effect_constructor:
+        Env.t -> effect_constructor_description ->
+        effect_constructor_description -> bool
+
 val generalize: type_expr -> unit
         (* Generalize in-place the given type *)
 val iterative_generalization: int -> type_expr list -> type_expr list
@@ -123,6 +127,10 @@ val instance_constructor:
         ?in_pattern:Env.t ref * int ->
         constructor_description -> type_expr list * type_expr
         (* Same, for a constructor *)
+val instance_effect_constructor:
+        ?in_pattern:Env.t ref * int ->
+        effect_constructor_description -> type_expr list * type_expr option
+        (* Same, for an effect constructor *)
 val instance_parameterized_type:
         ?keep_names:bool ->
         type_expr list -> type_expr -> type_expr list * type_expr

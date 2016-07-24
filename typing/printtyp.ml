@@ -162,7 +162,8 @@ and raw_type_desc ppf = function
   | Tnil -> fprintf ppf "Tnil"
   | Tlink t -> fprintf ppf "@[<1>Tlink@,%a@]" raw_type t
   | Tsubst t -> fprintf ppf "@[<1>Tsubst@,%a@]" raw_type t
-  | Tunivar name -> fprintf ppf "Tunivar %a" print_name name
+  | Tunivar(name, sort) ->
+      fprintf ppf "Tunivar(%a, %a)" print_name name raw_type_sort sort
   | Tpoly (t, tl) ->
       fprintf ppf "@[<hov1>Tpoly(@,%a,@,%a)@]"
         raw_type t
@@ -397,8 +398,7 @@ let tree_of_name = function
 
 let add_named_var ty =
   match ty.desc with
-  | Tvar (Some name, _) | Tunivar (Some name) ->
-      let sort = type_sort ty in
+  | Tvar (Some name, sort) | Tunivar (Some name, sort) ->
       let key = (name, sort) in
       if List.mem key !named_vars then () else
       named_vars := key :: !named_vars
@@ -406,10 +406,10 @@ let add_named_var ty =
 
 let count_effect_var ty =
   match ty.desc with
-  | Tvar (Some _, _) ->
+  | Tvar (Some _, Seffect) | Tunivar(Some _, Seffect) ->
       single_effect_var := false;
       tilde_effect_var := None
-  | Tvar (None, Seffect) -> begin
+  | Tvar (None, Seffect) | Tunivar(None, Seffect) -> begin
       match !single_effect_var, !tilde_effect_var with
       | true, None -> tilde_effect_var := Some ty
       | true, Some ty' when ty == ty' -> ()
@@ -451,10 +451,9 @@ let name_of_type t =
   (* We've already been through repr at this stage, so t is our representative
      of the union-find class. *)
   try List.assq t !names with Not_found ->
-    let sort = type_sort t in
     let key =
       match t.desc with
-        Tvar (Some name, _) | Tunivar (Some name) ->
+        | Tvar (Some name, sort) | Tunivar (Some name, sort) ->
           (* Some part of the type we've already printed has assigned another
            * unification variable to that name. We want to keep the name, so try
            * adding a number until we find a name that's not taken. *)
@@ -467,7 +466,8 @@ let name_of_type t =
           !current_name, sort
       | _ ->
           (* No name available, create a new one *)
-          new_name sort
+          new_name (type_sort t)
+
     in
     (* Exception for type declarations *)
     if fst key <> "_" then names := (t, key) :: !names;
@@ -574,7 +574,9 @@ let rec mark_loops_rec visited ty =
     | Tpoly (ty, tyl) ->
         List.iter (fun t -> add_alias t) tyl;
         mark_loops_rec visited ty
-    | Tunivar _ -> add_named_var ty
+    | Tunivar _ ->
+        add_named_var ty;
+        count_effect_var ty
     | Teffect(_, ty) ->
         mark_loops_rec visited ty
     | Tenil -> ()
@@ -898,10 +900,10 @@ let rec tree_of_type_decl id decl =
   | Type_open -> ()
   end;
 
-  let type_param =
-    function
-    | Otyp_var (_, (id, Osrt_type)) -> id
-    | _ -> "?"
+  let type_param ty cocn =
+    match ty with
+    | Otyp_var (_, (id, srt)) -> id, srt, cocn
+    | _ -> "?", Osrt_type, cocn
   in
   let type_defined decl =
     let abstr =
@@ -924,7 +926,9 @@ let rec tree_of_type_decl id decl =
         decl.type_params decl.type_variance
     in
     (Ident.name id,
-     List.map2 (fun ty cocn -> type_param (tree_of_typexp false ty), cocn)
+     List.map2
+       (fun ty cocn ->
+         type_param (tree_of_typexp false ty) cocn)
        params vari)
   in
   let tree_of_manifest ty1 =
@@ -990,10 +994,10 @@ let tree_of_extension_constructor id ext es =
   List.iter check_name_of_type (List.map proxy ty_params);
   List.iter mark_loops ext.ext_args;
   may mark_loops ext.ext_ret_type;
-  let type_param =
-    function
-    | Otyp_var (_, (id, Osrt_type)) -> id
-    | _ -> "?"
+  let type_param ty =
+    match ty with
+    | Otyp_var (_, (id, srt)) -> id, srt
+    | _ -> "?", Osrt_type
   in
   let ty_params =
     List.map (fun ty -> type_param (tree_of_typexp false ty)) ty_params
@@ -1192,14 +1196,16 @@ let class_type ppf cty =
   !Oprint.out_class_type ppf (tree_of_class_type false [] cty)
 
 let tree_of_class_param param variance =
-  (match tree_of_typexp true param with
-    Otyp_var (_, (s, Osrt_type)) -> s
-  | _ -> "?"),
-  if is_Tvar (repr param) then (true, true) else variance
+  let cocn =
+    if is_Tvar (repr param) then (true, true) else variance
+  in
+  match tree_of_typexp true param with
+  | Otyp_var (_, (id, srt)) -> id, srt, cocn
+  | _ -> "?", Osrt_type, cocn
 
 let tree_of_class_params params =
   let tyl = tree_of_typlist true params in
-  List.map (function Otyp_var (_, (s, Osrt_type)) -> s | _ -> "?") tyl
+  List.map (function Otyp_var (_, (id, srt)) -> id, srt | _ -> "?", Osrt_type) tyl
 
 let class_variance =
   List.map Variance.(fun v -> mem May_pos v, mem May_neg v)
@@ -1478,66 +1484,72 @@ let rec mismatch unif = function
   | _ -> assert false
 
 let explanation unif t3 t4 ppf =
-  match t3.desc, t4.desc with
-  | Ttuple [], Tvar _ | Tvar _, Ttuple [] ->
-      fprintf ppf "@,Self type cannot escape its class"
-  | Tconstr (p, tl, _, _), Tvar _
-    when unif && t4.level < Path.binding_time p ->
-      fprintf ppf
-        "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-        path p
-  | Tvar _, Tconstr (p, tl, _, _)
-    when unif && t3.level < Path.binding_time p ->
-      fprintf ppf
-        "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-        path p
-  | Tvar _, Tunivar _ | Tunivar _, Tvar _ ->
-      fprintf ppf "@,The universal variable %a would escape its scope"
-        type_expr (if is_Tunivar t3 then t3 else t4)
-  | Tvar _, _ | _, Tvar _ ->
-      let t, t' = if is_Tvar t3 then (t3, t4) else (t4, t3) in
-      if occur_in Env.empty t t' then
-        fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
-          type_expr t type_expr t'
-      else
-        fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
-          type_expr t'
-          "it would escape the scope of its equation"
-  | Tfield (lab, _, _, _), _
-  | _, Tfield (lab, _, _, _) when lab = dummy_method ->
-      fprintf ppf
-        "@,Self type cannot be unified with a closed object type"
-  | Tfield (l,_,_,{desc=Tnil}), Tfield (l',_,_,{desc=Tnil}) when l = l' ->
-      fprintf ppf "@,Types for method %s are incompatible" l
-  | (Tnil|Tconstr _), Tfield (l, _, _, _) ->
-      fprintf ppf
-        "@,@[The first object type has no method %s@]" l
-  | Tfield (l, _, _, _), (Tnil|Tconstr _) ->
-      fprintf ppf
-        "@,@[The second object type has no method %s@]" l
-  | Tnil, Tconstr _ | Tconstr _, Tnil ->
-      fprintf ppf
-        "@,@[The %s object type has an abstract row, it cannot be closed@]"
-        (if t4.desc = Tnil then "first" else "second")
-  | Tvariant row1, Tvariant row2 ->
-      let row1 = row_repr row1 and row2 = row_repr row2 in
-      begin match
-        row1.row_fields, row1.row_closed, row2.row_fields, row2.row_closed with
-      | [], true, [], true ->
-          fprintf ppf "@,These two variant types have no intersection"
-      | [], true, fields, _ ->
-          fprintf ppf
-            "@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]"
-            print_tags fields
-      | fields, _, [], true ->
-          fprintf ppf
-            "@,@[The second variant type does not allow tag(s)@ @[<hov>%a@]@]"
-            print_tags fields
-      | [l1,_], true, [l2,_], true when l1 = l2 ->
-          fprintf ppf "@,Types for tag `%s are incompatible" l1
-      | _ -> ()
-      end
-  | _ -> ()
+  match type_sort t3, type_sort t4 with
+  | Seffect, Stype ->
+      fprintf ppf "@,The first type is an effect type"
+  | Stype, Seffect ->
+      fprintf ppf "@,The second type is an effect type"
+  | _, _ ->
+    match t3.desc, t4.desc with
+    | Ttuple [], Tvar _ | Tvar _, Ttuple [] ->
+        fprintf ppf "@,Self type cannot escape its class"
+    | Tconstr (p, tl, _, _), Tvar _
+      when unif && t4.level < Path.binding_time p ->
+        fprintf ppf
+          "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+          path p
+    | Tvar _, Tconstr (p, tl, _, _)
+      when unif && t3.level < Path.binding_time p ->
+        fprintf ppf
+          "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+          path p
+    | Tvar _, Tunivar _ | Tunivar _, Tvar _ ->
+        fprintf ppf "@,The universal variable %a would escape its scope"
+          type_expr (if is_Tunivar t3 then t3 else t4)
+    | Tvar _, _ | _, Tvar _ ->
+        let t, t' = if is_Tvar t3 then (t3, t4) else (t4, t3) in
+        if occur_in Env.empty t t' then
+          fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+            type_expr t type_expr t'
+        else
+          fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
+            type_expr t'
+            "it would escape the scope of its equation"
+    | Tfield (lab, _, _, _), _
+    | _, Tfield (lab, _, _, _) when lab = dummy_method ->
+        fprintf ppf
+          "@,Self type cannot be unified with a closed object type"
+    | Tfield (l,_,_,{desc=Tnil}), Tfield (l',_,_,{desc=Tnil}) when l = l' ->
+        fprintf ppf "@,Types for method %s are incompatible" l
+    | (Tnil|Tconstr _), Tfield (l, _, _, _) ->
+        fprintf ppf
+          "@,@[The first object type has no method %s@]" l
+    | Tfield (l, _, _, _), (Tnil|Tconstr _) ->
+        fprintf ppf
+          "@,@[The second object type has no method %s@]" l
+    | Tnil, Tconstr _ | Tconstr _, Tnil ->
+        fprintf ppf
+          "@,@[The %s object type has an abstract row, it cannot be closed@]"
+          (if t4.desc = Tnil then "first" else "second")
+    | Tvariant row1, Tvariant row2 ->
+        let row1 = row_repr row1 and row2 = row_repr row2 in
+        begin match
+          row1.row_fields, row1.row_closed, row2.row_fields, row2.row_closed with
+        | [], true, [], true ->
+            fprintf ppf "@,These two variant types have no intersection"
+        | [], true, fields, _ ->
+            fprintf ppf
+              "@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]"
+              print_tags fields
+        | fields, _, [], true ->
+            fprintf ppf
+              "@,@[The second variant type does not allow tag(s)@ @[<hov>%a@]@]"
+              print_tags fields
+        | [l1,_], true, [l2,_], true when l1 = l2 ->
+            fprintf ppf "@,Types for tag `%s are incompatible" l1
+        | _ -> ()
+        end
+    | _ -> ()
 
 let explanation unif mis ppf =
   match mis with

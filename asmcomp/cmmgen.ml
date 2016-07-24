@@ -1608,6 +1608,7 @@ and transl_prim_1 p arg dbg =
                        else Cop(Cadda, [ptr; Cconst_int(n * size_float)])]))
   | Pint_as_pointer ->
      Cop(Cadda, [transl arg; Cconst_int (-1)])
+  | Ptag -> tag_int (get_tag arg)
   (* Exceptions *)
   | Praise k ->
       Cop(Craise (k, dbg), [transl arg])

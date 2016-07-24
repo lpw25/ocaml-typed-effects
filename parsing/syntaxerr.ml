@@ -17,7 +17,7 @@ type error =
   | Expecting of Location.t * string
   | Not_expecting of Location.t * string
   | Applicative_path of Location.t
-  | Variable_in_scope of Location.t * string
+  | Variable_in_scope of Location.t * string * Asttypes.effect_flag
   | Other of Location.t
   | Ill_formed_ast of Location.t * string
 
@@ -45,11 +45,16 @@ let prepare_error = function
       Location.errorf ~loc
         "Error: Syntax error: applicative paths of the form F(X).t \
          are not supported when the option -no-app-func is set."
-  | Variable_in_scope (loc, var) ->
+  | Variable_in_scope (loc, var, sort) ->
+      let sigil =
+        match sort with
+        | Asttypes.Type -> "'"
+        | Asttypes.Effect -> "!"
+      in
       Location.errorf ~loc
-        "Error: In this scoped type, variable '%s \
+        "Error: In this scoped type, variable %s%s \
          is reserved for the local type %s."
-        var var
+        sigil var var
   | Other loc ->
       Location.error ~loc "Error: Syntax error"
   | Ill_formed_ast (loc, s) ->
@@ -69,7 +74,7 @@ let report_error ppf err =
 let location_of_error = function
   | Unclosed(l,_,_,_)
   | Applicative_path l
-  | Variable_in_scope(l,_)
+  | Variable_in_scope(l,_,_)
   | Other l
   | Not_expecting (l, _)
   | Ill_formed_ast (l, _)

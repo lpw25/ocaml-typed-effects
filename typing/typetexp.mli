@@ -14,19 +14,27 @@
 
 open Types
 
+val transl_sort:
+        Asttypes.effect_flag -> Types.type_sort
 val transl_simple_type:
-        Env.t -> bool -> Parsetree.core_type -> Typedtree.core_type
+        Env.t -> bool -> Types.type_sort option ->
+        Parsetree.core_type -> Typedtree.core_type
 val transl_simple_type_univars:
-        Env.t -> Parsetree.core_type -> Typedtree.core_type
+        Env.t -> Types.type_sort option ->
+        Parsetree.core_type -> Typedtree.core_type
 val transl_simple_type_delayed:
-        Env.t -> Parsetree.core_type -> Typedtree.core_type * (unit -> unit)
+        Env.t -> Types.type_sort option ->
+        Parsetree.core_type -> Typedtree.core_type * (unit -> unit)
         (* Translate a type, but leave type variables unbound. Returns
            the type and a function that binds the type variable. *)
 val transl_type_scheme:
-        Env.t -> Parsetree.core_type -> Typedtree.core_type
+        Env.t -> Types.type_sort option ->
+        Parsetree.core_type -> Typedtree.core_type
 val reset_type_variables: unit -> unit
 val transl_type_param:
-  Env.t -> Parsetree.core_type -> Typedtree.core_type
+        Env.t -> Parsetree.core_type -> Typedtree.core_type
+val approx_type_param:
+        (Parsetree.core_type * Asttypes.variance) -> Types.type_expr
 
 type variable_context
 val narrow: unit -> variable_context
@@ -57,6 +65,7 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
+  | Unbound_effect_constructor of Longident.t
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -64,6 +73,8 @@ type error =
   | Ill_typed_functor_application of Longident.t
   | Illegal_reference_to_recursive_module
   | Access_functor_as_structure of Longident.t
+  | Unexpected_value_type
+  | Unexpected_effect_type
 
 exception Error of Location.t * Env.t * error
 
@@ -93,6 +104,8 @@ val find_all_labels:
     (label_description * (unit -> unit)) list
 val find_effect:
     Env.t -> Location.t -> Longident.t -> Path.t * effect_declaration
+val find_effect_constructor:
+    Env.t -> Location.t -> Longident.t -> effect_constructor_description
 val find_value:
     Env.t -> Location.t -> Longident.t -> Path.t * value_description
 val find_class:

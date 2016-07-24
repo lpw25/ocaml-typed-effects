@@ -33,13 +33,16 @@ val newgenvar: ?name:string -> type_sort -> type_expr
         (* Return a fresh generic variable *)
 
 val tvar_none : type_desc
-  (** Tvar(None, Vtype) *)
+  (** Tvar(None, Stype) *)
 
 val tunivar_none : type_desc
-  (** Tunivar(None, Vtype) *)
+  (** Tunivar(None, Stype) *)
 
 val evar_none : type_desc
-  (** Tvar(None, Veffect) *)
+  (** Tvar(None, Seffect) *)
+
+val eunivar_none : type_desc
+  (** Tunivar(None, Seffect) *)
 
 (* Use Tsubst instead
 val newmarkedvar: int -> type_expr
@@ -55,6 +58,7 @@ val is_Tunivar: type_expr -> bool
 val is_Tenil: type_expr -> bool
 
 val type_sort : type_expr -> type_sort
+val equal_sort : type_sort -> type_sort -> bool
 
 val dummy_method: label
 val default_mty: module_type option -> module_type

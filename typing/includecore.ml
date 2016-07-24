@@ -116,6 +116,8 @@ type type_mismatch =
   | Constraint
   | Manifest
   | Variance
+  | Sort of bool
+  | Param_sort of int * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
   | Field_arity of Ident.t
@@ -132,6 +134,14 @@ let report_type_mismatch0 first second decl ppf err =
   | Constraint -> pr "Their constraints differ"
   | Manifest -> ()
   | Variance -> pr "Their variances do not agree"
+  | Sort b ->
+      pr "Their sorts differ:@ %s %s %s"
+        (if b then second else first) decl
+        "is an effect type"
+  | Param_sort(n, b) ->
+      pr "The sorts for parameter number %i differ:@ %s %s %s"
+        n (if b then second else first) decl
+        "has an effect type parameter"
   | Field_type s ->
       pr "The types for field %s are not equal" (Ident.name s)
   | Field_mutable s ->
@@ -154,6 +164,29 @@ let report_type_mismatch first second decl ppf =
     (fun err ->
       if err = Manifest then () else
       Format.fprintf ppf "@ %a." (report_type_mismatch0 first second decl) err)
+
+let type_sort decl1 decl2 =
+  match decl1.type_sort, decl2.type_sort with
+  | Seffect, Seffect -> []
+  | Stype, Stype -> []
+  | Seffect, Stype -> [Sort false]
+  | Stype, Seffect -> [Sort true]
+
+let type_param_sorts decl1 decl2 =
+  let rec loop i params1 params2 =
+    match params1, params2 with
+    | [], [] -> []
+    | param1 :: rest1, param2 :: rest2 -> begin
+        match Btype.type_sort param1, Btype.type_sort param2 with
+        | Seffect, Seffect -> loop (i + 1) rest1 rest2
+        | Stype, Stype -> loop (i + 1) rest1 rest2
+        | Seffect, Stype -> [Param_sort(i, false)]
+        | Stype, Seffect -> [Param_sort(i, true)]
+      end
+    | [], _ :: _ -> assert false
+    | _ :: _, [] -> assert false
+  in
+    loop 1 decl1.type_params decl2.type_params
 
 let rec compare_variants env decl1 decl2 n cstrs1 cstrs2 =
   match cstrs1, cstrs2 with
@@ -198,7 +231,11 @@ let rec compare_records env decl1 decl2 n labels1 labels2 =
       else [Field_type lab1]
 
 let type_declarations ?(equality = false) env name decl1 id decl2 =
+  let err = type_sort decl1 decl2 in
+  if err <> [] then err else
   if decl1.type_arity <> decl2.type_arity then [Arity] else
+  let err = type_param_sorts decl1 decl2 in
+  if err <> [] then err else
   if not (private_flags decl1 decl2) then [Privacy] else
   let err = match (decl1.type_kind, decl2.type_kind) with
       (_, Type_abstract) -> []

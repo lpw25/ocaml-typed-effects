@@ -418,6 +418,7 @@ let comp_primitive p sz args =
   | Patomic_load -> Kccall("caml_atomic_load", 1)
   | Patomic_store -> Kccall("caml_atomic_store", 2);
   | Patomic_cas -> Kccall("caml_atomic_cas", 3);
+  | Ptag -> Kccall("caml_obj_tag", 1)
   | _ -> fatal_error "Bytegen.comp_primitive"
 
 let is_immed n = immed_min <= n && n <= immed_max

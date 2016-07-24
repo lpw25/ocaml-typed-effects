@@ -44,7 +44,7 @@ val type_self_pattern:
         Env.t * Env.t * Env.t
 val check_partial:
         ?lev:int -> Env.t -> type_expr -> type_expr ->
-	Location.t -> Typedtree.case list -> Typedtree.partial
+	Location.t -> Typedtree.case list -> Typedtree.partial * Path.t list
 val type_expect:
         ?in_function:(Location.t * type_expr) ->
         Env.t -> Parsetree.expression -> type_expr -> type_expr ->
@@ -119,6 +119,8 @@ type error =
   | Exception_pattern_below_toplevel
   | Effect_pattern_below_toplevel
   | Invalid_continuation_pattern
+  | Unexpected_continuation_pattern of Longident.t
+  | Missing_continuation_pattern of Longident.t
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

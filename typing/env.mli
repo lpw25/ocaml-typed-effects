@@ -98,6 +98,8 @@ val lookup_all_labels:
   Longident.t -> t -> (label_description * (unit -> unit)) list
 val lookup_type: Longident.t -> t -> Path.t * type_declaration
 val lookup_effect: Longident.t -> t -> Path.t * effect_declaration
+val lookup_effect_constructor:
+  Longident.t -> t -> effect_constructor_description
 val lookup_module: load:bool -> Longident.t -> t -> Path.t
 val lookup_modtype: Longident.t -> t -> Path.t * modtype_declaration
 val lookup_class: Longident.t -> t -> Path.t * class_declaration
@@ -256,6 +258,10 @@ val fold_labels:
 
 val fold_effects:
   (string -> Path.t -> effect_declaration * effect_description -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
+val fold_effect_constructors:
+  (effect_constructor_description -> 'a -> 'a) ->
   Longident.t option -> t -> 'a -> 'a
 
 (** Persistent structures are only traversed if they are already loaded. *)

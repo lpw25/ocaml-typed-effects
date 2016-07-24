@@ -71,7 +71,7 @@ type mapper = {
   effect_kind: mapper -> effect_kind -> effect_kind;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
-  effect_type: mapper -> effect_type -> effect_type;
+  effect_desc: mapper -> effect_desc -> effect_desc;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor

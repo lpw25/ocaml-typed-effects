@@ -88,6 +88,11 @@ let fmt_closed_flag f x =
   | Closed -> fprintf f "Closed"
   | Open -> fprintf f "Open"
 
+let fmt_effect_flag f x =
+  match x with
+  | Type -> fprintf f "Type"
+  | Effect -> fprintf f "Effect"
+
 let fmt_rec_flag f x =
   match x with
   | Nonrecursive -> fprintf f "Nonrec";
@@ -145,13 +150,18 @@ let attributes i ppf l =
     )
     l
 
+let fmt_var ppf x =
+  match x with
+  | (v, Type) -> fprintf ppf "'%s" v
+  | (v, Effect) -> fprintf ppf "!%s" v
+
 let rec core_type i ppf x =
   line i ppf "core_type %a\n" fmt_location x.ctyp_loc;
   attributes i ppf x.ctyp_attributes;
   let i = i+1 in
   match x.ctyp_desc with
   | Ttyp_any -> line i ppf "Ptyp_any\n";
-  | Ttyp_var (s) -> line i ppf "Ptyp_var %s\n" s;
+  | Ttyp_var (n, s) -> line i ppf "Ptyp_var %a\n" fmt_var (n, s);
   | Ttyp_arrow (l, ct1, eft, ct2) ->
       line i ppf "Ptyp_arrow\n";
       string i ppf l;
@@ -181,16 +191,20 @@ let rec core_type i ppf x =
   | Ttyp_class (li, _, l) ->
       line i ppf "Ptyp_class %a\n" fmt_path li;
       list i core_type ppf l;
-  | Ttyp_alias (ct, s) ->
-      line i ppf "Ptyp_alias \"%s\"\n" s;
+  | Ttyp_alias (ct, n, s) ->
+      line i ppf "Ptyp_alias \"%a\"\n" fmt_var (n, s);
       core_type i ppf ct;
-  | Ttyp_poly (sl, ct) ->
+  | Ttyp_poly (pvl, ct) ->
       line i ppf "Ptyp_poly%a\n"
-        (fun ppf -> List.iter (fun x -> fprintf ppf " '%s" x)) sl;
+        (fun ppf -> List.iter (fun pv -> fprintf ppf " %a" fmt_var pv))
+        pvl;
       core_type i ppf ct;
   | Ttyp_package { pack_path = s; pack_fields = l } ->
       line i ppf "Ptyp_package %a\n" fmt_path s;
       list i package_with ppf l;
+  | Ttyp_effect efd ->
+      line i ppf "Ptyp_effect\n";
+      effect_desc i ppf efd
 
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
@@ -204,8 +218,8 @@ and effect_desc i ppf x =
   let i = i+1 in
   line i ppf "peft_constrs =\n";
   list (i+1) longident_x_path ppf x.efd_effects;
-  line i ppf "peft_var =\n";
-  option (i+1) string_loc ppf x.efd_var
+  line i ppf "peft_row =\n";
+  option (i+1) core_type ppf x.efd_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;
@@ -255,6 +269,12 @@ and pattern i ppf x =
   | Tpat_lazy p ->
       line i ppf "Ppat_lazy\n";
       pattern i ppf p;
+  | Tpat_exception p ->
+      line i ppf "Ppat_exception\n";
+      pattern i ppf p;
+  | Tpat_effect (li, _, po, _) ->
+      line i ppf "Ppat_effect %a\n" fmt_longident li;
+      list i pattern ppf po
 
 and expression_extra i ppf x attrs =
   match x with
@@ -274,8 +294,8 @@ and expression_extra i ppf x attrs =
       line i ppf "Pexp_poly\n";
       attributes i ppf attrs;
       option i core_type ppf cto;
-  | Texp_newtype s ->
-      line i ppf "Pexp_newtype \"%s\"\n" s;
+  | Texp_newtype (n, s) ->
+      line i ppf "Pexp_newtype \"%s\" %a\n" n fmt_effect_flag s;
       attributes i ppf attrs;
 
 and expression i ppf x =
@@ -301,17 +321,14 @@ and expression i ppf x =
       line i ppf "Pexp_apply\n";
       expression i ppf e;
       list i label_x_expression ppf l;
-  | Texp_match (e, l1, l2, l3, partial) ->
+  | Texp_match (e, l, partial) ->
       line i ppf "Pexp_match\n";
       expression i ppf e;
-      list i case ppf l1;
-      list i case ppf l2;
-      list i case ppf l3;
-  | Texp_try (e, l1, l2) ->
+      list i case ppf l;
+  | Texp_try (e, l) ->
       line i ppf "Pexp_try\n";
       expression i ppf e;
-      list i case ppf l1;
-      list i case ppf l2;
+      list i case ppf l;
   | Texp_tuple (l) ->
       line i ppf "Pexp_tuple\n";
       list i expression ppf l;
@@ -355,6 +372,9 @@ and expression i ppf x =
       expression i ppf e1;
       expression i ppf e2;
       expression i ppf e3;
+  | Texp_perform (li, _, eo) ->
+      line i ppf "Pexp_perform %a\n" fmt_longident li;
+      list i expression ppf eo;
   | Texp_send (e, Tmeth_name s, eo) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;
@@ -845,6 +865,9 @@ and case i ppf {c_lhs; c_guard; c_rhs} =
   | Some g -> line (i+1) ppf "<when>\n"; expression (i + 2) ppf g
   end;
   expression (i+1) ppf c_rhs;
+
+and ecstr_x_case_list i ppf (_, l) =
+  list i case ppf l
 
 and value_binding i ppf x =
   line i ppf "<def>\n";

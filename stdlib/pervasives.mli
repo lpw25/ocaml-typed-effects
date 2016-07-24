@@ -46,11 +46,6 @@ exception Exit
 
 (** {6 Effects} *)
 
-(** [perform e] performs an effect [e].
-
-    @raises Unhandled if there is no active handler. *)
-external perform : 'a eff -> 'a = "%perform"
-
 (** [continue k x] resumes the continuation [k] by passing [x] to [k].
 
     @raise Invalid_argument if the continuation has already been
@@ -63,19 +58,6 @@ val continue: ('a, 'b) continuation -> 'a -> 'b
     @raise Invalid_argument if the continuation has already been
     resumed. *)
 val discontinue: ('a, 'b) continuation -> exn -> 'b
-
-(** [reperform e k] is semantically equivalent to:
-
-    {[
-      match perform e with
-      | v -> continue k v
-      | exception e -> discontinue k e
-    ]}
-
-    but it can be implemented directly more efficiently and is a
-    very common case: it is what you should do with effects that
-    you don't handle. *)
-val reperform: 'a eff -> ('a, 'b) continuation -> 'b
 
 (** {6 Comparisons} *)
 

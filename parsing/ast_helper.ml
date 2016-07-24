@@ -35,16 +35,17 @@ module Typ = struct
   let attr d a = {d with ptyp_attributes = d.ptyp_attributes @ [a]}
 
   let any ?loc ?attrs () = mk ?loc ?attrs Ptyp_any
-  let var ?loc ?attrs a = mk ?loc ?attrs (Ptyp_var a)
+  let var ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_var (a, b))
   let arrow ?loc ?attrs a b c d = mk ?loc ?attrs (Ptyp_arrow (a, b, c, d))
   let tuple ?loc ?attrs a = mk ?loc ?attrs (Ptyp_tuple a)
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_constr (a, b))
   let object_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_object (a, b))
   let class_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_class (a, b))
-  let alias ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_alias (a, b))
+  let alias ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_alias (a, b, c))
   let variant ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_variant (a, b, c))
   let poly ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_poly (a, b))
   let package ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_package (a, b))
+  let effect_ ?loc ?attrs a = mk ?loc ?attrs (Ptyp_effect a)
   let extension ?loc ?attrs a = mk ?loc ?attrs (Ptyp_extension a)
 
   let force_poly t =
@@ -74,7 +75,7 @@ module Pat = struct
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Ppat_lazy a)
   let unpack ?loc ?attrs a = mk ?loc ?attrs (Ppat_unpack a)
   let exception_ ?loc ?attrs a = mk ?loc ?attrs (Ppat_exception a)
-  let effect_ ?loc ?attrs a b = mk ?loc ?attrs (Ppat_effect(a, b))
+  let effect_ ?loc ?attrs a b c = mk ?loc ?attrs (Ppat_effect(a, b, c))
   let extension ?loc ?attrs a = mk ?loc ?attrs (Ppat_extension a)
 end
 
@@ -104,6 +105,7 @@ module Exp = struct
   let for_ ?loc ?attrs a b c d e = mk ?loc ?attrs (Pexp_for (a, b, c, d, e))
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_constraint (a, b))
   let coerce ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_coerce (a, b, c))
+  let perform_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_perform (a, b))
   let send ?loc ?attrs a b = mk ?loc ?attrs (Pexp_send (a, b))
   let new_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_new a)
   let setinstvar ?loc ?attrs a b = mk ?loc ?attrs (Pexp_setinstvar (a, b))
@@ -113,7 +115,7 @@ module Exp = struct
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_lazy a)
   let poly ?loc ?attrs a b = mk ?loc ?attrs (Pexp_poly (a, b))
   let object_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_object a)
-  let newtype ?loc ?attrs a b = mk ?loc ?attrs (Pexp_newtype (a, b))
+  let newtype ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_newtype (a, b, c))
   let pack ?loc ?attrs a = mk ?loc ?attrs (Pexp_pack a)
   let open_ ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_open (a, b, c))
   let extension ?loc ?attrs a = mk ?loc ?attrs (Pexp_extension a)
@@ -389,6 +391,7 @@ module Type = struct
         ?(docs = empty_docs) ?(text = [])
       ?(params = [])
       ?(cstrs = [])
+      ?(sort = Type)
       ?(kind = Ptype_abstract)
       ?(priv = Public)
       ?manifest
@@ -397,6 +400,7 @@ module Type = struct
      ptype_name = name;
      ptype_params = params;
      ptype_cstrs = cstrs;
+     ptype_sort = sort;
      ptype_kind = kind;
      ptype_private = priv;
      ptype_manifest = manifest;

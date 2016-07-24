@@ -63,6 +63,9 @@ type t =
   | Eliminated_optional_arguments of string list (* 48 *)
   | No_cmi_file of string                   (* 49 *)
   | Bad_docstring of bool                   (* 50 *)
+  | Fragile_effect_match of string * string (* 51 *)
+  | Partial_effect_match of string * string (* 52 *)
+  | All_effect_clauses_guarded of string    (* 53 *)
 ;;
 
 val parse_options : bool -> string -> unit;;

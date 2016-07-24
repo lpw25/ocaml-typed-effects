@@ -91,6 +91,7 @@ type error =
   | Unbound_type_var_eff of type_expr * effect_declaration
   | Varying_anonymous
   | Not_allowed_in_functor_body
+  | Effect_type_with_definition
 
 exception Error of Location.t * error
 

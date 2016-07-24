@@ -128,6 +128,7 @@ and untype_type_declaration decl =
           Ptype_record (List.map untype_label_declaration list)
       | Ttype_open -> Ptype_open
     );
+    ptype_sort = decl.typ_sort;
     ptype_private = decl.typ_private;
     ptype_manifest = option untype_core_type decl.typ_manifest;
     ptype_attributes = decl.typ_attributes;
@@ -243,6 +244,23 @@ and untype_pattern pat =
     | Tpat_array list -> Ppat_array (List.map untype_pattern list)
     | Tpat_or (p1, p2, _) -> Ppat_or (untype_pattern p1, untype_pattern p2)
     | Tpat_lazy p -> Ppat_lazy (untype_pattern p)
+    | Tpat_exception p -> Ppat_exception (untype_pattern p)
+    | Tpat_effect(lid, _, args, cont) ->
+        let args =
+          match args with
+          | [] -> None
+          | [arg] -> Some (untype_pattern arg)
+          | args ->
+                Some (Pat.tuple ~loc:pat.pat_loc
+                        (List.map untype_pattern args))
+        in
+        let cont =
+          match cont with
+          | None -> None
+          | Some None -> Some (Pat.any ())
+          | Some (Some(_, s)) -> Some (Pat.var s)
+        in
+          Ppat_effect(lid, args, cont)
   in
   Pat.mk ~loc:pat.pat_loc ~attrs:pat.pat_attributes desc
     (* todo: fix attributes on extras *)
@@ -258,7 +276,7 @@ and untype_extra (extra, loc, attrs) sexp =
         Pexp_constraint (sexp, untype_core_type cty)
     | Texp_open (ovf, _path, lid, _) -> Pexp_open (ovf, lid, sexp)
     | Texp_poly cto -> Pexp_poly (sexp, option untype_core_type cto)
-    | Texp_newtype s -> Pexp_newtype (s, sexp)
+    | Texp_newtype (n, s) -> Pexp_newtype (n, s, sexp)
   in
   Exp.mk ~loc ~attrs desc
 
@@ -270,27 +288,6 @@ and untype_case {c_lhs; c_guard; c_rhs} =
    pc_guard = option untype_expression c_guard;
    pc_rhs = untype_expression c_rhs;
   }
-
-and untype_exception_case c =
-  let uc = untype_case c in
-  let pat =
-    { uc.pc_lhs with ppat_desc = Ppat_exception uc.pc_lhs }
-  in
-    { uc with pc_lhs = pat }
-
-and untype_effect_case c =
-  let uc = untype_case c in
-  let cont =
-    match c.c_cont with
-    | Some id ->
-        let name = Location.mknoloc (Ident.name id) in
-          Pat.mk (Ppat_var name)
-    | None -> Pat.mk Ppat_any
-  in
-  let pat =
-    { uc.pc_lhs with ppat_desc = Ppat_effect(uc.pc_lhs, cont) }
-  in
-    { uc with pc_lhs = pat }
 
 and untype_binding {vb_pat; vb_expr; vb_attributes; vb_loc} =
   {
@@ -322,19 +319,10 @@ and untype_expression exp =
                 None -> list
               | Some exp -> (label, untype_expression exp) :: list
           ) list [])
-    | Texp_match (exp, cases, exn_cases, eff_cases, _) ->
-        let merged_cases =
-          untype_cases cases
-          @ List.map untype_exception_case exn_cases
-          @ List.map untype_effect_case eff_cases
-        in
-          Pexp_match (untype_expression exp, merged_cases)
-    | Texp_try (exp, cases, eff_cases) ->
-        let merged_cases =
-          untype_cases cases
-          @ List.map untype_effect_case eff_cases
-        in
-          Pexp_try (untype_expression exp, merged_cases)
+    | Texp_match (exp, cases, _) ->
+        Pexp_match (untype_expression exp, untype_cases cases)
+    | Texp_try (exp, cases) ->
+        Pexp_try (untype_expression exp, untype_cases cases)
     | Texp_tuple list ->
         Pexp_tuple (List.map untype_expression list)
     | Texp_construct (lid, _, args) ->
@@ -372,6 +360,15 @@ and untype_expression exp =
         Pexp_for (name,
           untype_expression exp1, untype_expression exp2,
           dir, untype_expression exp3)
+    | Texp_perform (lid, _, args) ->
+        Pexp_perform (lid,
+          (match args with
+              [] -> None
+          | [ arg ] -> Some (untype_expression arg)
+          | args ->
+              Some
+                (Exp.tuple ~loc:exp.exp_loc (List.map untype_expression args))
+          ))
     | Texp_send (exp, meth, _) ->
         Pexp_send (untype_expression exp, match meth with
             Tmeth_name name -> name
@@ -609,7 +606,7 @@ and untype_class_type_field ctf =
 and untype_core_type ct =
   let desc = match ct.ctyp_desc with
       Ttyp_any -> Ptyp_any
-    | Ttyp_var s -> Ptyp_var s
+    | Ttyp_var(n, s) -> Ptyp_var(n, s)
     | Ttyp_arrow (label, ct1, eft, ct2) ->
         Ptyp_arrow (label, untype_core_type ct1,
                     untype_effect_type eft, untype_core_type ct2)
@@ -622,12 +619,13 @@ and untype_core_type ct =
           (List.map (fun (s, a, t) -> (s, a, untype_core_type t)) list, o)
     | Ttyp_class (_path, lid, list) ->
         Ptyp_class (lid, List.map untype_core_type list)
-    | Ttyp_alias (ct, s) ->
-        Ptyp_alias (untype_core_type ct, s)
+    | Ttyp_alias (ct, n, s) ->
+        Ptyp_alias (untype_core_type ct, n, s)
     | Ttyp_variant (list, bool, labels) ->
         Ptyp_variant (List.map untype_row_field list, bool, labels)
     | Ttyp_poly (list, ct) -> Ptyp_poly (list, untype_core_type ct)
     | Ttyp_package pack -> Ptyp_package (untype_package_type pack)
+    | Ttyp_effect efd -> Ptyp_effect (untype_effect_desc efd)
   in
   Typ.mk ~loc:ct.ctyp_loc desc
 
@@ -647,12 +645,12 @@ and untype_row_field rf =
       Rtag (label, attrs, bool, List.map untype_core_type list)
   | Tinherit ct -> Rinherit (untype_core_type ct)
 
+and untype_effect_desc efd =
+  { pefd_effects = List.map fst efd.efd_effects;
+    pefd_row = Misc.may_map untype_core_type efd.efd_row; }
+
 and untype_effect_type eft =
-  match eft.eft_desc with
-  | None -> None
-  | Some desc ->
-      Some { pefd_effects = List.map fst desc.efd_effects;
-             pefd_var = desc.efd_var; }
+  Misc.may_map untype_effect_desc eft.eft_desc
 
 and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->

@@ -112,7 +112,8 @@ let newpersty desc =
 let norm = function
   | Tvar(None, Stype) -> Btype.tvar_none
   | Tvar(None, Seffect) -> Btype.evar_none
-  | Tunivar None -> Btype.tunivar_none
+  | Tunivar(None, Stype) -> Btype.tunivar_none
+  | Tunivar(None, Seffect) -> Btype.eunivar_none
   | d -> d
 
 (* Similar to [Ctype.nondep_type_rec]. *)

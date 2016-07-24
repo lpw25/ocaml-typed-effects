@@ -39,7 +39,7 @@ module Typ :
     val attr: core_type -> attribute -> core_type
 
     val any: ?loc:loc -> ?attrs:attrs -> unit -> core_type
-    val var: ?loc:loc -> ?attrs:attrs -> string -> core_type
+    val var: ?loc:loc -> ?attrs:attrs -> string -> effect_flag -> core_type
     val arrow: ?loc:loc -> ?attrs:attrs -> label -> core_type
                -> effect_type -> core_type -> core_type
     val tuple: ?loc:loc -> ?attrs:attrs -> core_type list -> core_type
@@ -48,12 +48,15 @@ module Typ :
                   (string * attributes * core_type) list -> closed_flag ->
                   core_type
     val class_: ?loc:loc -> ?attrs:attrs -> lid -> core_type list -> core_type
-    val alias: ?loc:loc -> ?attrs:attrs -> core_type -> string -> core_type
+    val alias: ?loc:loc -> ?attrs:attrs ->
+                 core_type -> string -> effect_flag -> core_type
     val variant: ?loc:loc -> ?attrs:attrs -> row_field list -> closed_flag
                  -> label list option -> core_type
-    val poly: ?loc:loc -> ?attrs:attrs -> string list -> core_type -> core_type
+    val poly: ?loc:loc -> ?attrs:attrs ->
+              (string * effect_flag) list -> core_type -> core_type
     val package: ?loc:loc -> ?attrs:attrs -> lid -> (lid * core_type) list
                  -> core_type
+    val effect_: ?loc:loc -> ?attrs:attrs -> effect_desc -> core_type
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> core_type
 
     val force_poly: core_type -> core_type
@@ -82,7 +85,9 @@ module Pat:
     val lazy_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
     val unpack: ?loc:loc -> ?attrs:attrs -> str -> pattern
     val exception_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
-    val effect_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern -> pattern
+    val effect_:
+      ?loc:loc -> ?attrs:attrs ->
+      lid -> pattern option -> pattern option -> pattern
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> pattern
   end
 
@@ -129,6 +134,8 @@ module Exp:
                      -> expression
     val send: ?loc:loc -> ?attrs:attrs -> expression -> string -> expression
     val new_: ?loc:loc -> ?attrs:attrs -> lid -> expression
+    val perform_:
+      ?loc:loc -> ?attrs:attrs -> lid -> expression option -> expression
     val setinstvar: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val override: ?loc:loc -> ?attrs:attrs -> (str * expression) list
                   -> expression
@@ -138,7 +145,9 @@ module Exp:
     val lazy_: ?loc:loc -> ?attrs:attrs -> expression -> expression
     val poly: ?loc:loc -> ?attrs:attrs -> expression -> core_type option -> expression
     val object_: ?loc:loc -> ?attrs:attrs -> class_structure -> expression
-    val newtype: ?loc:loc -> ?attrs:attrs -> string -> expression -> expression
+    val newtype:
+      ?loc:loc -> ?attrs:attrs -> string -> effect_flag -> expression
+      -> expression
     val pack: ?loc:loc -> ?attrs:attrs -> module_expr -> expression
     val open_: ?loc:loc -> ?attrs:attrs -> override_flag -> lid -> expression -> expression
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> expression
@@ -157,8 +166,10 @@ module Val:
 module Type:
   sig
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      ?params:(core_type * variance) list -> ?cstrs:(core_type * core_type * loc) list ->
-      ?kind:type_kind -> ?priv:private_flag -> ?manifest:core_type -> str ->
+      ?params:(core_type * variance) list ->
+      ?cstrs:(core_type * core_type * loc) list ->
+      ?sort:effect_flag -> ?kind:type_kind -> ?priv:private_flag ->
+      ?manifest:core_type -> str ->
       type_declaration
 
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->

@@ -256,6 +256,7 @@ let primitive ppf = function
   | Patomic_load -> fprintf ppf "atomic_load"
   | Patomic_store -> fprintf ppf "atomic_store"
   | Patomic_cas -> fprintf ppf "atomic_cas"
+  | Ptag -> fprintf ppf "tag"
 
 let rec lam ppf = function
   | Lvar id ->

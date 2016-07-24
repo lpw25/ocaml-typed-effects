@@ -24,6 +24,8 @@ type type_mismatch =
   | Constraint
   | Manifest
   | Variance
+  | Sort of bool
+  | Param_sort of int * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
   | Field_arity of Ident.t

@@ -49,6 +49,7 @@ type error =
   | Unbound_type_var_eff of type_expr * effect_declaration
   | Varying_anonymous
   | Not_allowed_in_functor_body
+  | Effect_type_with_definition
 
 open Typedtree
 
@@ -57,16 +58,17 @@ exception Error of Location.t * error
 (* Enter all declared types in the environment as abstract types *)
 
 let enter_type env sdecl id =
+  let params = List.map Typetexp.approx_type_param sdecl.ptype_params in
+  let sort = Typetexp.transl_sort sdecl.ptype_sort in
   let decl =
-    { type_params =
-        List.map (fun _ -> Btype.newgenvar Stype) sdecl.ptype_params;
+    { type_params = params;
       type_arity = List.length sdecl.ptype_params;
-      type_sort = Stype;
+      type_sort = sort;
       type_kind = Type_abstract;
       type_private = sdecl.ptype_private;
       type_manifest =
         begin match sdecl.ptype_manifest with None -> None
-        | Some _ -> Some(Ctype.newvar Stype) end;
+        | Some _ -> Some(Ctype.newvar sort) end;
       type_variance = List.map (fun _ -> Variance.full) sdecl.ptype_params;
       type_newtype_level = None;
       type_loc = sdecl.ptype_loc;
@@ -99,7 +101,7 @@ let is_float env ty =
 let is_fixed_type sd =
   let rec has_row_var sty =
     match sty.ptyp_desc with
-      Ptyp_alias (sty, _) -> has_row_var sty
+      Ptyp_alias (sty, _, _) -> has_row_var sty
     | Ptyp_class _
     | Ptyp_object (_, Open)
     | Ptyp_variant (_, Open, _)
@@ -156,7 +158,7 @@ let make_params env params =
 let make_constructor env typ sargs sret_type =
   match sret_type with
   | None ->
-      let targs = List.map (transl_simple_type env true) sargs in
+      let targs = List.map (transl_simple_type env true (Some Stype)) sargs in
       let args = List.map (fun cty -> cty.ctyp_type) targs in
         targs, None, args, None
   | Some sret_type ->
@@ -164,9 +166,9 @@ let make_constructor env typ sargs sret_type =
          then widen so as to not introduce any new constraints *)
       let z = narrow () in
       reset_type_variables ();
-      let targs = List.map (transl_simple_type env false) sargs in
+      let targs = List.map (transl_simple_type env false (Some Stype)) sargs in
       let args = List.map (fun cty -> cty.ctyp_type) targs in
-      let tret_type = transl_simple_type env false sret_type in
+      let tret_type = transl_simple_type env false (Some Stype) sret_type in
       let ret_type = tret_type.ctyp_type in
       begin
         match typ with
@@ -190,8 +192,8 @@ let transl_declaration env sdecl id =
   let params = List.map (fun (cty, _) -> cty.ctyp_type) tparams in
   let cstrs = List.map
     (fun (sty, sty', loc) ->
-      transl_simple_type env false sty,
-      transl_simple_type env false sty', loc)
+      transl_simple_type env false None sty,
+      transl_simple_type env false None sty', loc)
     sdecl.ptype_cstrs
   in
   let (tkind, kind) =
@@ -253,7 +255,7 @@ let transl_declaration env sdecl id =
                                   pld_loc=loc;
                                   pld_attributes=attrs} ->
           let arg = Ast_helper.Typ.force_poly arg in
-          let cty = transl_simple_type env true arg in
+          let cty = transl_simple_type env true (Some Stype) arg in
           {ld_id = Ident.create name.txt; ld_name = name; ld_mutable = mut;
            ld_type = cty; ld_loc = loc; ld_attributes = attrs}
           ) lbls in
@@ -277,17 +279,24 @@ let transl_declaration env sdecl id =
         Ttype_record lbls, Type_record(lbls', rep)
       | Ptype_open -> Ttype_open, Type_open
       in
+    let sort = Typetexp.transl_sort sdecl.ptype_sort in
+    begin match sort, kind with
+    | Stype, _ -> ()
+    | Seffect, Type_abstract -> ()
+    | Seffect, (Type_variant _ | Type_record _ | Type_open) ->
+        raise(Error(sdecl.ptype_loc, Effect_type_with_definition))
+    end;
     let (tman, man) = match sdecl.ptype_manifest with
         None -> None, None
       | Some sty ->
         let no_row = not (is_fixed_type sdecl) in
-        let cty = transl_simple_type env no_row sty in
+        let cty = transl_simple_type env no_row (Some sort) sty in
         Some cty, Some cty.ctyp_type
     in
     let decl =
       { type_params = params;
         type_arity = List.length params;
-        type_sort = Stype;
+        type_sort = sort;
         type_kind = kind;
         type_private = sdecl.ptype_private;
         type_manifest = man;
@@ -328,6 +337,7 @@ let transl_declaration env sdecl id =
       typ_loc = sdecl.ptype_loc;
       typ_manifest = tman;
       typ_kind = tkind;
+      typ_sort = sdecl.ptype_sort;
       typ_private = sdecl.ptype_private;
       typ_attributes = sdecl.ptype_attributes;
     }
@@ -1351,6 +1361,16 @@ let transl_exception env sext =
   let newenv = Env.add_extension ~check:true ext.ext_id ext.ext_type env in
     ext, newenv
 
+(* Enter declared effects into the environment as abstract effects *)
+let enter_effect env seff man =
+  let eff =
+    { Types.eff_kind = Eff_abstract;
+      eff_manifest = man;
+      eff_loc = seff.peff_loc;
+      eff_attributes = seff.peff_attributes; }
+  in
+  Env.enter_effect seff.peff_name.txt eff env
+
 let check_effect_coherence env loc id eff =
   match eff with
   | { Types.eff_kind = Eff_variant _; eff_manifest = Some path } -> begin
@@ -1373,6 +1393,14 @@ let check_effect_coherence env loc id eff =
 let transl_effect_decl env funct_body seff =
   reset_type_variables();
   Ctype.begin_def ();
+  let (tman, man) =
+    match seff.peff_manifest with
+    | None -> None, None
+    | Some lid ->
+        let p, _ = find_effect env lid.loc lid.txt in
+        Some(lid, p), Some p
+  in
+  let id, temp_env = enter_effect env seff man in
   let (tkind, kind) =
     match seff.peff_kind with
       | Peff_abstract -> Teff_abstract, Eff_abstract
@@ -1392,7 +1420,7 @@ let transl_effect_decl env funct_body seff =
         let make_cstr sec =
           let name = Ident.create sec.pec_name.txt in
           let targs, tret_type, args, ret_type =
-            make_constructor env None sec.pec_args sec.pec_res
+            make_constructor temp_env None sec.pec_args sec.pec_res
           in
           let tec =
             { ec_id = name;
@@ -1414,20 +1442,15 @@ let transl_effect_decl env funct_body seff =
         let tecs, ecs = List.split (List.map make_cstr secs) in
           Teff_variant tecs, Eff_variant ecs
   in
-  let (tman, man) =
-    match seff.peff_manifest with
-    | None -> None, None
-    | Some lid ->
-        let p, _ = find_effect env lid.loc lid.txt in
-        Some(lid, p), Some p
-  in
   let eff =
     { Types.eff_kind = kind;
       eff_manifest = man;
       eff_loc = seff.peff_loc;
       eff_attributes = seff.peff_attributes; }
   in
-  let id, newenv = Env.enter_effect seff.peff_name.txt eff env in
+  Ctype.end_def();
+  generalize_effect_decl eff;
+  let newenv = Env.add_effect id eff env in
   let teff =
     { Typedtree.eff_id = id;
       eff_name = seff.peff_name;
@@ -1437,8 +1460,6 @@ let transl_effect_decl env funct_body seff =
       eff_kind = tkind;
       eff_attributes = seff.peff_attributes; }
   in
-  Ctype.end_def();
-  generalize_effect_decl eff;
   (* Check that all type variable are closed *)
   begin match Ctype.closed_effect_decl eff with
   | Some ty -> raise(Error(seff.peff_loc, Unbound_type_var_eff(ty, eff)))
@@ -1450,7 +1471,7 @@ let transl_effect_decl env funct_body seff =
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
-  let cty = Typetexp.transl_type_scheme env valdecl.pval_type in
+  let cty = Typetexp.transl_type_scheme env (Some Stype) valdecl.pval_type in
   let ty = cty.ctyp_type in
   let v =
   match valdecl.pval_prim with
@@ -1500,8 +1521,8 @@ let transl_with_constraint env id row_path orig_decl sdecl =
   let constraints = List.map
     (function (ty, ty', loc) ->
        try
-         let cty = transl_simple_type env false ty in
-         let cty' = transl_simple_type env false ty' in
+         let cty = transl_simple_type env false None ty in
+         let cty' = transl_simple_type env false None ty' in
          let ty = cty.ctyp_type in
          let ty' = cty'.ctyp_type in
          Ctype.unify env ty ty';
@@ -1514,7 +1535,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
   let (tman, man) =  match sdecl.ptype_manifest with
       None -> None, None
     | Some sty ->
-        let cty = transl_simple_type env no_row sty in
+        let cty = transl_simple_type env no_row (Some Stype) sty in
         Some cty, Some cty.ctyp_type
   in
   let priv =
@@ -1553,6 +1574,11 @@ let transl_with_constraint env id row_path orig_decl sdecl =
        (add_injectivity (List.map snd sdecl.ptype_params), sdecl.ptype_loc)} in
   Ctype.end_def();
   generalize_decl decl;
+  let typ_sort =
+    match orig_decl.type_sort with
+    | Stype -> Asttypes.Type
+    | Seffect -> Asttypes.Effect
+  in
   {
     typ_id = id;
     typ_name = sdecl.ptype_name;
@@ -1562,20 +1588,21 @@ let transl_with_constraint env id row_path orig_decl sdecl =
     typ_loc = sdecl.ptype_loc;
     typ_manifest = tman;
     typ_kind = Ttype_abstract;
+    typ_sort = typ_sort;
     typ_private = sdecl.ptype_private;
     typ_attributes = sdecl.ptype_attributes;
   }
 
 (* Approximate a type declaration: just make all types abstract *)
 
-let abstract_type_decl arity =
+let abstract_type_decl sort arity =
   let rec make_params n =
     if n <= 0 then [] else Ctype.newvar Stype :: make_params (n-1) in
   Ctype.begin_def();
   let decl =
     { type_params = make_params arity;
       type_arity = arity;
-      type_sort = Stype;
+      type_sort = sort;
       type_kind = Type_abstract;
       type_private = Public;
       type_manifest = None;
@@ -1591,8 +1618,10 @@ let abstract_type_decl arity =
 let approx_type_decl env sdecl_list =
   List.map
     (fun sdecl ->
+      let sort = Typetexp.transl_sort sdecl.ptype_sort in
+      let arity = List.length sdecl.ptype_params in
       (Ident.create sdecl.ptype_name.txt,
-       abstract_type_decl (List.length sdecl.ptype_params)))
+       abstract_type_decl sort arity))
     sdecl_list
 
 (* Approximate a type declaration: just make all types abstract *)
@@ -1602,14 +1631,6 @@ let approx_effect_decl =
     eff_manifest = None;
     eff_loc = Location.none;
     eff_attributes = []; }
-
-let approx_type_decl env sdecl_list =
-  List.map
-    (fun sdecl ->
-      (Ident.create sdecl.ptype_name.txt,
-       abstract_type_decl (List.length sdecl.ptype_params)))
-    sdecl_list
-
 
 (* Variant of check_abbrev_recursion to check the well-formedness
    conditions on type abbreviations defined within recursive modules. *)
@@ -1832,6 +1853,11 @@ let report_error ppf = function
       fprintf ppf
         "@[This definition creates fresh effect constructors.@ %s@]"
         "It is not allowed inside applicative functors."
+  | Effect_type_with_definition ->
+      fprintf ppf "@[%s@ %s@]"
+        "This definition was expected to be an effect type,"
+        "but it is a value type"
+
 let () =
   Location.register_error_of_exn
     (function

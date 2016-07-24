@@ -85,6 +85,11 @@ let fmt_closed_flag f x =
   | Closed -> fprintf f "Closed"
   | Open -> fprintf f "Open"
 
+let fmt_effect_flag f x =
+  match x with
+  | Type -> fprintf f "Type"
+  | Effect -> fprintf f "Effect"
+
 let fmt_rec_flag f x =
   match x with
   | Nonrecursive -> fprintf f "Nonrec";
@@ -131,13 +136,18 @@ let string_loc i ppf s = line i ppf "%a\n" fmt_string_loc s;;
 let bool i ppf x = line i ppf "%s\n" (string_of_bool x);;
 let label i ppf x = line i ppf "label=\"%s\"\n" x;;
 
+let fmt_var ppf x =
+  match x with
+  | (v, Type) -> fprintf ppf "'%s" v
+  | (v, Effect) -> fprintf ppf "!%s" v
+
 let rec core_type i ppf x =
   line i ppf "core_type %a\n" fmt_location x.ptyp_loc;
   attributes i ppf x.ptyp_attributes;
   let i = i+1 in
   match x.ptyp_desc with
   | Ptyp_any -> line i ppf "Ptyp_any\n";
-  | Ptyp_var (s) -> line i ppf "Ptyp_var %s\n" s;
+  | Ptyp_var (name, sort) -> line i ppf "Ptyp_var %a\n" fmt_var (name, sort);
   | Ptyp_arrow (l, ct1, eft, ct2) ->
       line i ppf "Ptyp_arrow\n";
       string i ppf l;
@@ -167,16 +177,20 @@ let rec core_type i ppf x =
   | Ptyp_class (li, l) ->
       line i ppf "Ptyp_class %a\n" fmt_longident_loc li;
       list i core_type ppf l
-  | Ptyp_alias (ct, s) ->
-      line i ppf "Ptyp_alias \"%s\"\n" s;
+  | Ptyp_alias (ct, name, sort) ->
+      line i ppf "Ptyp_alias \"%a\"\n" fmt_var (name, sort);
       core_type i ppf ct;
-  | Ptyp_poly (sl, ct) ->
+  | Ptyp_poly (pvl, ct) ->
       line i ppf "Ptyp_poly%a\n"
-        (fun ppf -> List.iter (fun x -> fprintf ppf " '%s" x)) sl;
+        (fun ppf ->
+          List.iter (fun pv -> fprintf ppf " %a" fmt_var pv)) pvl;
       core_type i ppf ct;
   | Ptyp_package (s, l) ->
       line i ppf "Ptyp_package %a\n" fmt_longident_loc s;
       list i package_with ppf l;
+  | Ptyp_effect desc ->
+      line i ppf "Ptyp_effect\n";
+      effect_desc i ppf desc
   | Ptyp_extension (s, arg) ->
       line i ppf "Ptyp_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -193,8 +207,8 @@ and effect_desc i ppf x =
   let i = i+1 in
   line i ppf "peft_constrs =\n";
   list (i+1) longident_loc ppf x.pefd_effects;
-  line i ppf "peft_var =\n";
-  option (i+1) string_loc ppf x.pefd_var
+  line i ppf "peft_row =\n";
+  option (i+1) core_type ppf x.pefd_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.ppat_loc;
@@ -243,10 +257,10 @@ and pattern i ppf x =
   | Ppat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p
-  | Ppat_effect(p1, p2) ->
-      line i ppf "Ppat_effect\n";
-      pattern i ppf p1;
-      pattern i ppf p2
+  | Ppat_effect(li, p1, p2) ->
+      line i ppf "Ppat_effect %a\n" fmt_longident_loc li;
+      option i pattern ppf p1;
+      option i pattern ppf p2
   | Ppat_extension (s, arg) ->
       line i ppf "Ppat_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -335,6 +349,9 @@ and expression i ppf x =
       expression i ppf e;
       option i core_type ppf cto1;
       core_type i ppf cto2;
+  | Pexp_perform (li, eo) ->
+      line i ppf "Pexp_perfrom %a\n" fmt_longident_loc li;
+      option i expression ppf eo;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;
@@ -362,8 +379,8 @@ and expression i ppf x =
   | Pexp_object s ->
       line i ppf "Pexp_object\n";
       class_structure i ppf s
-  | Pexp_newtype (s, e) ->
-      line i ppf "Pexp_newtype \"%s\"\n" s;
+  | Pexp_newtype (n, s, e) ->
+      line i ppf "Pexp_newtype \"%s\" %a\n" n fmt_effect_flag s;
       expression i ppf e
   | Pexp_pack me ->
       line i ppf "Pexp_pack\n";

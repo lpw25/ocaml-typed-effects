@@ -53,6 +53,10 @@ and pattern_desc =
   | Tpat_array of pattern list
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
+  | Tpat_exception of pattern
+  | Tpat_effect of
+      Longident.t loc * effect_constructor_description
+      * pattern list * (Ident.t * string loc) option option
 
 and expression =
   { exp_desc: expression_desc;
@@ -68,7 +72,7 @@ and exp_extra =
   | Texp_coerce of core_type option * core_type
   | Texp_open of override_flag * Path.t * Longident.t loc * Env.t
   | Texp_poly of core_type option
-  | Texp_newtype of string
+  | Texp_newtype of string * effect_flag
 
 and expression_desc =
     Texp_ident of Path.t * Longident.t loc * Types.value_description
@@ -76,8 +80,8 @@ and expression_desc =
   | Texp_let of rec_flag * value_binding list * expression
   | Texp_function of label * case list * partial
   | Texp_apply of expression * (label * expression option * optional) list
-  | Texp_match of expression * case list * case list * case list * partial
-  | Texp_try of expression * case list * case list
+  | Texp_match of expression * case list * partial
+  | Texp_try of expression * case list
   | Texp_tuple of expression list
   | Texp_construct of
       Longident.t loc * constructor_description * expression list
@@ -95,6 +99,8 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
+  | Texp_perform of
+      Longident.t loc * effect_constructor_description * expression list
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -113,7 +119,6 @@ and meth =
 and case =
     {
      c_lhs: pattern;
-     c_cont: Ident.t option;
      c_guard: expression option;
      c_rhs: expression;
     }
@@ -347,16 +352,17 @@ and core_type =
 
 and core_type_desc =
     Ttyp_any
-  | Ttyp_var of string
+  | Ttyp_var of string * effect_flag
   | Ttyp_arrow of label * core_type * effect_type * core_type
   | Ttyp_tuple of core_type list
   | Ttyp_constr of Path.t * Longident.t loc * core_type list
   | Ttyp_object of (string * attributes * core_type) list * closed_flag
   | Ttyp_class of Path.t * Longident.t loc * core_type list
-  | Ttyp_alias of core_type * string
+  | Ttyp_alias of core_type * string * effect_flag
   | Ttyp_variant of row_field list * closed_flag * label list option
-  | Ttyp_poly of string list * core_type
+  | Ttyp_poly of (string * effect_flag) list * core_type
   | Ttyp_package of package_type
+  | Ttyp_effect of effect_desc
 
 and package_type = {
   pack_path : Path.t;
@@ -376,7 +382,8 @@ and effect_type = {
 
 and effect_desc = {
   efd_effects : (Longident.t loc * Path.t) list;
-  efd_var : string loc option;
+  efd_type: Types.type_expr;
+  efd_row : core_type option;
 }
 
 and value_description =
@@ -396,6 +403,7 @@ and type_declaration =
     typ_type: Types.type_declaration;
     typ_cstrs: (core_type * core_type * Location.t) list;
     typ_kind: type_kind;
+    typ_sort: effect_flag;
     typ_private: private_flag;
     typ_manifest: core_type option;
     typ_loc: Location.t;
@@ -545,6 +553,8 @@ let iter_pattern_desc f = function
   | Tpat_array patl -> List.iter f patl
   | Tpat_or(p1, p2, _) -> f p1; f p2
   | Tpat_lazy p -> f p
+  | Tpat_exception p -> f p
+  | Tpat_effect(_, _, patl, _) -> List.iter f patl
   | Tpat_any
   | Tpat_var _
   | Tpat_constant _ -> ()
@@ -566,6 +576,9 @@ let map_pattern_desc f d =
       Tpat_variant (x1, Some (f p1), x2)
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f p1, f p2, path)
+  | Tpat_exception p1 -> Tpat_exception (f p1)
+  | Tpat_effect (lid, e, pats, cont) ->
+      Tpat_effect (lid, e, List.map f pats, cont)
   | Tpat_var _
   | Tpat_constant _
   | Tpat_any

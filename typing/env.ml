@@ -1818,6 +1818,24 @@ let find_all proj1 proj2 f lid env acc =
             acc
       end
 
+let find_all_simple proj1 proj2 f lid env acc =
+  match lid with
+    | None ->
+      EnvTbl.fold_name
+        (fun id data acc -> f data acc)
+        (proj1 env) acc
+    | Some l ->
+      let p, desc = lookup_module_descr l env in
+      begin match EnvLazy.force components_of_module_maker desc with
+          Structure_comps c ->
+            Tbl.fold
+              (fun s (data, pos) acc ->
+                  f data acc)
+              (proj2 c) acc
+        | Functor_comps _ ->
+            acc
+      end
+
 let find_all_simple_list proj1 proj2 f lid env acc =
   match lid with
     | None ->
@@ -1881,6 +1899,9 @@ and fold_types f =
   find_all (fun env -> env.types) (fun sc -> sc.comp_types) f
 and fold_effects f =
   find_all (fun env -> env.effects) (fun sc -> sc.comp_effects) f
+and fold_effect_constructors f =
+  find_all_simple (fun env -> env.effect_constrs)
+                       (fun sc -> sc.comp_effect_constrs) f
 and fold_modtypes f =
   find_all (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes) f
 and fold_classs f =

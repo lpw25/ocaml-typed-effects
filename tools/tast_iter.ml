@@ -101,6 +101,8 @@ let pattern sub pat =
   | Tpat_or (p1, p2, _) -> sub # pattern p1; sub # pattern p2
   | Tpat_alias (p, _, _)
   | Tpat_lazy p -> sub # pattern p
+  | Tpat_exception p -> sub # pattern p
+  | Tpat_effect (_, _, l, _) -> List.iter (sub # pattern) l
 
 let expression sub exp =
   let extra = function
@@ -124,15 +126,12 @@ let expression sub exp =
   | Texp_apply (exp, list) ->
       sub # expression exp;
       List.iter (fun (_, expo, _) -> opt (sub # expression) expo) list
-  | Texp_match (exp, cases, exn_cases, eff_cases, _) ->
+  | Texp_match (exp, cases, _) ->
       sub # expression exp;
       sub # cases cases;
-      sub # cases exn_cases;
-      sub # cases eff_cases
-  | Texp_try (exp, cases, eff_cases) ->
+  | Texp_try (exp, cases) ->
       sub # expression exp;
       sub # cases cases;
-      sub # cases eff_cases
   | Texp_tuple list ->
       List.iter (sub # expression) list
   | Texp_construct (_, _, args) ->
@@ -163,6 +162,8 @@ let expression sub exp =
       sub # expression exp1;
       sub # expression exp2;
       sub # expression exp3
+  | Texp_perform (_, _, args) ->
+      List.iter (sub # expression) args
   | Texp_send (exp, _meth, expo) ->
       sub # expression exp;
       opt (sub # expression) expo
@@ -312,9 +313,10 @@ let class_type_field sub ctf =
 let core_type sub ct =
   match ct.ctyp_desc with
   | Ttyp_any -> ()
-  | Ttyp_var _s -> ()
-  | Ttyp_arrow (_label, ct1, _eft, ct2) ->
+  | Ttyp_var(_n, _s) -> ()
+  | Ttyp_arrow (_label, ct1, eft, ct2) ->
       sub # core_type ct1;
+      opt (sub # effect_desc) eft.eft_desc;
       sub # core_type ct2
   | Ttyp_tuple list -> List.iter (sub # core_type) list
   | Ttyp_constr (_path, _, list) ->
@@ -323,12 +325,16 @@ let core_type sub ct =
       List.iter (fun (_, _, t) -> sub # core_type t) list
   | Ttyp_class (_path, _, list) ->
       List.iter (sub # core_type) list
-  | Ttyp_alias (ct, _s) ->
+  | Ttyp_alias (ct, _n, _s) ->
       sub # core_type ct
   | Ttyp_variant (list, _bool, _labels) ->
       List.iter (sub # row_field) list
   | Ttyp_poly (_list, ct) -> sub # core_type ct
+  | Ttyp_effect efd -> sub # effect_desc efd
   | Ttyp_package pack -> sub # package_type pack
+
+let effect_desc sub efd =
+  opt (sub # core_type) efd.efd_row
 
 let class_structure sub cs =
   sub # pattern cs.cstr_self;
@@ -390,6 +396,7 @@ class iter = object(this)
   method expression = expression this
   method extension_constructor = extension_constructor this
   method effect_declaration = effect_declaration this
+  method effect_desc = effect_desc this
   method module_binding = module_binding this
   method module_expr = module_expr this
   method module_type = module_type this
