@@ -25,7 +25,7 @@ let structure_item sub x =
   | Tstr_type list -> List.iter (sub # type_declaration) list
   | Tstr_typext te -> sub # type_extension te
   | Tstr_exception ext -> sub # extension_constructor ext
-  | Tstr_effect ext -> sub # extension_constructor ext
+  | Tstr_effect ext -> sub # effect_declaration ext
   | Tstr_module mb -> sub # module_binding mb
   | Tstr_recmodule list -> List.iter (sub # module_binding) list
   | Tstr_modtype mtd -> opt (sub # module_type) mtd.mtd_type
@@ -70,6 +70,17 @@ let extension_constructor sub ext =
       List.iter (sub # core_type) ctl;
       opt (sub # core_type) cto
   | Text_rebind _ -> ()
+
+let effect_constructor sub ec =
+  List.iter (sub # core_type) ec.ec_args;
+  opt (sub # core_type) ec.ec_res
+
+let effect_kind sub = function
+  | Teff_abstract -> ()
+  | Teff_variant ecs -> List.iter (effect_constructor sub) ecs
+
+let effect_declaration sub eff =
+  effect_kind sub eff.eff_kind
 
 let pattern sub pat =
   let extra = function
@@ -188,8 +199,8 @@ let signature_item sub item =
       sub # type_extension te
   | Tsig_exception ext ->
       sub # extension_constructor ext
-  | Tsig_effect ext ->
-      sub # extension_constructor ext
+  | Tsig_effect eff ->
+      sub # effect_declaration eff
   | Tsig_module md ->
       sub # module_type md.md_type
   | Tsig_recmodule list ->
@@ -378,6 +389,7 @@ class iter = object(this)
   method core_type = core_type this
   method expression = expression this
   method extension_constructor = extension_constructor this
+  method effect_declaration = effect_declaration this
   method module_binding = module_binding this
   method module_expr = module_expr this
   method module_type = module_type this

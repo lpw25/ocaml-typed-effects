@@ -27,6 +27,7 @@ type error =
     Unbound_type_variable of string
   | Unbound_type_constructor of Longident.t
   | Unbound_type_constructor_2 of Path.t
+  | Unbound_effect of Longident.t
   | Type_arity_mismatch of Longident.t * int * int
   | Bound_type_variable of string
   | Recursive_type
@@ -243,9 +244,6 @@ let find_label =
 let find_all_labels =
   find_component Env.lookup_all_labels (fun lid -> Unbound_label lid)
 
-let find_effect env loc lid =
-  Path.Pident (Ident.create "Not implemented")
-
 let find_class env loc lid =
   let (path, decl) as r =
     find_component Env.lookup_class (fun lid -> Unbound_class lid) env loc lid
@@ -259,6 +257,14 @@ let find_value env loc lid =
     find_component Env.lookup_value (fun lid -> Unbound_value lid) env loc lid
   in
   check_deprecated loc decl.val_attributes (Path.name path);
+  r
+
+let find_effect env loc lid =
+  let (path, eff) as r =
+    find_component Env.lookup_effect (fun lid -> Unbound_effect lid)
+      env loc lid
+  in
+  check_deprecated loc eff.eff_attributes (Path.name path);
   r
 
 let lookup_module ?(load=false) env loc lid =
@@ -778,19 +784,19 @@ and transl_effect_type env eft =
   match eft with
   | None ->
       let tail = newty Tenil in
-      let ty = newty (Teffect(Placeholder, tail)) in
+      let ty = instance_def (Predef.effect_io tail) in
       { eft_desc = None;
         eft_type = ty; }
   | Some desc ->
-      let efd_constrs =
+      let efd_effects =
         List.map
           (fun lid ->
-            let path = find_effect env lid.loc lid.txt in
+            let path, _ = find_effect env lid.loc lid.txt in
               lid, path)
-          desc.pefd_constrs
+          desc.pefd_effects
       in
       let efd_var = desc.pefd_var in
-      let eft_desc = Some { efd_constrs; efd_var } in
+      let eft_desc = Some { efd_effects; efd_var } in
       let tail =
         match efd_var with
         | None -> newty Tenil
@@ -809,9 +815,9 @@ and transl_effect_type env eft =
       in
       let eft_type =
         List.fold_left
-          (fun tail (_, _path) ->
-             newty (Teffect(Placeholder, tail)))
-          tail efd_constrs
+          (fun tail (_, path) ->
+             newty (Teffect(path, tail)))
+          tail efd_effects
       in
       { eft_desc; eft_type }
 
@@ -946,6 +952,7 @@ let fold_simple fold4 f = fold4 (fun name _path _descr acc -> f name acc)
 
 let fold_values = fold_simple Env.fold_values
 let fold_types = fold_simple Env.fold_types
+let fold_effects = fold_simple Env.fold_effects
 let fold_modules = fold_simple Env.fold_modules
 let fold_constructors = fold_descr Env.fold_constructors (fun d -> d.cstr_name)
 let fold_labels = fold_descr Env.fold_labels (fun d -> d.lbl_name)
@@ -965,6 +972,9 @@ let report_error env ppf = function
   | Unbound_type_constructor_2 p ->
     fprintf ppf "The type constructor@ %a@ is not yet completely defined"
       path p
+  | Unbound_effect lid ->
+    fprintf ppf "Unbound effect %a" longident lid;
+    spellcheck ppf fold_effects env lid;
   | Type_arity_mismatch(lid, expected, provided) ->
     fprintf ppf
       "@[The type constructor %a@ expects %i argument(s),@ \

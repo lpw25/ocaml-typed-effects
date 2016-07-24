@@ -39,7 +39,7 @@ and type_desc =
   | Tunivar of string option
   | Tpoly of type_expr * type_expr list
   | Tpackage of Path.t * Longident.t list * type_expr list
-  | Teffect of effect_constr * type_expr
+  | Teffect of Path.t * type_expr
   | Tenil
 
 and row_desc =
@@ -72,9 +72,6 @@ and commutable =
     Cok
   | Cunknown
   | Clink of commutable ref
-
-and effect_constr =
-  | Placeholder
 
 module TypeOps : sig
   type t = type_expr
@@ -152,12 +149,6 @@ and type_kind =
   | Type_variant of constructor_declaration list
   | Type_open
 
-and record_representation =
-    Record_regular                      (* All fields are boxed / tagged *)
-  | Record_float                        (* All fields are floats *)
-  | Record_inlined of int               (* Inlined record *)
-  | Record_extension                    (* Inlined record under extension *)
-
 and label_declaration =
   {
     ld_id: Ident.t;
@@ -180,6 +171,12 @@ and constructor_arguments =
   | Cstr_tuple of type_expr list
   | Cstr_record of label_declaration list
 
+and record_representation =
+    Record_regular                      (* All fields are boxed / tagged *)
+  | Record_float                        (* All fields are floats *)
+  | Record_inlined of int               (* Inlined record *)
+  | Record_extension                    (* Inlined record under extension *)
+
 type extension_constructor =
     {
       ext_type_path: Path.t;
@@ -195,6 +192,26 @@ and type_transparence =
     Type_public      (* unrestricted expansion *)
   | Type_new         (* "new" type *)
   | Type_private     (* private type *)
+
+type effect_declaration =
+  { eff_kind: effect_kind;
+    eff_manifest: Path.t option;
+    eff_loc: Location.t;
+    eff_attributes: Parsetree.attributes;
+  }
+
+and effect_kind =
+    Eff_abstract
+  | Eff_variant of effect_constructor list
+
+and effect_constructor =
+  {
+    ec_id: Ident.t;
+    ec_args: type_expr list;
+    ec_res: type_expr option;
+    ec_loc: Location.t;
+    ec_attributes: Parsetree.attributes;
+  }
 
 (* Type expressions for the class language *)
 
@@ -245,6 +262,7 @@ and signature_item =
     Sig_value of Ident.t * value_description
   | Sig_type of Ident.t * type_declaration * rec_status
   | Sig_typext of Ident.t * extension_constructor * ext_status
+  | Sig_effect of Ident.t * effect_declaration
   | Sig_module of Ident.t * module_declaration * rec_status
   | Sig_modtype of Ident.t * modtype_declaration
   | Sig_class of Ident.t * class_declaration * rec_status
@@ -273,11 +291,8 @@ and ext_status =
     Text_first                     (* first constructor in an extension *)
   | Text_next                      (* not first constructor in an extension *)
   | Text_exception
-  | Text_effect
 
-
-(* Constructor and record label descriptions inserted held in typing
-   environments *)
+(* Constructor descriptions *)
 
 type constructor_description =
   { cstr_name: string;                  (* Constructor name *)
@@ -314,3 +329,14 @@ type label_description =
     lbl_loc: Location.t;
     lbl_attributes: Parsetree.attributes;
   }
+
+type effect_constructor_description =
+  { ecstr_name: string;                  (* Constructor name *)
+    ecstr_eff_path: Path.t;              (* Effect path *)
+    ecstr_pos: int;                      (* Constructor index *)
+    ecstr_res: type_expr option;         (* Type of the result *)
+    ecstr_existentials: type_expr list;  (* List of existentials *)
+    ecstr_args: type_expr list;          (* Type of the arguments *)
+    ecstr_loc: Location.t;
+    ecstr_attributes: Parsetree.attributes;
+   }

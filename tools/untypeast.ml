@@ -60,8 +60,8 @@ and untype_structure_item item =
         Pstr_typext (untype_type_extension tyext)
     | Tstr_exception ext ->
         Pstr_exception (untype_extension_constructor ext)
-    | Tstr_effect ext ->
-        Pstr_effect (untype_effect_constructor ext)
+    | Tstr_effect eff ->
+        Pstr_effect (untype_effect_declaration eff)
     | Tstr_module mb ->
         Pstr_module (untype_module_binding mb)
     | Tstr_recmodule list ->
@@ -177,23 +177,26 @@ and untype_extension_constructor ext =
     pext_attributes = ext.ext_attributes;
   }
 
-and untype_effect_constructor ext =
+and untype_effect_declaration eff =
   {
-    peff_name = ext.ext_name;
-    peff_kind = (match ext.ext_kind with
-      | Text_decl (_, None) -> assert false
-      | Text_decl (args, Some ret_type) ->
-          let uret_type = untype_core_type ret_type in
-          let uret =
-            match uret_type.ptyp_desc with
-            | Ptyp_constr(_, [ret]) -> ret
-            | _ -> assert false
-          in
-            Peff_decl (List.map untype_core_type args, uret)
-      | Text_rebind (_p, lid) -> Peff_rebind lid
-    );
-    peff_loc = ext.ext_loc;
-    peff_attributes = ext.ext_attributes;
+    peff_name = eff.eff_name;
+    peff_kind = untype_effect_kind eff.eff_kind;
+    peff_manifest = Misc.may_map fst eff.eff_manifest;
+    peff_loc = eff.eff_loc;
+    peff_attributes = eff.eff_attributes;
+  }
+
+and untype_effect_kind = function
+  | Teff_abstract -> Peff_abstract
+  | Teff_variant ecs -> Peff_variant (List.map untype_effect_constructor ecs)
+
+and untype_effect_constructor ec =
+  {
+    pec_name = ec.ec_name;
+    pec_args = List.map untype_core_type ec.ec_args;
+    pec_res = Misc.may_map untype_core_type ec.ec_res;
+    pec_loc = ec.ec_loc;
+    pec_attributes = ec.ec_attributes;
   }
 
 and untype_pattern pat =
@@ -414,8 +417,8 @@ and untype_signature_item item =
         Psig_typext (untype_type_extension tyext)
     | Tsig_exception ext ->
         Psig_exception (untype_extension_constructor ext)
-    | Tsig_effect ext ->
-        Psig_effect (untype_effect_constructor ext)
+    | Tsig_effect eff ->
+        Psig_effect (untype_effect_declaration eff)
     | Tsig_module md ->
         Psig_module {pmd_name = md.md_name;
                      pmd_type = untype_module_type md.md_type;
@@ -648,7 +651,7 @@ and untype_effect_type eft =
   match eft.eft_desc with
   | None -> None
   | Some desc ->
-      Some { pefd_constrs = List.map fst desc.efd_constrs;
+      Some { pefd_effects = List.map fst desc.efd_effects;
              pefd_var = desc.efd_var; }
 
 and is_self_pat = function

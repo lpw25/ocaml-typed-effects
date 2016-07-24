@@ -31,6 +31,7 @@ type t
 val identity: t
 
 val add_type: Ident.t -> Path.t -> t -> t
+val add_effect: Ident.t -> Path.t -> t -> t
 val add_module: Ident.t -> Path.t -> t -> t
 val add_modtype: Ident.t -> module_type -> t -> t
 val for_saving: t -> t
@@ -43,6 +44,7 @@ val type_expr: t -> type_expr -> type_expr
 val class_type: t -> class_type -> class_type
 val value_description: t -> value_description -> value_description
 val type_declaration: t -> type_declaration -> type_declaration
+val effect_declaration: t -> effect_declaration -> effect_declaration
 val extension_constructor:
         t -> extension_constructor -> extension_constructor
 val class_declaration: t -> class_declaration -> class_declaration

@@ -420,6 +420,10 @@ and approx_sig env ssg =
                  Sig_type(i2, d2, rs);
                  Sig_type(i3, d3, rs)])
               decls [rem])
+      | Psig_effect seff ->
+          let eff = Typedecl.approx_effect_decl in
+          let (id, newenv) = Env.enter_effect seff.peff_name.txt eff env in
+          Sig_effect(id, eff) :: approx_sig newenv srem
       | _ ->
           approx_sig env srem
 
@@ -461,6 +465,7 @@ type names =
     modules: StringSet.t ref;
     modtypes: StringSet.t ref;
     typexts: StringSet.t ref;
+    effects: StringSet.t ref;
   }
 
 let new_names () =
@@ -469,6 +474,7 @@ let new_names () =
     modules = ref StringSet.empty;
     modtypes = ref StringSet.empty;
     typexts = ref StringSet.empty;
+    effects = ref StringSet.empty;
   }
 
 
@@ -477,10 +483,11 @@ let check_type names loc s = check "type" loc names.types s
 let check_module names loc s = check "module" loc names.modules s
 let check_modtype names loc s = check "module type" loc names.modtypes s
 let check_typext names loc s = check "extension constructor" loc names.typexts s
-
+let check_effect names loc s = check "effect" loc names.effects s
 
 let check_sig_item names loc = function
   | Sig_type(id, _, _) -> check_type names loc (Ident.name id)
+  | Sig_effect(id, _) -> check_effect names loc (Ident.name id)
   | Sig_module(id, _, _) -> check_module names loc (Ident.name id)
   | Sig_modtype(id, _) -> check_modtype names loc (Ident.name id)
   | Sig_typext(id, _, _) -> check_typext names loc (Ident.name id)
@@ -629,11 +636,11 @@ and transl_signature env sg =
             Sig_typext(ext.ext_id, ext.ext_type, Text_exception) :: rem,
             final_env
         | Psig_effect seff ->
-            check_name check_typext names seff.peff_name;
-            let (ext, newenv) = Typedecl.transl_effect env seff in
+            check_name check_effect names seff.peff_name;
+            let (teff, newenv) = Typedecl.transl_effect_decl env false seff in
             let (trem, rem, final_env) = transl_sig newenv srem in
-            mksig (Tsig_effect ext) env loc :: trem,
-            Sig_typext(ext.ext_id, ext.ext_type, Text_effect) :: rem,
+            mksig (Tsig_effect teff) env loc :: trem,
+            Sig_effect(teff.eff_id, teff.eff_type) :: rem,
             final_env
         | Psig_module pmd ->
             check_name check_module names pmd.pmd_name;
@@ -1185,7 +1192,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
       let eff_expected =
-        Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+        Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
       in
       let exp = Typecore.type_exp env sexp eff_expected in
       if !Clflags.principal then begin
@@ -1227,7 +1234,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
     match desc with
     | Pstr_eval (sexpr, attrs) ->
         let eff_expected =
-          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
         in
         let expr =
           Typetexp.with_warning_attribute attrs (fun () ->
@@ -1236,7 +1243,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         Tstr_eval (expr, attrs), [], env
     | Pstr_value(rec_flag, sdefs) ->
         let eff_expected =
-          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
         in
         let scope =
           match rec_flag with
@@ -1292,9 +1299,10 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         [Sig_typext(ext.ext_id, ext.ext_type, Text_exception)],
         newenv
     | Pstr_effect seff ->
-        let (ext, newenv) = Typedecl.transl_effect env seff in
-        Tstr_effect ext,
-        [Sig_typext(ext.ext_id, ext.ext_type, Text_effect)],
+        check_name check_effect names seff.peff_name;
+        let (teff, newenv) = Typedecl.transl_effect_decl env funct_body seff in
+        Tstr_effect teff,
+        [Sig_effect(teff.eff_id, teff.eff_type)],
         newenv
     | Pstr_module {pmb_name = name; pmb_expr = smodl; pmb_attributes = attrs;
                    pmb_loc;

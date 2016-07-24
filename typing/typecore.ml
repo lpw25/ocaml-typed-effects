@@ -1205,7 +1205,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env sp expected_ty exp
           lbl_pat_list
       in
       if mut then begin
-        let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+        let eff = instance_def (Predef.effect_io (newvar Seffect)) in
         unify_pat_effects loc !env eff expected_eff
       end;
       unify_pat_types loc !env record_ty expected_ty;
@@ -1223,7 +1223,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env sp expected_ty exp
       let pl =
         List.map (fun (p,t) -> type_pat p ty_elt expected_eff) spl_ann
       in
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_array pl;
@@ -1252,7 +1252,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env sp expected_ty exp
       unify_pat_types loc !env (instance_def (Predef.type_lazy_t nv))
         expected_ty;
       let p1 = type_pat sp1 nv expected_eff in
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_lazy p1;
@@ -1558,10 +1558,12 @@ and is_nonexpansive_mod mexp =
                 id_mod_list
           | Tstr_exception {ext_kind = Text_decl _} ->
               false (* true would be unsound *)
-          | Tstr_effect {ext_kind = Text_decl _} ->
+          | Tstr_effect {eff_kind = Teff_variant _; eff_manifest = None} ->
               false (* true would be unsound *)
           | Tstr_exception {ext_kind = Text_rebind _} -> true
-          | Tstr_effect {ext_kind = Text_rebind _} -> true
+          | Tstr_effect ({eff_kind = Teff_abstract}
+                         | {eff_manifest = Some _}) ->
+              true
           | Tstr_typext te ->
               List.for_all
                 (function {ext_kind = Text_decl _} -> false
@@ -2083,7 +2085,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
               eff_expected loc eff_caselist eff_conts
       in
       if exn_cases <> [] || eff_cases <> [] then begin
-        let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+        let eff = instance_def (Predef.effect_io (newvar Seffect)) in
         unify_exp_effects loc env eff eff_expected
       end;
       re {
@@ -2114,7 +2116,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
             type_effect_cases env ty_expected
               eff_expected loc eff_caselist eff_conts
       in
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       unify_exp_effects loc env eff eff_expected;
       re {
         exp_desc = Texp_try(body, exn_cases, eff_cases);
@@ -2291,7 +2293,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
               false lbl.lbl_all
       in
       if mut then begin
-        let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+        let eff = instance_def (Predef.effect_io (newvar Seffect)) in
         unify_exp_effects loc env eff eff_expected
       end;
       re {
@@ -2308,7 +2310,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       unify_exp env record ty_res;
       let eff =
         if label.lbl_mut = Mutable then
-          newty (Teffect(Placeholder, newvar Seffect))
+          instance_def (Predef.effect_io (newvar Seffect))
         else
           newvar Seffect
       in
@@ -2330,7 +2332,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       unify_exp env record ty_record;
       if label.lbl_mut = Immutable then
         raise(Error(loc, env, Label_not_mutable lid.txt));
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       rufe eff {
         exp_desc = Texp_setfield(record, label_loc, label, newval);
         exp_loc = loc; exp_extra = [];
@@ -2344,7 +2346,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       let argl =
         List.map (fun sarg -> type_expect env sarg ty eff_expected) sargl
       in
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       unify_exp_effects loc env eff eff_expected;
       re {
         exp_desc = Texp_array argl;
@@ -2620,7 +2622,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
           | _ ->
               assert false
         in
-        let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+        let eff = instance_def (Predef.effect_io (newvar Seffect)) in
         rufe eff {
           exp_desc = Texp_send(obj, meth, exp);
           exp_loc = loc; exp_extra = [];
@@ -2650,7 +2652,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
           None ->
             raise(Error(loc, env, Virtual_class cl.txt))
         | Some ty ->
-            let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+            let eff = instance_def (Predef.effect_io (newvar Seffect)) in
             rufe eff {
               exp_desc = Texp_new (cl_path, cl, cl_decl);
               exp_loc = loc; exp_extra = [];
@@ -2669,7 +2671,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
             let (path_self, _) =
               Env.lookup_value (Longident.Lident ("self-" ^ cl_num)) env
             in
-            let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+            let eff = instance_def (Predef.effect_io (newvar Seffect)) in
             rufe eff {
               exp_desc = Texp_setinstvar(path_self, path, lab, newval);
               exp_loc = loc; exp_extra = [];
@@ -2722,7 +2724,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
             end
           in
           let modifs = List.map type_override lst in
-          let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+          let eff = instance_def (Predef.effect_io (newvar Seffect)) in
           rufe eff {
             exp_desc = Texp_override(path_self, modifs);
             exp_loc = loc; exp_extra = [];
@@ -2755,7 +2757,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       with Unify _ ->
         raise(Error(loc, env, Scoping_let_module(name.txt, body.exp_type)))
       end;
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       unify_exp_effects loc env eff eff_expected;
       re {
         exp_desc = Texp_letmodule(id, name, modl, body);
@@ -2783,7 +2785,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       let ty = newgenvar Stype in
       let to_unify = Predef.type_lazy_t ty in
       unify_exp_types loc env to_unify ty_expected;
-      let eff = newgenty (Teffect(Placeholder, newgenty Tenil)) in
+      let eff = Predef.effect_io (newgenty Tenil) in
       let arg = type_expect env e ty eff in
       re {
         exp_desc = Texp_lazy arg;
@@ -2794,7 +2796,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp
       }
   | Pexp_object s ->
       let desc, sign, meths = !type_object env loc s in
-      let eff = newty (Teffect(Placeholder, newvar Seffect)) in
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
       rufe eff {
         exp_desc = Texp_object (desc, (*sign,*) meths);
         exp_loc = loc; exp_extra = [];

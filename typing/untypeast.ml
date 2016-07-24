@@ -37,8 +37,9 @@ type mapper = {
   expr: mapper -> T.expression -> expression;
   extension_constructor: mapper -> T.extension_constructor
                          -> extension_constructor;
-  effect_constructor: mapper -> T.extension_constructor
-                         -> effect_constructor;
+  effect_declaration: mapper -> T.effect_declaration -> effect_declaration;
+  effect_kind: mapper -> T.effect_kind -> effect_kind;
+  effect_constructor: mapper -> T.effect_constructor -> effect_constructor;
   effect_desc: mapper -> T.effect_desc -> effect_desc;
   include_declaration: mapper -> T.include_declaration -> include_declaration;
   include_description: mapper -> T.include_description -> include_description;
@@ -144,7 +145,7 @@ let structure_item sub item =
     | Tstr_exception ext ->
         Pstr_exception (sub.extension_constructor sub ext)
     | Tstr_effect eff ->
-        Pstr_effect (sub.effect_constructor sub eff)
+        Pstr_effect (sub.effect_declaration sub eff)
     | Tstr_module mb ->
         Pstr_module (sub.module_binding sub mb)
     | Tstr_recmodule list ->
@@ -250,21 +251,28 @@ let extension_constructor sub ext =
       | Text_rebind (_p, lid) -> Pext_rebind (map_loc sub lid)
     )
 
-let effect_constructor sub ext =
-  let loc = sub.location sub ext.ext_loc; in
-  let attrs = sub.attributes sub ext.ext_attributes in
-  Te.effect_constructor ~loc ~attrs
-    (map_loc sub ext.ext_name)
-    (match ext.ext_kind with
-      | Text_decl (args, ret) ->
-        begin
-          match map_opt (sub.typ sub) ret with
-          | Some ret -> Peff_decl (constructor_arguments sub args, ret)
-          | None -> assert false
-        end
-      | Text_rebind (_p, lid) -> Peff_rebind (map_loc sub lid)
-    )
+let effect_declaration sub eff =
+  {
+    peff_name = eff.eff_name;
+    peff_kind = sub.effect_kind sub eff.eff_kind;
+    peff_manifest = Misc.may_map fst eff.eff_manifest;
+    peff_loc = eff.eff_loc;
+    peff_attributes = eff.eff_attributes;
+  }
 
+let effect_kind sub = function
+  | Teff_abstract -> Peff_abstract
+  | Teff_variant ecs ->
+      Peff_variant (List.map (sub.effect_constructor sub) ecs)
+
+let effect_constructor sub ec =
+  {
+    pec_name = ec.ec_name;
+    pec_args = Pcstr_tuple (List.map (sub.typ sub) ec.ec_args);
+    pec_res = map_opt (sub.typ sub) ec.ec_res;
+    pec_loc = ec.ec_loc;
+    pec_attributes = ec.ec_attributes;
+}
 
 let pattern sub pat =
   let loc = sub.location sub pat.pat_loc; in
@@ -528,8 +536,8 @@ let signature_item sub item =
         Psig_typext (sub.type_extension sub tyext)
     | Tsig_exception ext ->
         Psig_exception (sub.extension_constructor sub ext)
-    | Tsig_effect ext ->
-        Psig_effect (sub.effect_constructor sub ext)
+    | Tsig_effect eff ->
+        Psig_effect (sub.effect_declaration sub eff)
     | Tsig_module md ->
         Psig_module (sub.module_declaration sub md)
     | Tsig_recmodule list ->
@@ -753,7 +761,7 @@ and is_self_pat = function
   | _ -> false
 
 let effect_desc sub efd =
-  { pefd_constrs = List.map fst efd.efd_constrs;
+  { pefd_effects = List.map fst efd.efd_effects;
     pefd_var = efd.efd_var; }
 
 let class_field sub cf =
@@ -817,6 +825,8 @@ let default_mapper =
     typ = core_type;
     type_extension = type_extension;
     extension_constructor = extension_constructor;
+    effect_declaration = effect_declaration;
+    effect_kind = effect_kind;
     effect_constructor = effect_constructor;
     effect_desc = effect_desc;
     value_description = value_description;

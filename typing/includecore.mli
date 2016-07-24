@@ -31,6 +31,15 @@ type type_mismatch =
   | Field_missing of bool * Ident.t
   | Record_representation of bool
 
+type effect_mismatch =
+  | Effect_kind
+  | Effect_manifest
+  | Effect_constructor_arg_type of Ident.t
+  | Effect_constructor_ret_type of Ident.t
+  | Effect_constructor_arity of Ident.t
+  | Effect_constructor_names of int * Ident.t * Ident.t
+  | Effect_constructor_missing of bool * Ident.t
+
 val value_descriptions:
     Env.t -> value_description -> value_description -> module_coercion
 val type_declarations:
@@ -39,6 +48,10 @@ val type_declarations:
         type_declaration -> Ident.t -> type_declaration -> type_mismatch list
 val extension_constructors:
     Env.t -> Ident.t -> extension_constructor -> extension_constructor -> bool
+val effect_declarations:
+      Env.t -> string ->
+        effect_declaration -> Ident.t -> effect_declaration -> effect_mismatch list
+
 (*
 val class_types:
         Env.t -> class_type -> class_type -> bool
@@ -46,3 +59,5 @@ val class_types:
 
 val report_type_mismatch:
     string -> string -> string -> Format.formatter -> type_mismatch list -> unit
+val report_effect_mismatch:
+    string -> string -> string -> Format.formatter -> effect_mismatch list -> unit

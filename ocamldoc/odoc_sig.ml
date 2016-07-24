@@ -37,6 +37,7 @@ module Signature_search =
       | MT of string
       | V of string
       | T of string
+      | E of string
       | C of string
       | CT of string
       | X of string
@@ -52,6 +53,8 @@ module Signature_search =
           Hashtbl.add table (X (Name.from_ident ident)) signat
       | Types.Sig_type (ident, _, _) ->
           Hashtbl.add table (T (Name.from_ident ident)) signat
+      | Types.Sig_effect (ident, _) ->
+          Hashtbl.add table (E (Name.from_ident ident)) signat
       | Types.Sig_class (ident, _, _) ->
           Hashtbl.add table (C (Name.from_ident ident)) signat
       | Types.Sig_class_type (ident, _, _) ->

@@ -34,6 +34,7 @@ type mapper =
     expr: mapper -> expression -> expression;
     extension_constructor: mapper -> extension_constructor ->
       extension_constructor;
+    effect_declaration: mapper -> effect_declaration -> effect_declaration;
     module_binding: mapper -> module_binding -> module_binding;
     module_coercion: mapper -> module_coercion -> module_coercion;
     module_declaration: mapper -> module_declaration -> module_declaration;
@@ -109,7 +110,7 @@ let structure_item sub {str_desc; str_loc; str_env} =
         Tstr_type (rec_flag, list)
     | Tstr_typext te -> Tstr_typext (sub.type_extension sub te)
     | Tstr_exception ext -> Tstr_exception (sub.extension_constructor sub ext)
-    | Tstr_effect ext -> Tstr_effect (sub.extension_constructor sub ext)
+    | Tstr_effect ext -> Tstr_effect (sub.effect_declaration sub ext)
     | Tstr_module mb -> Tstr_module (sub.module_binding sub mb)
     | Tstr_recmodule list ->
         Tstr_recmodule (List.map (sub.module_binding sub) list)
@@ -179,6 +180,21 @@ let extension_constructor sub x =
     | Text_rebind _ as d -> d
   in
   {x with ext_kind}
+
+let effect_constructor sub x =
+  let ec_args = List.map (sub.typ sub) x.ec_args in
+  let ec_res = opt (sub.typ sub) x.ec_res in
+  { x with ec_args; ec_res }
+
+let effect_declaration sub x =
+  let eff_kind =
+    match x.eff_kind with
+    | Teff_abstract -> Teff_abstract
+    | Teff_variant list ->
+        let list = List.map (effect_constructor sub) list in
+        Teff_variant list
+  in
+  { x with eff_kind }
 
 let pat sub x =
   let extra = function
@@ -358,7 +374,7 @@ let signature_item sub x =
     | Tsig_exception ext ->
         Tsig_exception (sub.extension_constructor sub ext)
     | Tsig_effect ext ->
-        Tsig_effect (sub.extension_constructor sub ext)
+        Tsig_effect (sub.effect_declaration sub ext)
     | Tsig_module x ->
         Tsig_module (sub.module_declaration sub x)
     | Tsig_recmodule list ->
@@ -649,6 +665,7 @@ let default =
     env;
     expr;
     extension_constructor;
+    effect_declaration;
     module_binding;
     module_coercion;
     module_declaration;

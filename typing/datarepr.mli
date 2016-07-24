@@ -25,6 +25,9 @@ val constructors_of_type:
   Path.t -> type_declaration ->
   (Ident.t * constructor_description) list
 
+val effect_constructor_descrs:
+  Path.t -> effect_constructor list ->
+  (Ident.t * effect_constructor_description) list
 
 exception Constr_not_found
 
