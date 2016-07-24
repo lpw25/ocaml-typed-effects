@@ -189,6 +189,7 @@ let label_descrs ty_res lbls repres priv =
   describe_labels 0 lbls
 
 let effect_constructor_descrs eff_path ecs =
+  let total = List.length ecs in
   let rec describe_constructors pos = function
     | [] -> []
     | {ec_id; ec_args; ec_res; ec_loc; ec_attributes} :: rem ->
@@ -203,10 +204,12 @@ let effect_constructor_descrs eff_path ecs =
         let ecstr =
           { ecstr_name = Ident.name ec_id;
             ecstr_eff_path = eff_path;
+            ecstr_pos = pos;
             ecstr_res = ec_res;
             ecstr_existentials = existentials;
             ecstr_args = ec_args;
-            ecstr_pos = pos;
+            ecstr_arity = List.length ec_args;
+            ecstr_constructors = total;
             ecstr_loc = ec_loc;
             ecstr_attributes = ec_attributes;
           }

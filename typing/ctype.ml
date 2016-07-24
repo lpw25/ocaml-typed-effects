@@ -331,6 +331,10 @@ let build_effects level effs rest =
     (fun p ty -> newty2 level (Teffect(p, ty)))
     effs rest
 
+let equal_effect_constructor env ecstr1 ecstr2 =
+  ecstr1.ecstr_pos = ecstr2.ecstr_pos
+  && equal_effect env ecstr1.ecstr_eff_path ecstr2.ecstr_eff_path
+
                   (**********************************************)
                   (*  Miscellaneous operations on object types  *)
                   (**********************************************)
@@ -1314,30 +1318,41 @@ let new_declaration newtype manifest sort =
     type_attributes = [];
   }
 
+let process_existential env newtype_level existential =
+  let sort = type_sort existential in
+  let decl = new_declaration (Some (newtype_level, newtype_level)) None sort in
+  let name =
+    match repr existential with
+    | {desc = Tvar(Some name, _)} -> name
+    | _ -> "ex"
+  in
+  let (id, new_env) =
+    Env.enter_type (get_new_abstract_name name) decl !env in
+  env := new_env;
+  let to_unify = newty (Tconstr (Path.Pident id, [], sort, ref Mnil)) in
+  let tv = copy existential in
+  assert (is_Tvar tv);
+  link_type tv to_unify
+
 let instance_constructor ?in_pattern cstr =
   begin match in_pattern with
   | None -> ()
   | Some (env, newtype_lev) ->
-      let process existential =
-        let sort = type_sort existential in
-        let decl = new_declaration (Some (newtype_lev, newtype_lev)) None sort in
-        let name =
-          match repr existential with
-            {desc = Tvar(Some name, _)} -> name
-          | _ -> "ex"
-        in
-        let (id, new_env) =
-          Env.enter_type (get_new_abstract_name name) decl !env in
-        env := new_env;
-        let to_unify = newty (Tconstr (Path.Pident id,[],sort,ref Mnil)) in
-        let tv = copy existential in
-        assert (is_Tvar tv);
-        link_type tv to_unify
-      in
-      List.iter process cstr.cstr_existentials
+      List.iter (process_existential env newtype_lev) cstr.cstr_existentials
   end;
   let ty_res = copy cstr.cstr_res in
   let ty_args = List.map simple_copy  cstr.cstr_args in
+  cleanup_types ();
+  (ty_args, ty_res)
+
+let instance_effect_constructor ?in_pattern ecstr =
+  begin match in_pattern with
+  | None -> ()
+  | Some (env, newtype_lev) ->
+      List.iter (process_existential env newtype_lev) ecstr.ecstr_existentials
+  end;
+  let ty_res = Misc.may_map (fun ty -> copy ty) ecstr.ecstr_res in
+  let ty_args = List.map simple_copy ecstr.ecstr_args in
   cleanup_types ();
   (ty_args, ty_res)
 
@@ -2773,7 +2788,7 @@ and unify_list env tl1 tl2 =
   List.iter2 (unify env) tl1 tl2
 
 (* Build a fresh row variable for unification *)
-and make_rowvar level use1 rest1 use2 rest2  =
+and make_rowvar level sort use1 rest1 use2 rest2  =
   let set_name ty name =
     match ty.desc with
       Tvar(None, sort) -> log_type ty; ty.desc <- Tvar(name, sort)

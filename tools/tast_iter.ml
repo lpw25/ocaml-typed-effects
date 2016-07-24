@@ -101,6 +101,8 @@ let pattern sub pat =
   | Tpat_or (p1, p2, _) -> sub # pattern p1; sub # pattern p2
   | Tpat_alias (p, _, _)
   | Tpat_lazy p -> sub # pattern p
+  | Tpat_exception p -> sub # pattern p
+  | Tpat_effect (_, _, l, _) -> List.iter (sub # pattern) l
 
 let expression sub exp =
   let extra = function
@@ -124,15 +126,12 @@ let expression sub exp =
   | Texp_apply (exp, list) ->
       sub # expression exp;
       List.iter (fun (_, expo, _) -> opt (sub # expression) expo) list
-  | Texp_match (exp, cases, exn_cases, eff_cases, _) ->
+  | Texp_match (exp, cases, _) ->
       sub # expression exp;
       sub # cases cases;
-      sub # cases exn_cases;
-      sub # cases eff_cases
-  | Texp_try (exp, cases, eff_cases) ->
+  | Texp_try (exp, cases) ->
       sub # expression exp;
       sub # cases cases;
-      sub # cases eff_cases
   | Texp_tuple list ->
       List.iter (sub # expression) list
   | Texp_construct (_, _, args) ->
@@ -163,6 +162,8 @@ let expression sub exp =
       sub # expression exp1;
       sub # expression exp2;
       sub # expression exp3
+  | Texp_perform (_, _, args) ->
+      List.iter (sub # expression) args
   | Texp_send (exp, _meth, expo) ->
       sub # expression exp;
       opt (sub # expression) expo

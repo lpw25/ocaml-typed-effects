@@ -52,6 +52,10 @@ and pattern_desc =
   | Tpat_array of pattern list
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
+  | Tpat_exception of pattern
+  | Tpat_effect of
+      Longident.t loc * effect_constructor_description
+      * pattern list * (Ident.t * string loc) option option
 
 and expression =
   { exp_desc: expression_desc;
@@ -75,9 +79,8 @@ and expression_desc =
   | Texp_let of rec_flag * value_binding list * expression
   | Texp_function of arg_label * case list * partial
   | Texp_apply of expression * (arg_label * expression option * optional) list
-  | Texp_match of
-      expression * case list * case list * case list * partial
-  | Texp_try of expression * case list * case list
+  | Texp_match of expression * case list * partial
+  | Texp_try of expression * case list
   | Texp_tuple of expression list
   | Texp_construct of
       Longident.t loc * constructor_description * expression list
@@ -95,6 +98,8 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
+  | Texp_perform of
+      Longident.t loc * effect_constructor_description * expression list
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -113,7 +118,6 @@ and meth =
 and case =
     {
      c_lhs: pattern;
-     c_cont: Ident.t option;
      c_guard: expression option;
      c_rhs: expression;
     }

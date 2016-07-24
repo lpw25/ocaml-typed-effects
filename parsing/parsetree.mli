@@ -202,8 +202,8 @@ and pattern_desc =
          *)
   | Ppat_exception of pattern
         (* exception P *)
-  | Ppat_effect of pattern * pattern
-        (* effect P P *)
+  | Ppat_effect of Longident.t loc * pattern option * pattern option
+        (* effect E P, P *)
   | Ppat_extension of extension
         (* [%id] *)
 
@@ -294,6 +294,8 @@ and expression_desc =
         (* (E :> T)        (None, T)
            (E : T0 :> T)   (Some T0, T)
          *)
+  | Pexp_perform of Longident.t loc * expression option
+        (* perform E *)
   | Pexp_send of expression * string
         (*  E # m *)
   | Pexp_new of Longident.t loc

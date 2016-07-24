@@ -74,7 +74,7 @@ module Pat = struct
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Ppat_lazy a)
   let unpack ?loc ?attrs a = mk ?loc ?attrs (Ppat_unpack a)
   let exception_ ?loc ?attrs a = mk ?loc ?attrs (Ppat_exception a)
-  let effect_ ?loc ?attrs a b = mk ?loc ?attrs (Ppat_effect(a, b))
+  let effect_ ?loc ?attrs a b c = mk ?loc ?attrs (Ppat_effect(a, b, c))
   let extension ?loc ?attrs a = mk ?loc ?attrs (Ppat_extension a)
 end
 
@@ -104,6 +104,7 @@ module Exp = struct
   let for_ ?loc ?attrs a b c d e = mk ?loc ?attrs (Pexp_for (a, b, c, d, e))
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_constraint (a, b))
   let coerce ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_coerce (a, b, c))
+  let perform_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_perform (a, b))
   let send ?loc ?attrs a b = mk ?loc ?attrs (Pexp_send (a, b))
   let new_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_new a)
   let setinstvar ?loc ?attrs a b = mk ?loc ?attrs (Pexp_setinstvar (a, b))

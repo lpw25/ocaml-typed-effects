@@ -100,10 +100,9 @@ module MakeMap(Map : MapArgument) = struct
   and map_bindings rec_flag list =
     List.map map_binding list
 
-  and map_case {c_lhs; c_cont; c_guard; c_rhs} =
+  and map_case {c_lhs; c_guard; c_rhs} =
     {
      c_lhs = map_pattern c_lhs;
-     c_cont = c_cont;
      c_guard = may_map map_expression c_guard;
      c_rhs = map_expression c_rhs;
     }
@@ -268,6 +267,10 @@ module MakeMap(Map : MapArgument) = struct
         | Tpat_or (p1, p2, rowo) ->
           Tpat_or (map_pattern p1, map_pattern p2, rowo)
         | Tpat_lazy p -> Tpat_lazy (map_pattern p)
+        | Tpat_exception p -> Tpat_exception (map_pattern p)
+        | Tpat_effect (lid, cstr_decl, args, cont) ->
+          Tpat_effect (lid, cstr_decl,
+                          List.map map_pattern args, cont)
         | Tpat_constant _
         | Tpat_any
         | Tpat_var _ -> pat.pat_desc
@@ -303,19 +306,16 @@ module MakeMap(Map : MapArgument) = struct
                         in
                         (label, expo, optional)
                       ) list )
-        | Texp_match (exp, list1, list2, list3, partial) ->
+        | Texp_match (exp, list, partial) ->
           Texp_match (
             map_expression exp,
-            map_cases list1,
-            map_cases list2,
-            map_cases list3,
+            map_cases list,
             partial
           )
-        | Texp_try (exp, list1, list2) ->
+        | Texp_try (exp, list) ->
           Texp_try (
             map_expression exp,
-            map_cases list1,
-            map_cases list2
+            map_cases list
           )
         | Texp_tuple list ->
           Texp_tuple (List.map map_expression list)
@@ -374,6 +374,8 @@ module MakeMap(Map : MapArgument) = struct
             dir,
             map_expression exp3
           )
+        | Texp_perform (lid, cstr_desc, args) ->
+          Texp_perform (lid, cstr_desc, List.map map_expression args )
         | Texp_send (exp, meth, expo) ->
           Texp_send (map_expression exp, meth, may_map map_expression expo)
         | Texp_new (path, lid, cl_decl) -> exp.exp_desc

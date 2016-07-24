@@ -499,6 +499,7 @@ let tilde_effect pos =
 %token OR
 /* %token PARSER */
 %token PERCENT
+%token PERFORM
 %token PLUS
 %token PLUSDOT
 %token PLUSEQ
@@ -1293,6 +1294,10 @@ expr:
   | FOR ext_attributes pattern EQUAL seq_expr direction_flag seq_expr DO
     seq_expr DONE
       { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
+  | PERFORM ext_attributes constr_longident %prec below_SHARP
+      { mkexp_attrs (Pexp_perform(mkrhs $3 3, None)) $2 }
+  | PERFORM ext_attributes constr_longident simple_expr %prec below_SHARP
+      { mkexp_attrs (Pexp_perform(mkrhs $3 3, Some $4)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -1620,8 +1625,14 @@ computation_pattern:
       { $1 }
   | EXCEPTION pattern %prec prec_constr_appl
       { mkpat(Ppat_exception $2) }
-  | EFFECT pattern COMMA pattern
-      { mkpat(Ppat_effect($2, $4)) }
+  | EFFECT constr_longident
+      { mkpat(Ppat_effect(mkrhs $2 2, None, None)) }
+  | EFFECT constr_longident pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, None)) }
+  | EFFECT constr_longident COMMA pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, None, Some $4)) }
+  | EFFECT constr_longident pattern COMMA pattern
+      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, Some $5)) }
 
 pattern:
     simple_pattern
@@ -2482,6 +2493,7 @@ single_attr_id:
   | OF { "of" }
   | OPEN { "open" }
   | OR { "or" }
+  | PERFORM { "perform" }
   | PRIVATE { "private" }
   | REC { "rec" }
   | SIG { "sig" }

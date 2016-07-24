@@ -412,8 +412,11 @@ class printer  ()= object(self:'self)
         pp f "@[<2>(lazy@;%a)@]" self#pattern1 p
     | Ppat_exception p ->
         pp f "@[<2>exception@;%a@]" self#pattern1 p
-    | Ppat_effect(p1, p2) ->
-        pp f "@[<2>effect@;%a@;%a@]" self#pattern1 p1 self#pattern1 p2
+    | Ppat_effect(li, p1, p2) ->
+        pp f "@[<2>effect@;%a@;%a@;%a@]"
+           self#longident_loc li
+           (self#option self#pattern1) p1
+           (self#option ~first:", " self#pattern1) p2
     | Ppat_extension e -> self#extension f e
     | _ -> self#paren true self#pattern f x
 

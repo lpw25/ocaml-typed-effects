@@ -122,7 +122,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
       List.iter iter_binding list;
       Iter.leave_bindings rec_flag
 
-    and iter_case {c_lhs; c_cont; c_guard; c_rhs} =
+    and iter_case {c_lhs; c_guard; c_rhs} =
       iter_pattern c_lhs;
       may_iter iter_expression c_guard;
       iter_expression c_rhs
@@ -258,6 +258,9 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tpat_array list -> List.iter iter_pattern list
         | Tpat_or (p1, p2, _) -> iter_pattern p1; iter_pattern p2
         | Tpat_lazy p -> iter_pattern p
+        | Tpat_exception p -> iter_pattern p
+        | Tpat_effect (_, _, args, _) ->
+            List.iter iter_pattern args
       end;
       Iter.leave_pattern pat
 
@@ -291,15 +294,12 @@ module MakeIterator(Iter : IteratorArgument) : sig
                   None -> ()
                 | Some exp -> iter_expression exp
             ) list
-        | Texp_match (exp, list1, list2, list3, _) ->
+        | Texp_match (exp, list, _) ->
             iter_expression exp;
-            iter_cases list1;
-            iter_cases list2;
-            iter_cases list3
-        | Texp_try (exp, list1, list2) ->
+            iter_cases list
+        | Texp_try (exp, list) ->
             iter_expression exp;
-            iter_cases list1;
-            iter_cases list2
+            iter_cases list
         | Texp_tuple list ->
             List.iter iter_expression list
         | Texp_construct (_, _, args) ->
@@ -339,6 +339,8 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_expression exp1;
             iter_expression exp2;
             iter_expression exp3
+        | Texp_perform (_, _, args) ->
+            List.iter iter_expression args
         | Texp_send (exp, meth, expo) ->
             iter_expression exp;
           begin

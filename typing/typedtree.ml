@@ -53,6 +53,10 @@ and pattern_desc =
   | Tpat_array of pattern list
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
+  | Tpat_exception of pattern
+  | Tpat_effect of
+      Longident.t loc * effect_constructor_description
+      * pattern list * (Ident.t * string loc) option option
 
 and expression =
   { exp_desc: expression_desc;
@@ -76,8 +80,8 @@ and expression_desc =
   | Texp_let of rec_flag * value_binding list * expression
   | Texp_function of arg_label * case list * partial
   | Texp_apply of expression * (arg_label * expression option * optional) list
-  | Texp_match of expression * case list * case list * case list * partial
-  | Texp_try of expression * case list * case list
+  | Texp_match of expression * case list * partial
+  | Texp_try of expression * case list
   | Texp_tuple of expression list
   | Texp_construct of
       Longident.t loc * constructor_description * expression list
@@ -95,6 +99,8 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
+  | Texp_perform of
+      Longident.t loc * effect_constructor_description * expression list
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -113,7 +119,6 @@ and meth =
 and case =
     {
      c_lhs: pattern;
-     c_cont: Ident.t option;
      c_guard: expression option;
      c_rhs: expression;
     }
@@ -558,6 +563,8 @@ let iter_pattern_desc f = function
   | Tpat_array patl -> List.iter f patl
   | Tpat_or(p1, p2, _) -> f p1; f p2
   | Tpat_lazy p -> f p
+  | Tpat_exception p -> f p
+  | Tpat_effect(_, _, patl, _) -> List.iter f patl
   | Tpat_any
   | Tpat_var _
   | Tpat_constant _ -> ()
@@ -579,6 +586,9 @@ let map_pattern_desc f d =
       Tpat_variant (x1, Some (f p1), x2)
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f p1, f p2, path)
+  | Tpat_exception p1 -> Tpat_exception (f p1)
+  | Tpat_effect (lid, e, pats, cont) ->
+      Tpat_effect (lid, e, List.map f pats, cont)
   | Tpat_var _
   | Tpat_constant _
   | Tpat_any

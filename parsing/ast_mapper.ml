@@ -413,6 +413,8 @@ module E = struct
           (sub.typ sub t2)
     | Pexp_constraint (e, t) ->
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
+    | Pexp_perform (lid, arg) ->
+        perform_ ~loc ~attrs (map_loc sub lid) (map_opt (sub.expr sub) arg)
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
     | Pexp_new lid -> new_ ~loc ~attrs (map_loc sub lid)
     | Pexp_setinstvar (s, e) ->
@@ -463,7 +465,9 @@ module P = struct
     | Ppat_lazy p -> lazy_ ~loc ~attrs (sub.pat sub p)
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
     | Ppat_exception p -> exception_ ~loc ~attrs (sub.pat sub p)
-    | Ppat_effect(p1, p2) -> effect_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
+    | Ppat_effect(l, p1, p2) ->
+        effect_ ~loc ~attrs (map_loc sub l)
+          (map_opt (sub.pat sub) p1) (map_opt (sub.pat sub) p2)
     | Ppat_extension x -> extension ~loc ~attrs (sub.extension sub x)
 end
 

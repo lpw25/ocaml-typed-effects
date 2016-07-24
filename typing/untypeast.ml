@@ -331,6 +331,23 @@ let pattern sub pat =
     | Tpat_array list -> Ppat_array (List.map (sub.pat sub) list)
     | Tpat_or (p1, p2, _) -> Ppat_or (sub.pat sub p1, sub.pat sub p2)
     | Tpat_lazy p -> Ppat_lazy (sub.pat sub p)
+    | Tpat_exception p -> Ppat_exception (sub.pat sub p)
+    | Tpat_effect(lid, _, args, cont) ->
+        let args =
+          match args with
+          | [] -> None
+          | [arg] -> Some (sub.pat sub arg)
+          | args ->
+                Some (Pat.tuple ~loc
+                        (List.map (sub.pat sub) args))
+        in
+        let cont =
+          match cont with
+          | None -> None
+          | Some None -> Some (Pat.any ())
+          | Some (Some(_, s)) -> Some (Pat.var s)
+        in
+        Ppat_effect(lid, args, cont)
   in
   Pat.mk ~loc ~attrs desc
 
@@ -400,52 +417,10 @@ let expression sub exp =
                 None -> list
               | Some exp -> (label, sub.expr sub exp) :: list
           ) list [])
-    | Texp_match (exp, cases, exn_cases, eff_cases, _) ->
-      let merged_cases = sub.cases sub cases
-        @ List.map
-          (fun c ->
-            let uc = sub.case sub c in
-            let pat = { uc.pc_lhs
-                        with ppat_desc = Ppat_exception uc.pc_lhs }
-            in
-            { uc with pc_lhs = pat })
-          exn_cases
-        @ List.map
-          (fun c ->
-            let uc = sub.case sub c in
-            let cont =
-              match c.c_cont with
-              | Some id ->
-                  let name = Location.mknoloc (Ident.name id) in
-                    Pat.mk (Ppat_var name)
-              | None -> Pat.mk Ppat_any
-            in
-            let pat =
-              { uc.pc_lhs with ppat_desc = Ppat_effect (uc.pc_lhs, cont) }
-            in
-            { uc with pc_lhs = pat })
-          eff_cases
-      in
-      Pexp_match (sub.expr sub exp, merged_cases)
-    | Texp_try (exp, exn_cases, eff_cases) ->
-      let merged_cases = sub.cases sub exn_cases
-        @ List.map
-          (fun c ->
-            let uc = sub.case sub c in
-            let cont =
-              match c.c_cont with
-              | Some id ->
-                  let name = Location.mknoloc (Ident.name id) in
-                    Pat.mk (Ppat_var name)
-              | None -> Pat.mk Ppat_any
-            in
-            let pat =
-              { uc.pc_lhs with ppat_desc = Ppat_effect (uc.pc_lhs, cont) }
-            in
-            { uc with pc_lhs = pat })
-          eff_cases
-      in
-      Pexp_try (sub.expr sub exp, merged_cases)
+    | Texp_match (exp, cases, _) ->
+        Pexp_match (sub.expr sub exp, sub.cases sub cases)
+    | Texp_try (exp, cases) ->
+        Pexp_try (sub.expr sub exp, sub.cases sub cases)
     | Texp_tuple list ->
         Pexp_tuple (List.map (sub.expr sub) list)
     | Texp_construct (lid, _, args) ->
@@ -483,6 +458,14 @@ let expression sub exp =
         Pexp_for (name,
           sub.expr sub exp1, sub.expr sub exp2,
           dir, sub.expr sub exp3)
+    | Texp_perform (lid, _, args) ->
+        Pexp_perform (lid,
+          (match args with
+           | [] -> None
+           | [ arg ] -> Some (sub.expr sub arg)
+           | args ->
+               Some (Exp.tuple ~loc (List.map (sub.expr sub) args))
+          ))
     | Texp_send (exp, meth, _) ->
         Pexp_send (sub.expr sub exp, match meth with
             Tmeth_name name -> name

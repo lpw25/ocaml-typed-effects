@@ -243,6 +243,23 @@ and untype_pattern pat =
     | Tpat_array list -> Ppat_array (List.map untype_pattern list)
     | Tpat_or (p1, p2, _) -> Ppat_or (untype_pattern p1, untype_pattern p2)
     | Tpat_lazy p -> Ppat_lazy (untype_pattern p)
+    | Tpat_exception p -> Ppat_exception (untype_pattern p)
+    | Tpat_effect(lid, _, args, cont) ->
+        let args =
+          match args with
+          | [] -> None
+          | [arg] -> Some (untype_pattern arg)
+          | args ->
+                Some (Pat.tuple ~loc:pat.pat_loc
+                        (List.map untype_pattern args))
+        in
+        let cont =
+          match cont with
+          | None -> None
+          | Some None -> Some (Pat.any ())
+          | Some (Some(_, s)) -> Some (Pat.var s)
+        in
+          Ppat_effect(lid, args, cont)
   in
   Pat.mk ~loc:pat.pat_loc ~attrs:pat.pat_attributes desc
     (* todo: fix attributes on extras *)
@@ -270,27 +287,6 @@ and untype_case {c_lhs; c_guard; c_rhs} =
    pc_guard = option untype_expression c_guard;
    pc_rhs = untype_expression c_rhs;
   }
-
-and untype_exception_case c =
-  let uc = untype_case c in
-  let pat =
-    { uc.pc_lhs with ppat_desc = Ppat_exception uc.pc_lhs }
-  in
-    { uc with pc_lhs = pat }
-
-and untype_effect_case c =
-  let uc = untype_case c in
-  let cont =
-    match c.c_cont with
-    | Some id ->
-        let name = Location.mknoloc (Ident.name id) in
-          Pat.mk (Ppat_var name)
-    | None -> Pat.mk Ppat_any
-  in
-  let pat =
-    { uc.pc_lhs with ppat_desc = Ppat_effect(uc.pc_lhs, cont) }
-  in
-    { uc with pc_lhs = pat }
 
 and untype_binding {vb_pat; vb_expr; vb_attributes; vb_loc} =
   {
@@ -322,19 +318,10 @@ and untype_expression exp =
                 None -> list
               | Some exp -> (label, untype_expression exp) :: list
           ) list [])
-    | Texp_match (exp, cases, exn_cases, eff_cases, _) ->
-        let merged_cases =
-          untype_cases cases
-          @ List.map untype_exception_case exn_cases
-          @ List.map untype_effect_case eff_cases
-        in
-          Pexp_match (untype_expression exp, merged_cases)
-    | Texp_try (exp, cases, eff_cases) ->
-        let merged_cases =
-          untype_cases cases
-          @ List.map untype_effect_case eff_cases
-        in
-          Pexp_try (untype_expression exp, merged_cases)
+    | Texp_match (exp, cases, _) ->
+        Pexp_match (untype_expression exp, untype_cases cases)
+    | Texp_try (exp, cases) ->
+        Pexp_try (untype_expression exp, untype_cases cases)
     | Texp_tuple list ->
         Pexp_tuple (List.map untype_expression list)
     | Texp_construct (lid, _, args) ->
@@ -372,6 +359,15 @@ and untype_expression exp =
         Pexp_for (name,
           untype_expression exp1, untype_expression exp2,
           dir, untype_expression exp3)
+    | Texp_perform (lid, _, args) ->
+        Pexp_perform (lid,
+          (match args with
+              [] -> None
+          | [ arg ] -> Some (untype_expression arg)
+          | args ->
+              Some
+                (Exp.tuple ~loc:exp.exp_loc (List.map untype_expression args))
+          ))
     | Texp_send (exp, meth, _) ->
         Pexp_send (untype_expression exp, match meth with
             Tmeth_name name -> name

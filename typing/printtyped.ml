@@ -260,6 +260,12 @@ and pattern i ppf x =
   | Tpat_lazy p ->
       line i ppf "Tpat_lazy\n";
       pattern i ppf p;
+  | Tpat_exception p ->
+      line i ppf "Ppat_exception\n";
+      pattern i ppf p;
+  | Tpat_effect (li, _, po, _) ->
+      line i ppf "Ppat_effect %a\n" fmt_longident li;
+      list i pattern ppf po
 
 and expression_extra i ppf x attrs =
   match x with
@@ -306,17 +312,14 @@ and expression i ppf x =
       line i ppf "Texp_apply\n";
       expression i ppf e;
       list i label_x_expression ppf l;
-  | Texp_match (e, l1, l2, l3, partial) ->
+  | Texp_match (e, l, partial) ->
       line i ppf "Texp_match\n";
       expression i ppf e;
-      list i case ppf l1;
-      list i case ppf l2;
-      list i case ppf l3;
-  | Texp_try (e, l1, l2) ->
+      list i case ppf l;
+  | Texp_try (e, l) ->
       line i ppf "Texp_try\n";
       expression i ppf e;
-      list i case ppf l1;
-      list i case ppf l2;
+      list i case ppf l;
   | Texp_tuple (l) ->
       line i ppf "Texp_tuple\n";
       list i expression ppf l;
@@ -360,6 +363,9 @@ and expression i ppf x =
       expression i ppf e1;
       expression i ppf e2;
       expression i ppf e3;
+  | Texp_perform (li, _, eo) ->
+      line i ppf "Pexp_perform %a\n" fmt_longident li;
+      list i expression ppf eo;
   | Texp_send (e, Tmeth_name s, eo) ->
       line i ppf "Texp_send \"%s\"\n" s;
       expression i ppf e;
@@ -855,6 +861,9 @@ and case i ppf {c_lhs; c_guard; c_rhs} =
   | Some g -> line (i+1) ppf "<when>\n"; expression (i + 2) ppf g
   end;
   expression (i+1) ppf c_rhs;
+
+and ecstr_x_case_list i ppf (_, l) =
+  list i case ppf l
 
 and value_binding i ppf x =
   line i ppf "<def>\n";

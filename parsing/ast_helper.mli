@@ -82,7 +82,9 @@ module Pat:
     val lazy_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
     val unpack: ?loc:loc -> ?attrs:attrs -> str -> pattern
     val exception_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
-    val effect_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern -> pattern
+    val effect_:
+      ?loc:loc -> ?attrs:attrs ->
+      lid -> pattern option -> pattern option -> pattern
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> pattern
   end
 
@@ -129,6 +131,8 @@ module Exp:
                      -> expression
     val send: ?loc:loc -> ?attrs:attrs -> expression -> string -> expression
     val new_: ?loc:loc -> ?attrs:attrs -> lid -> expression
+    val perform_:
+      ?loc:loc -> ?attrs:attrs -> lid -> expression option -> expression
     val setinstvar: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val override: ?loc:loc -> ?attrs:attrs -> (str * expression) list
                   -> expression

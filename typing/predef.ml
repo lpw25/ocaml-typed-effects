@@ -52,7 +52,6 @@ and path_float = Pident ident_float
 and path_bool = Pident ident_bool
 and path_unit = Pident ident_unit
 and path_exn = Pident ident_exn
-and path_eff = Pident ident_eff
 and path_continuation = Pident ident_continuation
 and path_array = Pident ident_array
 and path_list = Pident ident_list
@@ -71,7 +70,6 @@ and type_float = newgenty (Tconstr(path_float, [], Stype, ref Mnil))
 and type_bool = newgenty (Tconstr(path_bool, [], Stype, ref Mnil))
 and type_unit = newgenty (Tconstr(path_unit, [], Stype, ref Mnil))
 and type_exn = newgenty (Tconstr(path_exn, [], Stype, ref Mnil))
-and type_eff t = newgenty (Tconstr(path_eff, [t], Stype, ref Mnil))
 and type_continuation t1 t2 =
   newgenty (Tconstr(path_continuation, [t1; t2], Stype, ref Mnil))
 and type_array t = newgenty (Tconstr(path_array, [t], Stype, ref Mnil))

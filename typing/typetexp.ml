@@ -46,6 +46,7 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
+  | Unbound_effect_constructor of Longident.t
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -266,6 +267,10 @@ let find_effect env loc lid =
   in
   check_deprecated loc eff.eff_attributes (Path.name path);
   r
+
+let find_effect_constructor =
+  find_component Env.lookup_effect_constructor
+                 (fun lid -> Unbound_effect_constructor lid)
 
 let lookup_module ?(load=false) env loc lid =
   let (path, decl) as r =
@@ -956,6 +961,8 @@ let fold_effects = fold_simple Env.fold_effects
 let fold_modules = fold_simple Env.fold_modules
 let fold_constructors = fold_descr Env.fold_constructors (fun d -> d.cstr_name)
 let fold_labels = fold_descr Env.fold_labels (fun d -> d.lbl_name)
+let fold_effect_constructors =
+  fold_descr Env.fold_effect_constructors (fun d -> d.ecstr_name)
 let fold_classs = fold_simple Env.fold_classs
 let fold_modtypes = fold_simple Env.fold_modtypes
 let fold_cltypes = fold_simple Env.fold_cltypes
@@ -1046,6 +1053,9 @@ let report_error env ppf = function
   | Unbound_label lid ->
       fprintf ppf "Unbound record field %a" longident lid;
       spellcheck ppf fold_labels env lid;
+  | Unbound_effect_constructor lid ->
+      fprintf ppf "Unbound effect constructor %a" longident lid;
+      spellcheck ppf fold_effect_constructors env lid;
   | Unbound_class lid ->
       fprintf ppf "Unbound class %a" longident lid;
       spellcheck ppf fold_classs env lid;

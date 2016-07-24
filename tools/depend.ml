@@ -160,7 +160,8 @@ let rec add_pattern bv pat =
   | Ppat_lazy p -> add_pattern bv p
   | Ppat_unpack id -> pattern_bv := StringSet.add id.txt !pattern_bv
   | Ppat_exception p -> add_pattern bv p
-  | Ppat_effect(p1, p2) -> add_pattern bv p1; add_pattern bv p2
+  | Ppat_effect(li, p1, p2) ->
+      add bv li; add_opt add_pattern bv p1; add_opt add_pattern bv p2
   | Ppat_extension _ -> ()
 
 let add_pattern bv pat =
@@ -204,6 +205,7 @@ let rec add_expr bv exp =
   | Pexp_constraint(e1, ty2) ->
       add_expr bv e1;
       add_type bv ty2
+  | Pexp_perform(c, opte) -> add bv c; add_opt add_expr bv opte
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e

@@ -46,13 +46,6 @@ let continue k v =
 let discontinue k e =
   resume (take_cont cont_taken k) (fun e -> raise e) e
 
-external perform : 'a eff -> 'a = "%perform"
-
-let delegate e k =
-  match perform e with
-  | v -> continue k v
-  | exception e -> discontinue k e
-
 (* Composition operators *)
 
 external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"

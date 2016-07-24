@@ -69,6 +69,9 @@ type t =
   | No_cmi_file of string                   (* 49 *)
   | Bad_docstring of bool                   (* 50 *)
   | Expect_tailcall                         (* 51 *)
+  | Fragile_effect_match of string * string (* 52 *)
+  | Partial_effect_match of string * string (* 53 *)
+  | All_effect_clauses_guarded of string    (* 54 *)
 ;;
 
 (* If you remove a warning, leave a hole in the numbering.  NEVER change
@@ -129,9 +132,12 @@ let number = function
   | No_cmi_file _ -> 49
   | Bad_docstring _ -> 50
   | Expect_tailcall -> 51
+  | Fragile_effect_match _ -> 52
+  | Partial_effect_match _ -> 53
+  | All_effect_clauses_guarded _ -> 54
 ;;
 
-let last_warning_number = 51
+let last_warning_number = 54
 (* Must be the max number returned by the [number] function. *)
 
 let letter = function
@@ -141,7 +147,7 @@ let letter = function
   | 'b' -> []
   | 'c' -> [1; 2]
   | 'd' -> [3]
-  | 'e' -> [4]
+  | 'e' -> [4; 52]
   | 'f' -> [5]
   | 'g' -> []
   | 'h' -> []
@@ -152,7 +158,7 @@ let letter = function
   | 'm' -> [7]
   | 'n' -> []
   | 'o' -> []
-  | 'p' -> [8]
+  | 'p' -> [8; 53]
   | 'q' -> []
   | 'r' -> [9]
   | 's' -> [10]
@@ -160,7 +166,7 @@ let letter = function
   | 'u' -> [11; 12]
   | 'v' -> [13]
   | 'w' -> []
-  | 'x' -> [14; 15; 16; 17; 18; 19; 20; 21; 22; 23; 24; 25; 30]
+  | 'x' -> [14; 15; 16; 17; 18; 19; 20; 21; 22; 23; 24; 25; 30; 54]
   | 'y' -> [26]
   | 'z' -> [27]
   | _ -> assert false
@@ -244,7 +250,7 @@ let parse_options errflag s =
   current := {error; active}
 
 (* If you change these, don't forget to change them in man/ocamlc.m *)
-let defaults_w = "+a-4-6-7-9-27-29-32..39-41..42-44-45-48-50";;
+let defaults_w = "+a-4-6-7-9-27-29-32..39-41..42-44-45-48-50-52";;
 let defaults_warn_error = "-a";;
 
 let () = parse_options false defaults_w;;
@@ -397,6 +403,27 @@ let message = function
       else "ambiguous documentation comment"
   | Expect_tailcall ->
       Printf.sprintf "expected tailcall"
+  | Fragile_effect_match(eff, "") ->
+      Printf.sprintf
+        "this pattern-matching is fragile for effect %s."
+        eff
+  | Fragile_effect_match(eff, s) ->
+      Printf.sprintf
+        "this pattern-matching is fragile for effect %s.\n\
+         It will remain exhaustive when constructors are added to type %s."
+        eff s
+  | Partial_effect_match(eff, "") ->
+      Printf.sprintf
+        "this pattern-matching is not exhaustive for effect %s."
+        eff
+  | Partial_effect_match(eff, s) ->
+      Printf.sprintf
+        "this pattern-matching is not exhaustive for effect %s.\n\
+         Here is an example of an effect that is not matched:\n%s"
+        eff s
+  | All_effect_clauses_guarded eff ->
+      Printf.sprintf
+        "bad style, all clauses for effect %s are guarded." eff
 ;;
 
 let nerrors = ref 0;;
@@ -483,6 +510,13 @@ let descriptions =
    49, "Missing cmi file when looking up module alias.";
    50, "Unexpected documentation comment.";
    51, "Warning on non-tail calls if @tailcall present";
+   52, "Fragile effect matching: matching on an effect that will remain\n\
+   \    complete even if additional constructors are added to one of the\n\
+   \    variant types matched.";
+   53, "Partial effect match: missing cases in pattern-matching on an\n\
+   \    effect.";
+   54, "Effect pattern-matching with all clauses guarded. \n\
+   \    Exhaustiveness cannot be checked.";
   ]
 ;;
 

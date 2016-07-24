@@ -337,6 +337,8 @@ type effect_constructor_description =
     ecstr_res: type_expr option;         (* Type of the result *)
     ecstr_existentials: type_expr list;  (* List of existentials *)
     ecstr_args: type_expr list;          (* Type of the arguments *)
+    ecstr_arity: int;                    (* Number of arguments *)
+    ecstr_constructors: int;             (* Number of constructors *)
     ecstr_loc: Location.t;
     ecstr_attributes: Parsetree.attributes;
    }

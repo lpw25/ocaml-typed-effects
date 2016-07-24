@@ -248,10 +248,10 @@ and pattern i ppf x =
   | Ppat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p
-  | Ppat_effect(p1, p2) ->
-      line i ppf "Ppat_effect\n";
-      pattern i ppf p1;
-      pattern i ppf p2
+  | Ppat_effect(li, p1, p2) ->
+      line i ppf "Ppat_effect %a\n" fmt_longident_loc li;
+      option i pattern ppf p1;
+      option i pattern ppf p2
   | Ppat_extension (s, arg) ->
       line i ppf "Ppat_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -341,6 +341,9 @@ and expression i ppf x =
       expression i ppf e;
       option i core_type ppf cto1;
       core_type i ppf cto2;
+  | Pexp_perform (li, eo) ->
+      line i ppf "Pexp_perfrom %a\n" fmt_longident_loc li;
+      option i expression ppf eo;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;

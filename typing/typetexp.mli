@@ -57,6 +57,7 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
+  | Unbound_effect_constructor of Longident.t
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -93,6 +94,8 @@ val find_all_labels:
     (label_description * (unit -> unit)) list
 val find_effect:
     Env.t -> Location.t -> Longident.t -> Path.t * effect_declaration
+val find_effect_constructor:
+    Env.t -> Location.t -> Longident.t -> effect_constructor_description
 val find_value:
     Env.t -> Location.t -> Longident.t -> Path.t * value_description
 val find_class:
