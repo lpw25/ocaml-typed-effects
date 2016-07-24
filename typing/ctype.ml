@@ -2790,14 +2790,14 @@ and make_rowvar level use1 rest1 use2 rest2  =
     | _ -> None
   in
   if use1 then rest1 else
-  if use2 then rest2 else newvar2 ?name Stype level
+  if use2 then rest2 else newvar2 ?name sort level
 
 and unify_fields env ty1 ty2 =          (* Optimization *)
   let (fields1, rest1) = flatten_fields ty1
   and (fields2, rest2) = flatten_fields ty2 in
   let (pairs, miss1, miss2) = associate_fields fields1 fields2 in
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
-  let va = make_rowvar (min l1 l2) (miss2=[]) rest1 (miss1=[]) rest2 in
+  let va = make_rowvar (min l1 l2) Stype (miss2=[]) rest1 (miss1=[]) rest2 in
   let d1 = rest1.desc and d2 = rest2.desc in
   try
     unify env (build_fields l1 miss1 va) rest2;
@@ -2832,7 +2832,7 @@ and unify_effects env ty1 ty2 =          (* Optimization *)
   let (effs2, rest2) = flatten_effects ty2 in
   let (miss1, miss2) = diff_effects !env effs1 effs2 in
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
-  let va = make_rowvar (min l1 l2) (miss2=[]) rest1 (miss1=[]) rest2 in
+  let va = make_rowvar (min l1 l2) Seffect (miss2=[]) rest1 (miss1=[]) rest2 in
   let d1 = rest1.desc and d2 = rest2.desc in
   try
     unify env (build_effects l1 miss1 va) rest2;
