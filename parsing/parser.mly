@@ -1627,11 +1627,11 @@ computation_pattern:
       { mkpat(Ppat_exception $2) }
   | EFFECT constr_longident
       { mkpat(Ppat_effect(mkrhs $2 2, None, None)) }
-  | EFFECT constr_longident pattern
+  | EFFECT constr_longident simple_pattern
       { mkpat(Ppat_effect(mkrhs $2 2, Some $3, None)) }
   | EFFECT constr_longident COMMA pattern
       { mkpat(Ppat_effect(mkrhs $2 2, None, Some $4)) }
-  | EFFECT constr_longident pattern COMMA pattern
+  | EFFECT constr_longident simple_pattern COMMA pattern
       { mkpat(Ppat_effect(mkrhs $2 2, Some $3, Some $5)) }
 
 pattern:
