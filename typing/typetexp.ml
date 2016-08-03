@@ -67,6 +67,11 @@ let string_of_payload = function
       string_of_cst c
   | _ -> None
 
+let string_of_var name sort =
+  match sort with
+  | Stype -> "'" ^ name
+  | Seffect -> "!" ^ name
+
 let rec error_of_extension ext =
   match ext with
   | ({txt = ("ocaml.error"|"error") as txt; loc}, p) ->
@@ -343,7 +348,7 @@ let create_package_mty fake loc env (p, l) =
 
 let type_variables =
   ref (Tbl.empty : (string * type_sort, type_expr) Tbl.t)
-let univars        = ref ([] : (string * type_expr) list)
+let univars        = ref ([] : ((string * type_sort) * type_expr) list)
 let pre_univars    = ref ([] : type_expr list)
 let used_variables =
   ref (Tbl.empty : (string * type_sort, type_expr * Location.t) Tbl.t)
@@ -371,6 +376,10 @@ let new_global_var ?name sort =
 let newvar ?name sort =
   newvar ?name:(validate_name name) sort
 
+let transl_sort = function
+  | Type -> Stype
+  | Effect -> Seffect
+
 let transl_type_param env styp =
   let loc = styp.ptyp_loc in
   match styp.ptyp_desc with
@@ -382,8 +391,10 @@ let transl_type_param env styp =
       let key = (name, Stype) in
       let ty =
         try
-          if name <> "" && name.[0] = '_' then
-            raise (Error (loc, Env.empty, Invalid_variable_name ("'" ^ name)));
+          if name <> "" && name.[0] = '_' then begin
+            let s = string_of_var name Stype in
+            raise (Error (loc, Env.empty, Invalid_variable_name s))
+          end;
           ignore (Tbl.find key !type_variables);
           raise Already_bound
         with Not_found ->
@@ -425,27 +436,30 @@ let rec transl_type env policy styp =
       in
       ctyp Ttyp_any ty
   | Ptyp_var name ->
+    let key = (name, Stype) in
     let ty =
-      if name <> "" && name.[0] = '_' then
-        raise (Error (styp.ptyp_loc, env, Invalid_variable_name ("'" ^ name)));
+      if name <> "" && name.[0] = '_' then begin
+        let s = string_of_var name Stype in
+        raise (Error (styp.ptyp_loc, env, Invalid_variable_name s))
+      end;
       begin try
-        instance env (List.assoc name !univars)
+        instance env (List.assoc key !univars)
       with Not_found -> try
-        instance env (fst(Tbl.find (name, Stype) !used_variables))
+        instance env (fst(Tbl.find key !used_variables))
       with Not_found ->
         let v =
           if policy = Univars then new_pre_univar ~name Stype
           else newvar ~name Stype
         in
         used_variables :=
-          Tbl.add (name, Stype) (v, styp.ptyp_loc) !used_variables;
+          Tbl.add key (v, styp.ptyp_loc) !used_variables;
         v
       end
     in
     ctyp (Ttyp_var name) ty
   | Ptyp_arrow(l, st1, seft, st2) ->
     let cty1 = transl_type env policy st1 in
-    let eft = transl_effect_type env seft in
+    let eft = transl_effect_type env policy seft in
     let cty2 = transl_type env policy st2 in
     let ty1 = cty1.ctyp_type in
     let ty1 =
@@ -581,10 +595,11 @@ let rec transl_type env policy styp =
   | Ptyp_alias(st, alias) ->
       let cty =
         try
+          let key = (alias, Stype) in
           let t =
-            try List.assoc alias !univars
+            try List.assoc key !univars
             with Not_found ->
-              instance env (fst(Tbl.find (alias, Stype) !used_variables))
+              instance env (fst(Tbl.find key !used_variables))
           in
           let ty = transl_type env policy st in
           begin try unify_var env t ty.ctyp_type with Unify trace ->
@@ -611,8 +626,8 @@ let rec transl_type env policy styp =
           begin match px.desc with
           | Tvar(None, Stype) ->
               Btype.log_type px; px.desc <- Tvar (Some alias, Stype)
-          | Tunivar None ->
-              Btype.log_type px; px.desc <- Tunivar (Some alias)
+          | Tunivar(None, Stype) ->
+              Btype.log_type px; px.desc <- Tunivar (Some alias, Stype)
           | _ -> ()
           end;
           { ty with ctyp_type = t }
@@ -722,7 +737,13 @@ let rec transl_type env policy styp =
       ctyp (Ttyp_variant (tfields, closed, present)) ty
    | Ptyp_poly(vars, st) ->
       begin_def();
-      let new_univars = List.map (fun name -> name, newvar ~name Stype) vars in
+      let new_univars =
+        List.map
+          (fun (name, sort) ->
+            let sort = transl_sort sort in
+            (name, sort), newvar ~name sort)
+          vars
+      in
       let old_univars = !univars in
       univars := new_univars @ !univars;
       let cty = transl_type env policy st in
@@ -732,15 +753,16 @@ let rec transl_type env policy styp =
       generalize ty;
       let ty_list =
         List.fold_left
-          (fun tyl (name, ty1) ->
+          (fun tyl ((name, sort), ty1) ->
             let v = Btype.proxy ty1 in
             if deep_occur v ty then begin
               match v.desc with
-              | Tvar(name, Stype) when v.level = Btype.generic_level ->
-                  v.desc <- Tunivar name;
+              | Tvar(name, sort) when v.level = Btype.generic_level ->
+                  v.desc <- Tunivar(name, sort);
                   v :: tyl
               | _ ->
-                raise (Error (styp.ptyp_loc, env, Cannot_quantify (name, v)))
+                let s = string_of_var name sort in
+                raise (Error (styp.ptyp_loc, env, Cannot_quantify (s, v)))
             end else tyl)
           [] new_univars
       in
@@ -785,7 +807,7 @@ and transl_fields loc env policy seen o =
       let ty2 = transl_fields loc env policy (s :: seen) o l in
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
 
-and transl_effect_type env eft =
+and transl_effect_type env policy eft =
   match eft with
   | None ->
       let tail = newty Tenil in
@@ -806,16 +828,24 @@ and transl_effect_type env eft =
         match efd_var with
         | None -> newty Tenil
         | Some { txt = name; loc } -> begin
-            if name <> "" && name.[0] = '_' then
-              raise (Error (loc, env,
-                            Invalid_variable_name ("!" ^ name)));
-            try
-              instance env (fst(Tbl.find (name, Seffect) !used_variables))
+            let key = (name, Seffect) in
+            if name <> "" && name.[0] = '_' then begin
+              let s = string_of_var name Seffect in
+              raise (Error (loc, env, Invalid_variable_name s))
+            end;
+            begin try
+              instance env (List.assoc key !univars)
+            with Not_found -> try
+              instance env (fst(Tbl.find key !used_variables))
             with Not_found ->
-              let v = newvar ~name Seffect in
+              let v =
+                if policy = Univars then new_pre_univar ~name Seffect
+                else newvar ~name Seffect
+              in
               used_variables :=
-                Tbl.add (name, Seffect) (v, loc) !used_variables;
+                Tbl.add key (v, loc) !used_variables;
               v
+            end
           end
       in
       let eft_type =
@@ -865,12 +895,8 @@ let globalize_used_variables env fixed =
           r := (loc, v,  Tbl.find key !type_variables) :: !r
         with Not_found ->
           if fixed && Btype.is_Tvar (repr ty) then begin
-            let name =
-              match sort with
-              | Stype -> "'" ^ name
-              | Seffect -> "!" ^ name
-            in
-            raise(Error(loc, env, Unbound_type_variable name))
+            let s = string_of_var name sort in
+            raise(Error(loc, env, Unbound_type_variable s))
           end;
           let v2 = new_global_var sort in
           r := (loc, v, v2) :: !r;
@@ -912,8 +938,8 @@ let transl_simple_type_univars env styp =
       (fun acc v ->
         let v = repr v in
         match v.desc with
-          Tvar(name, _) when v.level = Btype.generic_level ->
-            v.desc <- Tunivar name; v :: acc
+          Tvar(name, sort) when v.level = Btype.generic_level ->
+            v.desc <- Tunivar(name, sort); v :: acc
         | _ -> acc)
       [] !pre_univars
   in
@@ -1031,7 +1057,7 @@ let report_error env ppf = function
       fprintf ppf "The type variable name %s is not allowed in programs" name
   | Cannot_quantify (name, v) ->
       fprintf ppf
-        "@[<hov>The universal type variable '%s cannot be generalized:@ %s.@]"
+        "@[<hov>The universal type variable %s cannot be generalized:@ %s.@]"
         name
         (if Btype.is_Tvar v then "it escapes its scope" else
          if Btype.is_Tunivar v then "it is already bound to another variable"

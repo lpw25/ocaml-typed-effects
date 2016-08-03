@@ -369,7 +369,7 @@ and core_type_desc =
   | Ttyp_class of Path.t * Longident.t loc * core_type list
   | Ttyp_alias of core_type * string
   | Ttyp_variant of row_field list * closed_flag * label list option
-  | Ttyp_poly of string list * core_type
+  | Ttyp_poly of (string * effect_flag) list * core_type
   | Ttyp_package of package_type
 
 and package_type = {

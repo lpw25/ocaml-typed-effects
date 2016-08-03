@@ -1736,8 +1736,8 @@ let check_univars env expans kind exp ty_expected vars =
         let t = repr t in
         generalize t;
         match t.desc with
-          Tvar(name, _) when t.level = generic_level ->
-            log_type t; t.desc <- Tunivar name; true
+          Tvar(name, sort) when t.level = generic_level ->
+            log_type t; t.desc <- Tunivar(name, sort); true
         | _ -> false)
       vars in
   if List.length vars = List.length vars' then () else

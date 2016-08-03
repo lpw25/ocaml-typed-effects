@@ -1489,7 +1489,8 @@ let instance_poly ?(keep_names=false) fixed univars sch =
   let univars = List.map repr univars in
   let copy_var ty =
     match ty.desc with
-      Tunivar name -> if keep_names then newvar ?name Stype else newvar Stype
+    | Tunivar(name, sort) ->
+        if keep_names then newvar ?name sort else newvar sort
     | _ -> assert false
   in
   let vars = List.map copy_var univars in
@@ -1964,8 +1965,8 @@ let occur_univar env ty =
         true
     then
       match ty.desc with
-        Tunivar _ ->
-          if not (TypeSet.mem ty bound) then raise (Unify [ty, newgenvar Stype])
+        Tunivar(_, sort) ->
+          if not (TypeSet.mem ty bound) then raise (Unify [ty, newgenvar sort])
       | Tpoly (ty, tyl) ->
           let bound = List.fold_right TypeSet.add (List.map repr tyl) bound in
           occur_rec bound  ty

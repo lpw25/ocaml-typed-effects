@@ -230,6 +230,11 @@ let check_variable vl loc v =
   if List.mem v vl then
     raise Syntaxerr.(Error(Variable_in_scope(loc,v)))
 
+let check_poly_variable vl loc (v, s) =
+  match s with
+  | Type -> check_variable vl loc v
+  | Effect -> ()
+
 let varify_constructors var_names t =
   let rec loop t =
     let desc =
@@ -257,7 +262,7 @@ let varify_constructors var_names t =
           Ptyp_variant(List.map loop_row_field row_field_list,
                        flag, lbl_lst_option)
       | Ptyp_poly(string_lst, core_type) ->
-          List.iter (check_variable var_names t.ptyp_loc) string_lst;
+          List.iter (check_poly_variable var_names t.ptyp_loc) string_lst;
           Ptyp_poly(string_lst, loop core_type)
       | Ptyp_package(longident,lst) ->
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
@@ -280,7 +285,8 @@ let wrap_type_annotation newtypes core_type body =
     List.fold_right (fun newtype exp -> mkexp (Pexp_newtype (newtype, exp)))
       newtypes exp
   in
-  (exp, ghtyp(Ptyp_poly(newtypes,varify_constructors newtypes core_type)))
+  let poly_vars = List.map (fun newtype -> (newtype, Type)) newtypes in
+  (exp, ghtyp(Ptyp_poly(poly_vars,varify_constructors newtypes core_type)))
 
 let wrap_exp_attrs body (ext, attrs) =
   (* todo: keep exact location for the entire attribute *)
@@ -2055,8 +2061,12 @@ with_type_binder:
 /* Polymorphic types */
 
 typevar_list:
-        QUOTE ident                             { [$2] }
-      | typevar_list QUOTE ident                { $3 :: $1 }
+        QUOTE ident                             { [$2, Type] }
+      | BANG ident                              { [$2, Effect] }
+      | BANG TILDE                              { ["~", Effect] }
+      | typevar_list QUOTE ident                { ($3, Type) :: $1 }
+      | typevar_list BANG ident                 { ($3, Effect) :: $1 }
+      | typevar_list BANG TILDE                 { ("~", Effect) :: $1 }
 ;
 poly_type:
         core_type

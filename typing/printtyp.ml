@@ -167,7 +167,8 @@ and raw_type_desc ppf = function
   | Tnil -> fprintf ppf "Tnil"
   | Tlink t -> fprintf ppf "@[<1>Tlink@,%a@]" raw_type t
   | Tsubst t -> fprintf ppf "@[<1>Tsubst@,%a@]" raw_type t
-  | Tunivar name -> fprintf ppf "Tunivar %a" print_name name
+  | Tunivar(name, sort) ->
+      fprintf ppf "Tunivar(%a, %a)" print_name name raw_type_sort sort
   | Tpoly (t, tl) ->
       fprintf ppf "@[<hov1>Tpoly(@,%a,@,%a)@]"
         raw_type t
@@ -402,8 +403,7 @@ let tree_of_name = function
 
 let add_named_var ty =
   match ty.desc with
-  | Tvar (Some name, _) | Tunivar (Some name) ->
-      let sort = type_sort ty in
+  | Tvar (Some name, sort) | Tunivar (Some name, sort) ->
       let key = (name, sort) in
       if List.mem key !named_vars then () else
       named_vars := key :: !named_vars
@@ -411,10 +411,10 @@ let add_named_var ty =
 
 let count_effect_var ty =
   match ty.desc with
-  | Tvar (Some _, _) ->
+  | Tvar (Some _, Seffect) | Tunivar(Some _, Seffect) ->
       single_effect_var := false;
       tilde_effect_var := None
-  | Tvar (None, Seffect) -> begin
+  | Tvar (None, Seffect) | Tunivar(None, Seffect) -> begin
       match !single_effect_var, !tilde_effect_var with
       | true, None -> tilde_effect_var := Some ty
       | true, Some ty' when ty == ty' -> ()
@@ -456,10 +456,9 @@ let name_of_type t =
   (* We've already been through repr at this stage, so t is our representative
      of the union-find class. *)
   try List.assq t !names with Not_found ->
-    let sort = type_sort t in
     let key =
       match t.desc with
-        Tvar (Some name, _) | Tunivar (Some name) ->
+        | Tvar (Some name, sort) | Tunivar (Some name, sort) ->
           (* Some part of the type we've already printed has assigned another
            * unification variable to that name. We want to keep the name, so try
            * adding a number until we find a name that's not taken. *)
@@ -472,7 +471,8 @@ let name_of_type t =
           !current_name, sort
       | _ ->
           (* No name available, create a new one *)
-          new_name sort
+          new_name (type_sort t)
+
     in
     (* Exception for type declarations *)
     if fst key <> "_" then names := (t, key) :: !names;
@@ -579,7 +579,9 @@ let rec mark_loops_rec visited ty =
     | Tpoly (ty, tyl) ->
         List.iter (fun t -> add_alias t) tyl;
         mark_loops_rec visited ty
-    | Tunivar _ -> add_named_var ty
+    | Tunivar _ ->
+        add_named_var ty;
+        count_effect_var ty
     | Teffect(_, ty) ->
         mark_loops_rec visited ty
     | Tenil -> ()

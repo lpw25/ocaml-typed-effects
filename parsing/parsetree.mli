@@ -86,7 +86,7 @@ and core_type_desc =
            [< `A|`B ]        (flag = Closed; labels = Some [])
            [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
          *)
-  | Ptyp_poly of string list * core_type
+  | Ptyp_poly of (string * effect_flag) list * core_type
         (* 'a1 ... 'an. T
 
            Can only appear in the following context:
