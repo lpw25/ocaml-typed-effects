@@ -1390,6 +1390,16 @@ let transl_exception env sext =
   let newenv = Env.add_extension ~check:true ext.ext_id ext.ext_type env in
     ext, newenv
 
+(* Enter declared effects into the environment as abstract effects *)
+let enter_effect env seff man =
+  let eff =
+    { Types.eff_kind = Eff_abstract;
+      eff_manifest = man;
+      eff_loc = seff.peff_loc;
+      eff_attributes = seff.peff_attributes; }
+  in
+  Env.enter_effect seff.peff_name.txt eff env
+
 let check_effect_coherence env loc id eff =
   match eff with
   | { Types.eff_kind = Eff_variant _; eff_manifest = Some path } -> begin
@@ -1412,6 +1422,14 @@ let check_effect_coherence env loc id eff =
 let transl_effect_decl env funct_body seff =
   reset_type_variables();
   Ctype.begin_def ();
+  let (tman, man) =
+    match seff.peff_manifest with
+    | None -> None, None
+    | Some lid ->
+        let p, _ = find_effect env lid.loc lid.txt in
+        Some(lid, p), Some p
+  in
+  let id, temp_env = enter_effect env seff man in
   let (tkind, kind) =
     match seff.peff_kind with
       | Peff_abstract -> Teff_abstract, Eff_abstract
@@ -1431,7 +1449,7 @@ let transl_effect_decl env funct_body seff =
         let make_cstr sec =
           let name = Ident.create sec.pec_name.txt in
           let targs, tret_type, args, ret_type =
-            make_constructor sec.pec_loc env None sec.pec_args sec.pec_res
+            make_constructor sec.pec_loc temp_env None sec.pec_args sec.pec_res
           in
           let targs, args =
             match targs, args with
@@ -1461,20 +1479,15 @@ let transl_effect_decl env funct_body seff =
         let tecs, ecs = List.split (List.map make_cstr secs) in
           Teff_variant tecs, Eff_variant ecs
   in
-  let (tman, man) =
-    match seff.peff_manifest with
-    | None -> None, None
-    | Some lid ->
-        let p, _ = find_effect env lid.loc lid.txt in
-        Some(lid, p), Some p
-  in
   let eff =
     { Types.eff_kind = kind;
       eff_manifest = man;
       eff_loc = seff.peff_loc;
       eff_attributes = seff.peff_attributes; }
   in
-  let id, newenv = Env.enter_effect seff.peff_name.txt eff env in
+  Ctype.end_def();
+  generalize_effect_decl eff;
+  let newenv = Env.add_effect id eff env in
   let teff =
     { Typedtree.eff_id = id;
       eff_name = seff.peff_name;
@@ -1484,8 +1497,6 @@ let transl_effect_decl env funct_body seff =
       eff_kind = tkind;
       eff_attributes = seff.peff_attributes; }
   in
-  Ctype.end_def();
-  generalize_effect_decl eff;
   (* Check that all type variable are closed *)
   begin match Ctype.closed_effect_decl eff with
   | Some ty -> raise(Error(seff.peff_loc, Unbound_type_var_eff(ty, eff)))
