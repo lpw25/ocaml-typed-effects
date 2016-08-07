@@ -35,16 +35,17 @@ module Typ = struct
   let attr d a = {d with ptyp_attributes = d.ptyp_attributes @ [a]}
 
   let any ?loc ?attrs () = mk ?loc ?attrs Ptyp_any
-  let var ?loc ?attrs a = mk ?loc ?attrs (Ptyp_var a)
+  let var ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_var (a, b))
   let arrow ?loc ?attrs a b c d = mk ?loc ?attrs (Ptyp_arrow (a, b, c, d))
   let tuple ?loc ?attrs a = mk ?loc ?attrs (Ptyp_tuple a)
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_constr (a, b))
   let object_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_object (a, b))
   let class_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_class (a, b))
-  let alias ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_alias (a, b))
+  let alias ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_alias (a, b, c))
   let variant ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_variant (a, b, c))
   let poly ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_poly (a, b))
   let package ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_package (a, b))
+  let effect_ ?loc ?attrs a = mk ?loc ?attrs (Ptyp_effect a)
   let extension ?loc ?attrs a = mk ?loc ?attrs (Ptyp_extension a)
 
   let force_poly t =

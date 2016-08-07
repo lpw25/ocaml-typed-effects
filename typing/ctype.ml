@@ -1923,6 +1923,12 @@ let local_non_recursive_abbrev env p =
                    (*  Polymorphic Unification  *)
                    (*****************************)
 
+let unify_sort t1 t2 =
+  let sort1 = type_sort t1 in
+  let sort2 = type_sort t2 in
+  if not (Btype.equal_sort sort1 sort2) then
+    raise (Unify [])
+
 (* Since we cannot duplicate universal variables, unification must
    be done at meta-level, using bindings in univar_pairs *)
 let rec unify_univar t1 t2 = function
@@ -1944,6 +1950,10 @@ let rec unify_univar t1 t2 = function
           raise (Unify [])
       end
   | [] -> raise (Unify [])
+
+let unify_univar t1 t2 pairs =
+  unify_sort t1 t2;
+  unify_univar t1 t2 pairs
 
 (* Test the occurence of free univars in a type *)
 (* that's way too expansive. Must do some kind of cacheing *)
@@ -2209,6 +2219,12 @@ let rec expands_to_datatype env ty =
       end
   | _ -> false
 
+let mcomp_sort t1 t2 =
+  let sort1 = type_sort t1 in
+  let sort2 = type_sort t2 in
+  if not (equal_sort sort1 sort2) then
+    raise (Unify [])
+
 (* mcomp type_pairs subst env t1 t2 does not raise an
    exception if it is possible that t1 and t2 are actually
    equal, assuming the types in type_pairs are equal and
@@ -2225,7 +2241,7 @@ let rec mcomp type_pairs env t1 t2 =
   match (t1.desc, t2.desc) with
   | (Tvar _, _)
   | (_, Tvar _)  ->
-      ()
+      mcomp_sort t1 t2
   | (Tconstr (p1, [], _, _), Tconstr (p2, [], _, _)) when Path.same p1 p2 ->
       ()
   | _ ->
@@ -2360,6 +2376,8 @@ and mcomp_type_decl type_pairs env p1 p2 tl1 tl2 =
     end else if non_aliasable p1 decl && non_aliasable p2 decl' then
       raise (Unify [])
     else
+      if not (equal_sort decl.type_sort decl'.type_sort) then
+        raise (Unify []);
       match decl.type_kind, decl'.type_kind with
       | Type_record (lst,r), Type_record (lst',r') when r = r' ->
           mcomp_list type_pairs env tl1 tl2;
@@ -2514,7 +2532,6 @@ let unify_package env unify_list lv1 p1 n1 tl1 lv2 p2 n2 tl2 =
   || !package_subtype env p1 n1 tl1 p2 n2 tl2
   && !package_subtype env p2 n2 tl2 p1 n1 tl1 then () else raise Not_found
 
-
 let unify_eq env t1 t2 =
   t1 == t2 ||
   match !umode with
@@ -2525,6 +2542,7 @@ let unify_eq env t1 t2 =
 
 let unify1_var env t1 t2 =
   assert (is_Tvar t1);
+  unify_sort t1 t2;
   occur env t1 t2;
   occur_univar env t2;
   let d1 = t1.desc in
@@ -2637,10 +2655,12 @@ and unify3 env t1 t1' t2 t2' =
       unify_univar t1' t2' !univar_pairs;
       link_type t1' t2'
   | (Tvar _, _) ->
+      unify_sort t1 t2;
       occur !env t1' t2;
       occur_univar !env t2;
       link_type t1' t2;
   | (_, Tvar _) ->
+      unify_sort t1 t2;
       occur !env t2' t1;
       occur_univar !env t1;
       link_type t2' t1;
@@ -2698,6 +2718,7 @@ and unify3 env t1 t1' t2 t2' =
          Tconstr ((Path.Pident p') as path',[],_,_))
         when is_newtype !env path && is_newtype !env path'
         && !generate_equations ->
+          unify_sort t1 t2;
           let source,destination =
             if find_newtype_level !env path > find_newtype_level !env path'
             then  p,t2'
@@ -2705,15 +2726,18 @@ and unify3 env t1 t1' t2 t2' =
           in add_gadt_equation env source destination
       | (Tconstr ((Path.Pident p) as path,[],_,_), _)
         when is_newtype !env path && !generate_equations ->
+          unify_sort t1 t2;
           reify env t2';
           (* local_non_recursive_abbrev !env (Path.Pident p) t2'; *)
           add_gadt_equation env p t2'
       | (_, Tconstr ((Path.Pident p) as path,[],_,_))
         when is_newtype !env path && !generate_equations ->
+          unify_sort t1 t2;
           reify env t1' ;
           (* local_non_recursive_abbrev !env (Path.Pident p) t1'; *)
           add_gadt_equation env p t1'
       | (Tconstr (_,_,_,_), _) | (_, Tconstr (_,_,_,_)) when !umode = Pattern ->
+          unify_sort t1 t2;
           reify env t1';
           reify env t2';
           if !generate_equations then mcomp !env t1' t2'
@@ -3193,6 +3217,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
   try
     match (t1.desc, t2.desc) with
       (Tvar _, _) when may_instantiate inst_nongen t1 ->
+        unify_sort t1 t2;
         moregen_occur env t1.level t2;
         occur env t1 t2;
         link_type t1 t2
@@ -3210,6 +3235,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           TypePairs.add type_pairs (t1', t2') ();
           match (t1'.desc, t2'.desc) with
             (Tvar _, _) when may_instantiate inst_nongen t1' ->
+              unify_sort t1' t2;
               moregen_occur env t1'.level t2;
               link_type t1' t2
           | (Tarrow (l1, t1, e1, u1, _), Tarrow (l2, t2, e2, u2, _)) when l1 = l2
@@ -3468,6 +3494,7 @@ let rec eqtype rename type_pairs subst env t1 t2 =
     match (t1.desc, t2.desc) with
       (Tvar _, Tvar _) when rename ->
         begin try
+          unify_sort t1 t2;
           normalize_subst subst;
           if List.assq t1 !subst != t2 then raise (Unify [])
         with Not_found ->
@@ -3489,6 +3516,7 @@ let rec eqtype rename type_pairs subst env t1 t2 =
           match (t1'.desc, t2'.desc) with
             (Tvar _, Tvar _) when rename ->
               begin try
+                unify_sort t1' t2';
                 normalize_subst subst;
                 if List.assq t1' !subst != t2' then raise (Unify [])
               with Not_found ->

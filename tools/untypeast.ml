@@ -605,7 +605,7 @@ and untype_class_type_field ctf =
 and untype_core_type ct =
   let desc = match ct.ctyp_desc with
       Ttyp_any -> Ptyp_any
-    | Ttyp_var s -> Ptyp_var s
+    | Ttyp_var(n, s) -> Ptyp_var(n, s)
     | Ttyp_arrow (label, ct1, eft, ct2) ->
         Ptyp_arrow (label, untype_core_type ct1,
                     untype_effect_type eft, untype_core_type ct2)
@@ -618,12 +618,13 @@ and untype_core_type ct =
           (List.map (fun (s, a, t) -> (s, a, untype_core_type t)) list, o)
     | Ttyp_class (_path, lid, list) ->
         Ptyp_class (lid, List.map untype_core_type list)
-    | Ttyp_alias (ct, s) ->
-        Ptyp_alias (untype_core_type ct, s)
+    | Ttyp_alias (ct, n, s) ->
+        Ptyp_alias (untype_core_type ct, n, s)
     | Ttyp_variant (list, bool, labels) ->
         Ptyp_variant (List.map untype_row_field list, bool, labels)
     | Ttyp_poly (list, ct) -> Ptyp_poly (list, untype_core_type ct)
     | Ttyp_package pack -> Ptyp_package (untype_package_type pack)
+    | Ttyp_effect efd -> Ptyp_effect (untype_effect_desc efd)
   in
   Typ.mk ~loc:ct.ctyp_loc desc
 
@@ -643,12 +644,12 @@ and untype_row_field rf =
       Rtag (label, attrs, bool, List.map untype_core_type list)
   | Tinherit ct -> Rinherit (untype_core_type ct)
 
+and untype_effect_desc efd =
+  { pefd_effects = List.map fst efd.efd_effects;
+    pefd_row = Misc.may_map untype_core_type efd.efd_row; }
+
 and untype_effect_type eft =
-  match eft.eft_desc with
-  | None -> None
-  | Some desc ->
-      Some { pefd_effects = List.map fst desc.efd_effects;
-             pefd_var = desc.efd_var; }
+  Misc.may_map untype_effect_desc eft.eft_desc
 
 and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->

@@ -209,9 +209,8 @@ class printer  ()= object(self:'self)
     | Private -> pp f "private@ "
 
   method constant_string f s = pp f "%S" s
-  method tyvar f str = pp f "'%s" str
-  method poly_var f pv =
-    match pv with
+  method tyvar f v =
+    match v with
     | (str, Type) -> pp f "'%s" str
     | (str, Effect) -> pp f "!%s" str
 
@@ -237,16 +236,25 @@ class printer  ()= object(self:'self)
     match x with
     | None -> pp f "->"
     | Some e  ->
-        match e.pefd_effects, e.pefd_var with
+        match e.pefd_effects, e.pefd_row with
         | [], None -> pp f "=>"
         | effs, None ->
             pp f "-[%a]->" effects effs
-        | [], Some { txt = "~" } -> pp f "~>"
-        | effs, Some { txt = "~" } ->
-            pp f "~[%a]~>" effects effs
-        | [], Some { txt = s } -> pp f "-[!%s]->" s
-        | effs, Some { txt = s } ->
+        | [], Some { ptyp_desc = Ptyp_var("~", Effect) } ->
+            pp f "~>"
+        | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
+            pp f "-[!%s]->" s
+        | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
             pp f "-[%a|!%s]->" effects effs s
+        | [], Some { ptyp_desc = Ptyp_any } ->
+            pp f "-[..]->"
+        | effs, Some { ptyp_desc = Ptyp_any } ->
+            pp f "-[%a | ..]->" effects effs
+        | [], Some t ->
+            pp f "-[.. as %a]->" self#core_type t
+        | effs, Some t ->
+            pp f "-[%a | .. as %a]->" effects effs self#core_type t
+
 
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
@@ -257,8 +265,8 @@ class printer  ()= object(self:'self)
     | Ptyp_arrow (l, ct1, eft, ct2) ->
         pp f "@[<2>%a@;%a@;%a@]" (* FIXME remove parens later *)
           self#type_with_label (l,ct1) self#arrow eft self#core_type ct2
-    | Ptyp_alias (ct, s) ->
-        pp f "@[<2>%a@;as@;'%s@]" self#core_type1 ct s
+    | Ptyp_alias (ct, name, sort) ->
+        pp f "@[<2>%a@;as@;%a@]" self#core_type1 ct self#tyvar (name, sort)
     | Ptyp_poly (sl, ct) ->
         pp f "@[<2>%a%a@]"
           (fun f l ->
@@ -267,7 +275,7 @@ class printer  ()= object(self:'self)
               | [] -> ()
               | _ ->
                   pp f "%a@;.@;"
-                    (self#list self#poly_var ~sep:"@;")  l)
+                    (self#list self#tyvar ~sep:"@;")  l)
               l)
           sl  self#core_type ct
     | _ -> pp f "@[<2>%a@]" self#core_type1 x
@@ -275,7 +283,7 @@ class printer  ()= object(self:'self)
     if x.ptyp_attributes <> [] then self#core_type f x
     else match x.ptyp_desc with
     | Ptyp_any -> pp f "_";
-    | Ptyp_var s -> self#tyvar f  s;
+    | Ptyp_var (name, sort) -> self#tyvar f (name, sort);
     | Ptyp_tuple l ->  pp f "(%a)" (self#list self#core_type1 ~sep:"*@;") l
     | Ptyp_constr (li, l) ->
         pp f (* "%a%a@;" *) "%a%a"

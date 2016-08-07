@@ -58,6 +58,7 @@ val is_Tunivar: type_expr -> bool
 val is_Tenil: type_expr -> bool
 
 val type_sort : type_expr -> type_sort
+val equal_sort : type_sort -> type_sort -> bool
 
 val dummy_method: label
 val default_mty: module_type option -> module_type

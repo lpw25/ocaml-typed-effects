@@ -155,9 +155,11 @@ let pr_present =
   print_list (fun ppf s -> fprintf ppf "`%s" s) (fun ppf -> fprintf ppf "@ ")
 
 let pr_var ppf ng (s, sort) =
-  match sort with
-  | Osrt_type -> fprintf ppf "'%s%s" (if ng then "_" else "") s
-  | Osrt_effect -> fprintf ppf "!%s%s" (if ng then "_" else "") s
+  if s = "_" then fprintf ppf "%s" s
+  else
+    match sort with
+    | Osrt_type -> fprintf ppf "'%s%s" (if ng then "_" else "") s
+    | Osrt_effect -> fprintf ppf "!%s%s" (if ng then "_" else "") s
 
 let pr_gvar ppf v =
   pr_var ppf false v
@@ -246,7 +248,7 @@ and print_simple_out_type ppf =
         n tyl;
       fprintf ppf ")@]"
   | Otyp_effects(cstrs, row_opt) ->
-      pp_print_string ppf "[";
+      pp_print_string ppf "![";
       print_list
         print_ident (fun ppf -> pp_print_string ppf " | ")
         ppf cstrs;
@@ -341,10 +343,10 @@ let out_type = ref print_out_type
 
 (* Class types *)
 
-let type_parameter ppf (ty, (co, cn)) =
-  fprintf ppf "%s%s"
+let type_parameter ppf (nm, srt, (co, cn)) =
+  fprintf ppf "%s%a"
     (if not cn then "+" else if not co then "-" else "")
-    (if ty = "_" then ty else "'"^ty)
+    pr_gvar (nm, srt)
 
 let print_out_class_params ppf =
   function
@@ -576,22 +578,17 @@ and print_out_constr ppf (name, tyl,ret_type_opt) =
 
 and print_out_extension_constructor ppf ext =
   let print_extended_type ppf =
-    let print_type_parameter ppf ty =
-      fprintf ppf "%s"
-        (if ty = "_" then ty else "'"^ty)
-    in
-      match ext.oext_type_params with
-        [] -> fprintf ppf "%s" ext.oext_type_name
-      | [ty_param] ->
-        fprintf ppf "@[%a@ %s@]"
-          print_type_parameter
-          ty_param
-          ext.oext_type_name
-      | _ ->
-        fprintf ppf "@[(@[%a)@]@ %s@]"
-          (print_list print_type_parameter (fun ppf -> fprintf ppf ",@ "))
-          ext.oext_type_params
-          ext.oext_type_name
+    match ext.oext_type_params with
+    | [] -> fprintf ppf "%s" ext.oext_type_name
+    | [ty_param] ->
+      fprintf ppf "@[%a@ %s@]"
+        pr_gvar ty_param
+        ext.oext_type_name
+    | _ ->
+      fprintf ppf "@[(@[%a)@]@ %s@]"
+        (print_list pr_gvar (fun ppf -> fprintf ppf ",@ "))
+        ext.oext_type_params
+        ext.oext_type_name
   in
   fprintf ppf "@[<hv 2>type %t +=%s@;<1 2>%a@]"
     print_extended_type
@@ -600,19 +597,15 @@ and print_out_extension_constructor ppf ext =
 
 and print_out_type_extension ppf te =
   let print_extended_type ppf =
-    let print_type_parameter ppf ty =
-      fprintf ppf "%s"
-        (if ty = "_" then ty else "'"^ty)
-    in
     match te.otyext_params with
       [] -> fprintf ppf "%s" te.otyext_name
     | [param] ->
       fprintf ppf "@[%a@ %s@]"
-        print_type_parameter param
+        pr_gvar param
         te.otyext_name
     | _ ->
         fprintf ppf "@[(@[%a)@]@ %s@]"
-          (print_list print_type_parameter (fun ppf -> fprintf ppf ",@ "))
+          (print_list pr_gvar (fun ppf -> fprintf ppf ",@ "))
           te.otyext_params
           te.otyext_name
   in

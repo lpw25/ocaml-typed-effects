@@ -87,6 +87,13 @@ let rec type_sort ty =
   | Teffect _
   | Tenil -> Seffect
 
+let equal_sort sort1 sort2 =
+  match sort1, sort2 with
+  | Stype, Stype -> true
+  | Seffect, Seffect -> true
+  | Stype, Seffect -> false
+  | Seffect, Stype -> false
+
 (**** Representative of a type ****)
 
 let rec field_kind_repr =

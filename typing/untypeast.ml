@@ -697,7 +697,7 @@ let core_type sub ct =
   let attrs = sub.attributes sub ct.ctyp_attributes in
   let desc = match ct.ctyp_desc with
       Ttyp_any -> Ptyp_any
-    | Ttyp_var s -> Ptyp_var s
+    | Ttyp_var(n, s) -> Ptyp_var(n, s)
     | Ttyp_arrow (label, ct1, eft, ct2) ->
         Ptyp_arrow
           (label, sub.typ sub ct1,
@@ -712,11 +712,12 @@ let core_type sub ct =
           (List.map (fun (s, a, t) -> (s, a, sub.typ sub t)) list, o)
     | Ttyp_class (_path, lid, list) ->
         Ptyp_class (map_loc sub lid, List.map (sub.typ sub) list)
-    | Ttyp_alias (ct, s) ->
-        Ptyp_alias (sub.typ sub ct, s)
+    | Ttyp_alias (ct, n, s) ->
+        Ptyp_alias (sub.typ sub ct, n, s)
     | Ttyp_variant (list, bool, labels) ->
         Ptyp_variant (List.map (sub.row_field sub) list, bool, labels)
     | Ttyp_poly (list, ct) -> Ptyp_poly (list, sub.typ sub ct)
+    | Ttyp_effect efd -> Ptyp_effect (sub.effect_desc sub efd)
     | Ttyp_package pack -> Ptyp_package (sub.package_type sub pack)
   in
   Typ.mk ~loc ~attrs desc
@@ -745,7 +746,7 @@ and is_self_pat = function
 
 let effect_desc sub efd =
   { pefd_effects = List.map fst efd.efd_effects;
-    pefd_var = efd.efd_var; }
+    pefd_row = map_opt (sub.typ sub) efd.efd_row; }
 
 let class_field sub cf =
   let loc = sub.location sub cf.cf_loc; in

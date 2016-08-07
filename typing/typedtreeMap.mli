@@ -20,6 +20,7 @@ module type MapArgument = sig
   val enter_extension_constructor :
     extension_constructor -> extension_constructor
   val enter_effect_declaration : effect_declaration -> effect_declaration
+  val enter_effect_desc : effect_desc -> effect_desc
   val enter_pattern : pattern -> pattern
   val enter_expression : expression -> expression
   val enter_package_type : package_type -> package_type
@@ -49,6 +50,7 @@ module type MapArgument = sig
   val leave_extension_constructor :
     extension_constructor -> extension_constructor
   val leave_effect_declaration : effect_declaration -> effect_declaration
+  val leave_effect_desc : effect_desc -> effect_desc
   val leave_pattern : pattern -> pattern
   val leave_expression : expression -> expression
   val leave_package_type : package_type -> package_type

@@ -120,8 +120,7 @@ class printer :
       Format.formatter -> (Parsetree.core_type * Asttypes.variance) list -> unit
     method type_with_label :
       Format.formatter -> Asttypes.arg_label * Parsetree.core_type -> unit
-    method tyvar : Format.formatter -> string -> unit
-    method poly_var :
+    method tyvar :
       Format.formatter -> (string * Asttypes.effect_flag) -> unit
     method under_pipe : 'b
     method under_semi : 'b

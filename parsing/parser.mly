@@ -226,13 +226,11 @@ let exp_of_label lbl pos =
 let pat_of_label lbl pos =
   mkpat (Ppat_var (mkrhs (Longident.last lbl) pos))
 
-let check_variable vl loc v =
-  if List.mem v vl then
-    raise Syntaxerr.(Error(Variable_in_scope(loc,v)))
-
-let check_poly_variable vl loc (v, s) =
+let check_variable vl loc v s =
   match s with
-  | Type -> check_variable vl loc v
+  | Type ->
+      if List.mem v vl then
+        raise Syntaxerr.(Error(Variable_in_scope(loc,v)))
   | Effect -> ()
 
 let varify_constructors var_names t =
@@ -240,14 +238,14 @@ let varify_constructors var_names t =
     let desc =
       match t.ptyp_desc with
       | Ptyp_any -> Ptyp_any
-      | Ptyp_var x ->
-          check_variable var_names t.ptyp_loc x;
-          Ptyp_var x
+      | Ptyp_var (name, sort) ->
+          check_variable var_names t.ptyp_loc name sort;
+          Ptyp_var (name, sort)
       | Ptyp_arrow (label,core_type,e,core_type') ->
           Ptyp_arrow(label, loop core_type, e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
       | Ptyp_constr( { txt = Lident s }, []) when List.mem s var_names ->
-          Ptyp_var s
+          Ptyp_var(s, Type)
       | Ptyp_constr(longident, lst) ->
           Ptyp_constr(longident, List.map loop lst)
       | Ptyp_object (lst, o) ->
@@ -255,17 +253,21 @@ let varify_constructors var_names t =
             (List.map (fun (s, attrs, t) -> (s, attrs, loop t)) lst, o)
       | Ptyp_class (longident, lst) ->
           Ptyp_class (longident, List.map loop lst)
-      | Ptyp_alias(core_type, string) ->
-          check_variable var_names t.ptyp_loc string;
-          Ptyp_alias(loop core_type, string)
+      | Ptyp_alias(core_type, name, sort) ->
+          check_variable var_names t.ptyp_loc name sort;
+          Ptyp_alias(loop core_type, name, sort)
       | Ptyp_variant(row_field_list, flag, lbl_lst_option) ->
           Ptyp_variant(List.map loop_row_field row_field_list,
                        flag, lbl_lst_option)
-      | Ptyp_poly(string_lst, core_type) ->
-          List.iter (check_poly_variable var_names t.ptyp_loc) string_lst;
-          Ptyp_poly(string_lst, loop core_type)
+      | Ptyp_poly(var_lst, core_type) ->
+          List.iter
+            (fun (name, sort) -> check_variable var_names t.ptyp_loc name sort)
+            var_lst;
+          Ptyp_poly(var_lst, loop core_type)
       | Ptyp_package(longident,lst) ->
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
+      | Ptyp_effect desc ->
+          Ptyp_effect desc
       | Ptyp_extension (s, arg) ->
           Ptyp_extension (s, arg)
     in
@@ -401,14 +403,15 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
-let mkeffect effects varo =
+let mkeffect effects rowo =
   { pefd_effects = effects;
-    pefd_var = varo; }
+    pefd_row = rowo; }
 
 let pure_effect = mkeffect [] None
 
-let tilde_effect pos =
-    mkeffect [] (Some (mkrhs "~" pos))
+let tilde_effect =
+  let row = mktyp (Ptyp_var("~", Effect)) in
+    mkeffect [] (Some row)
 
 %}
 
@@ -1834,7 +1837,8 @@ optional_type_parameter_list:
   | optional_type_parameter_list COMMA optional_type_parameter    { $3 :: $1 }
 ;
 optional_type_variable:
-    QUOTE ident                                 { mktyp(Ptyp_var $2) }
+    QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
   | UNDERSCORE                                  { mktyp(Ptyp_any) }
 ;
 
@@ -1853,7 +1857,8 @@ type_variance:
   | MINUS                                       { Contravariant }
 ;
 type_variable:
-    QUOTE ident                                 { mktyp(Ptyp_var $2) }
+    QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
 ;
 type_parameter_list:
     type_parameter                              { [$1] }
@@ -2064,9 +2069,11 @@ typevar_list:
         QUOTE ident                             { [$2, Type] }
       | BANG ident                              { [$2, Effect] }
       | BANG TILDE                              { ["~", Effect] }
+      | BANGTILDE                               { ["~", Effect] }
       | typevar_list QUOTE ident                { ($3, Type) :: $1 }
       | typevar_list BANG ident                 { ($3, Effect) :: $1 }
       | typevar_list BANG TILDE                 { ("~", Effect) :: $1 }
+      | typevar_list BANGTILDE                  { ("~", Effect) :: $1 }
 ;
 poly_type:
         core_type
@@ -2093,7 +2100,9 @@ core_type_no_attr:
     core_type2
       { $1 }
   | core_type2 AS QUOTE ident
-      { mktyp(Ptyp_alias($1, $4)) }
+      { mktyp(Ptyp_alias($1, $4, Type)) }
+  | core_type2 AS BANG ident
+      { mktyp(Ptyp_alias($1, $4, Effect)) }
 ;
 core_type2:
     simple_core_type_or_tuple
@@ -2114,7 +2123,7 @@ arrow:
   | EQUALGREATER
       { Some pure_effect }
   | TILDEGREATER
-      { Some (tilde_effect 1) }
+      { Some tilde_effect }
   | MINUSLBRACKET effect_desc RBRACKETMINUSGREATER
       { Some $2 }
 ;
@@ -2131,18 +2140,34 @@ effect_desc_effects:
 effect_desc:
   | effect_desc_effects
       { mkeffect $1 None }
+  | effect_desc_effects BAR DOTDOT AS core_type
+      { mkeffect $1 (Some $5) }
+  | DOTDOT AS core_type
+      { mkeffect [] (Some $3) }
+  | effect_desc_effects BAR DOTDOT
+      { let row = mktyp Ptyp_any in
+          mkeffect $1 (Some row) }
+  | DOTDOT
+      { let row = mktyp Ptyp_any in
+          mkeffect [] (Some row) }
   | effect_desc_effects BAR BANG ident
-      { mkeffect $1 (Some (mkrhs $4 4)) }
+      { let row = mktyp(Ptyp_var($4, Effect)) in
+          mkeffect $1 (Some row) }
   | BANG ident
-      { mkeffect [] (Some (mkrhs $2 2)) }
+      { let row = mktyp(Ptyp_var($2, Effect)) in
+        mkeffect [] (Some row) }
   | effect_desc_effects BAR BANG TILDE
-      { mkeffect $1 (Some (mkrhs "~" 4)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect $1 (Some row) }
   | BANG TILDE
-      { mkeffect [] (Some (mkrhs "~" 2)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect [] (Some row) }
   | effect_desc_effects BAR BANGTILDE
-      { mkeffect $1 (Some (mkrhs "~" 3)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect $1 (Some row) }
   | BANGTILDE
-      { mkeffect [] (Some (mkrhs "~" 1)) }
+      { let row = mktyp(Ptyp_var("~", Effect)) in
+          mkeffect [] (Some row) }
 ;
 
 simple_core_type:
@@ -2154,7 +2179,13 @@ simple_core_type:
 
 simple_core_type2:
     QUOTE ident
-      { mktyp(Ptyp_var $2) }
+      { mktyp(Ptyp_var($2, Type)) }
+  | BANG ident
+      { mktyp(Ptyp_var($2, Effect)) }
+  | BANG TILDE
+      { mktyp(Ptyp_var("~", Effect)) }
+  | BANGTILDE
+      { mktyp(Ptyp_var("~", Effect)) }
   | UNDERSCORE
       { mktyp(Ptyp_any) }
   | type_longident
@@ -2191,6 +2222,8 @@ simple_core_type2:
       { mktyp(Ptyp_variant(List.rev $3, Closed, Some [])) }
   | LBRACKETLESS opt_bar row_field_list GREATER name_tag_list RBRACKET
       { mktyp(Ptyp_variant(List.rev $3, Closed, Some (List.rev $5))) }
+  | BANG LBRACKET effect_desc RBRACKET
+      { mktyp(Ptyp_effect $3) }
   | LPAREN MODULE package_type RPAREN
       { mktyp(Ptyp_package $3) }
   | extension

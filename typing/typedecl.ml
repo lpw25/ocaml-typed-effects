@@ -59,9 +59,9 @@ exception Error of Location.t * error
 (* Enter all declared types in the environment as abstract types *)
 
 let enter_type env sdecl id =
+  let params = List.map Typetexp.approx_type_param sdecl.ptype_params in
   let decl =
-    { type_params =
-        List.map (fun _ -> Btype.newgenvar Stype) sdecl.ptype_params;
+    { type_params = params;
       type_arity = List.length sdecl.ptype_params;
       type_sort = Stype;
       type_kind = Type_abstract;
@@ -101,7 +101,7 @@ let is_float env ty =
 let is_fixed_type sd =
   let rec has_row_var sty =
     match sty.ptyp_desc with
-      Ptyp_alias (sty, _) -> has_row_var sty
+      Ptyp_alias (sty, _, _) -> has_row_var sty
     | Ptyp_class _
     | Ptyp_object (_, Open)
     | Ptyp_variant (_, Open, _)
@@ -167,7 +167,7 @@ let transl_labels loc env closed lbls =
     lbls;
   let mk {pld_name=name;pld_mutable=mut;pld_type=arg;pld_loc=loc;pld_attributes=attrs} =
     let arg = Ast_helper.Typ.force_poly arg in
-    let cty = transl_simple_type env closed arg in
+    let cty = transl_simple_type env closed (Some Stype) arg in
     {ld_id = Ident.create name.txt; ld_name = name; ld_mutable = mut; ld_type = cty;
      ld_loc = loc; ld_attributes = attrs}
   in
@@ -189,7 +189,7 @@ let transl_labels loc env closed lbls =
 
 let transl_constructor_arguments loc env closed = function
   | Pcstr_tuple l ->
-      let l = List.map (transl_simple_type env closed) l in
+      let l = List.map (transl_simple_type env closed (Some Stype)) l in
       Types.Cstr_tuple (List.map (fun t -> t.ctyp_type) l),
       Cstr_tuple l
   | Pcstr_record l ->
@@ -212,7 +212,7 @@ let make_constructor loc env typ sargs sret_type =
       let args, targs =
         transl_constructor_arguments loc env false sargs
       in
-      let tret_type = transl_simple_type env false sret_type in
+      let tret_type = transl_simple_type env false (Some Stype) sret_type in
       let ret_type = tret_type.ctyp_type in
       begin
         match typ with
@@ -236,8 +236,8 @@ let transl_declaration env sdecl id =
   let params = List.map (fun (cty, _) -> cty.ctyp_type) tparams in
   let cstrs = List.map
     (fun (sty, sty', loc) ->
-      transl_simple_type env false sty,
-      transl_simple_type env false sty', loc)
+      transl_simple_type env false None sty,
+      transl_simple_type env false None sty', loc)
     sdecl.ptype_cstrs
   in
   let (tkind, kind) =
@@ -297,7 +297,7 @@ let transl_declaration env sdecl id =
         None -> None, None
       | Some sty ->
         let no_row = not (is_fixed_type sdecl) in
-        let cty = transl_simple_type env no_row sty in
+        let cty = transl_simple_type env no_row (Some Stype) sty in
         Some cty, Some cty.ctyp_type
     in
     let decl =
@@ -1508,7 +1508,7 @@ let transl_effect_decl env funct_body seff =
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
-  let cty = Typetexp.transl_type_scheme env valdecl.pval_type in
+  let cty = Typetexp.transl_type_scheme env (Some Stype) valdecl.pval_type in
   let ty = cty.ctyp_type in
   let v =
   match valdecl.pval_prim with
@@ -1560,8 +1560,8 @@ let transl_with_constraint env id row_path orig_decl sdecl =
   let constraints = List.map
     (function (ty, ty', loc) ->
        try
-         let cty = transl_simple_type env false ty in
-         let cty' = transl_simple_type env false ty' in
+         let cty = transl_simple_type env false None ty in
+         let cty' = transl_simple_type env false None ty' in
          let ty = cty.ctyp_type in
          let ty' = cty'.ctyp_type in
          Ctype.unify env ty ty';
@@ -1574,7 +1574,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
   let (tman, man) =  match sdecl.ptype_manifest with
       None -> None, None
     | Some sty ->
-        let cty = transl_simple_type env no_row sty in
+        let cty = transl_simple_type env no_row (Some Stype) sty in
         Some cty, Some cty.ctyp_type
   in
   let priv =

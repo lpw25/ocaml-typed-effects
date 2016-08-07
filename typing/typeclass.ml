@@ -300,7 +300,7 @@ let virtual_method val_env meths self_type lab priv sty loc =
      Ctype.filter_self_method val_env lab priv meths self_type
   in
   let sty = Ast_helper.Typ.force_poly sty in
-  let cty = transl_simple_type val_env false sty in
+  let cty = transl_simple_type val_env false (Some Stype) sty in
   let ty = cty.ctyp_type in
   begin
     try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
@@ -326,7 +326,7 @@ so that we can get an immediate value. Is that correct ? Ask Jacques. *)
       let returned_cty = ctyp Ttyp_any (Ctype.newty Tnil) val_env loc in
       delayed_meth_specs :=
       lazy (
-        let cty = transl_simple_type_univars val_env sty' in
+        let cty = transl_simple_type_univars val_env (Some Stype) sty' in
         let ty = cty.ctyp_type in
         unif ty;
         returned_cty.ctyp_desc <- Ttyp_poly ([], cty);
@@ -335,15 +335,15 @@ so that we can get an immediate value. Is that correct ? Ask Jacques. *)
       !delayed_meth_specs;
       returned_cty
   | _ ->
-      let cty = transl_simple_type val_env false sty in
+      let cty = transl_simple_type val_env false (Some Stype) sty in
       let ty = cty.ctyp_type in
       unif ty;
       cty
 
 let type_constraint val_env sty sty' loc =
-  let cty  = transl_simple_type val_env false sty in
+  let cty  = transl_simple_type val_env false None sty in
   let ty = cty.ctyp_type in
-  let cty' = transl_simple_type val_env false sty' in
+  let cty' = transl_simple_type val_env false None sty' in
   let ty' = cty'.ctyp_type in
   begin
     try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
@@ -391,7 +391,7 @@ let rec class_type_field env self_type meths
        val_sig, concr_meths, inher)
 
   | Pctf_val (lab, mut, virt, sty) ->
-      let cty = transl_simple_type env false sty in
+      let cty = transl_simple_type env false (Some Stype) sty in
       let ty = cty.ctyp_type in
       (mkctf (Tctf_val (lab, mut, virt, cty)) :: fields,
       add_val env ctf.pctf_loc lab (mut, virt, ty) val_sig, concr_meths, inher)
@@ -422,7 +422,7 @@ let rec class_type_field env self_type meths
 
 and class_signature env {pcsig_self=sty; pcsig_fields=sign} =
   let meths = ref Meths.empty in
-  let self_cty = transl_simple_type env false sty in
+  let self_cty = transl_simple_type env false (Some Stype) sty in
   let self_cty = { self_cty with
     ctyp_type = Ctype.expand_head env self_cty.ctyp_type } in
   let self_type =  self_cty.ctyp_type in
@@ -480,7 +480,9 @@ and class_type env scty =
                                                    List.length styl)));
       let ctys = List.map2
         (fun sty ty ->
-          let cty' = transl_simple_type env false sty in
+          let cty' =
+            transl_simple_type env false (Some (Btype.type_sort ty)) sty
+          in
           let ty' = cty'.ctyp_type in
           begin
            try Ctype.unify env ty' ty with Ctype.Unify trace ->
@@ -498,7 +500,7 @@ and class_type env scty =
       cltyp (Tcty_signature clsig) typ
 
   | Pcty_arrow (l, sty, scty) ->
-      let cty = transl_simple_type env false sty in
+      let cty = transl_simple_type env false (Some Stype) sty in
       let ty = cty.ctyp_type in
       let ty =
         if Btype.is_optional l
@@ -574,7 +576,7 @@ let rec class_field self_loc cl_num self_type meths vars
 
   | Pcf_val (lab, mut, Cfk_virtual styp) ->
       if !Clflags.principal then Ctype.begin_def ();
-      let cty = Typetexp.transl_simple_type val_env false styp in
+      let cty = Typetexp.transl_simple_type val_env false (Some Stype) styp in
       let ty = cty.ctyp_type in
       if !Clflags.principal then begin
         Ctype.end_def ();
@@ -653,7 +655,9 @@ let rec class_field self_loc cl_num self_type meths vars
           begin match sty with None -> ()
                 | Some sty ->
                     let sty = Ast_helper.Typ.force_poly sty in
-                    let cty' = Typetexp.transl_simple_type val_env false sty in
+                    let cty' =
+                      Typetexp.transl_simple_type val_env false (Some Stype) sty
+                    in
                     let ty' = cty'.ctyp_type in
               Ctype.unify val_env ty' ty
           end;
@@ -862,24 +866,28 @@ and class_expr cl_num val_env met_env scl =
       let (path, decl) = Typetexp.find_class val_env scl.pcl_loc lid.txt in
       if Path.same decl.cty_path unbound_class then
         raise(Error(scl.pcl_loc, val_env, Unbound_class_2 lid.txt));
-      let tyl = List.map
-          (fun sty -> transl_simple_type val_env false sty)
-          styl
-      in
       let (params, clty) =
         Ctype.instance_class decl.cty_params decl.cty_type
       in
       let clty' = abbreviate_class_type path params clty in
-      if List.length params <> List.length tyl then
+      if List.length params <> List.length styl then
         raise(Error(scl.pcl_loc, val_env,
                     Parameter_arity_mismatch (lid.txt, List.length params,
-                                                   List.length tyl)));
-      List.iter2
-        (fun cty' ty ->
-          let ty' = cty'.ctyp_type in
-           try Ctype.unify val_env ty' ty with Ctype.Unify trace ->
-             raise(Error(cty'.ctyp_loc, val_env, Parameter_mismatch trace)))
-        tyl params;
+                                                   List.length styl)));
+      let tyl =
+        List.map2
+          (fun sty ty ->
+            let cty' =
+              transl_simple_type val_env false (Some (Btype.type_sort ty)) sty
+            in
+            let ty' = cty'.ctyp_type in
+            begin
+             try Ctype.unify val_env ty' ty with Ctype.Unify trace ->
+               raise(Error(sty.ptyp_loc, val_env, Parameter_mismatch trace))
+            end;
+            cty')
+          styl params
+      in
       let cl =
         rc {cl_desc = Tcl_ident (path, lid, tyl);
             cl_loc = scl.pcl_loc;
@@ -1220,15 +1228,15 @@ let rec approx_description ct =
 
 (*******************************)
 
-let temp_abbrev loc env id arity =
-  let params = ref [] in
-  for _i = 1 to arity do
-    params := Ctype.newvar Stype :: !params
-  done;
+let temp_abbrev loc env id params =
+  let params =
+    List.map Typetexp.approx_type_param params
+  in
+  let arity = List.length params in
   let ty = Ctype.newobj (Ctype.newvar Stype) in
   let env =
     Env.add_type ~check:true id
-      {type_params = !params;
+      {type_params = params;
        type_arity = arity;
        type_sort = Stype;
        type_kind = Type_abstract;
@@ -1241,14 +1249,13 @@ let temp_abbrev loc env id arity =
       }
       env
   in
-  (!params, ty, env)
+  (params, ty, env)
 
 let initial_env define_class approx
     (res, env) (cl, id, ty_id, obj_id, cl_id) =
   (* Temporary abbreviations *)
-  let arity = List.length cl.pci_params in
-  let (obj_params, obj_ty, env) = temp_abbrev cl.pci_loc env obj_id arity in
-  let (cl_params, cl_ty, env) = temp_abbrev cl.pci_loc env cl_id arity in
+  let (obj_params, obj_ty, env) = temp_abbrev cl.pci_loc env obj_id cl.pci_params in
+  let (cl_params, cl_ty, env) = temp_abbrev cl.pci_loc env cl_id cl.pci_params in
 
   (* Temporary type for the class constructor *)
   let constr_type = approx cl.pci_expr in

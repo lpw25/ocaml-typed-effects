@@ -39,7 +39,7 @@ module Typ :
     val attr: core_type -> attribute -> core_type
 
     val any: ?loc:loc -> ?attrs:attrs -> unit -> core_type
-    val var: ?loc:loc -> ?attrs:attrs -> string -> core_type
+    val var: ?loc:loc -> ?attrs:attrs -> string -> effect_flag -> core_type
     val arrow: ?loc:loc -> ?attrs:attrs -> arg_label -> core_type
                -> effect_type -> core_type -> core_type
     val tuple: ?loc:loc -> ?attrs:attrs -> core_type list -> core_type
@@ -48,13 +48,15 @@ module Typ :
                   (string * attributes * core_type) list -> closed_flag ->
                   core_type
     val class_: ?loc:loc -> ?attrs:attrs -> lid -> core_type list -> core_type
-    val alias: ?loc:loc -> ?attrs:attrs -> core_type -> string -> core_type
+    val alias: ?loc:loc -> ?attrs:attrs ->
+                 core_type -> string -> effect_flag -> core_type
     val variant: ?loc:loc -> ?attrs:attrs -> row_field list -> closed_flag
                  -> label list option -> core_type
     val poly: ?loc:loc -> ?attrs:attrs ->
               (string * effect_flag) list -> core_type -> core_type
     val package: ?loc:loc -> ?attrs:attrs -> lid -> (lid * core_type) list
                  -> core_type
+    val effect_: ?loc:loc -> ?attrs:attrs -> effect_desc -> core_type
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> core_type
 
     val force_poly: core_type -> core_type

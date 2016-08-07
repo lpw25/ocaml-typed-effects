@@ -361,16 +361,17 @@ and core_type =
 
 and core_type_desc =
     Ttyp_any
-  | Ttyp_var of string
+  | Ttyp_var of string * effect_flag
   | Ttyp_arrow of arg_label * core_type * effect_type * core_type
   | Ttyp_tuple of core_type list
   | Ttyp_constr of Path.t * Longident.t loc * core_type list
   | Ttyp_object of (string * attributes * core_type) list * closed_flag
   | Ttyp_class of Path.t * Longident.t loc * core_type list
-  | Ttyp_alias of core_type * string
+  | Ttyp_alias of core_type * string * effect_flag
   | Ttyp_variant of row_field list * closed_flag * label list option
   | Ttyp_poly of (string * effect_flag) list * core_type
   | Ttyp_package of package_type
+  | Ttyp_effect of effect_desc
 
 and package_type = {
   pack_path : Path.t;
@@ -390,7 +391,8 @@ and effect_type = {
 
 and effect_desc = {
   efd_effects : (Longident.t loc * Path.t) list;
-  efd_var : string loc option;
+  efd_type: Types.type_expr;
+  efd_row : core_type option;
 }
 
 and value_description =

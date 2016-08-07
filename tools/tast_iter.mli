@@ -30,6 +30,7 @@ class iter: object
   method expression: expression -> unit
   method extension_constructor: extension_constructor -> unit
   method effect_declaration: effect_declaration -> unit
+  method effect_desc: effect_desc -> unit
   method module_binding: module_binding -> unit
   method module_expr: module_expr -> unit
   method module_type: module_type -> unit

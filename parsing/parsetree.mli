@@ -52,7 +52,7 @@ and core_type =
 and core_type_desc =
   | Ptyp_any
         (*  _ *)
-  | Ptyp_var of string
+  | Ptyp_var of string * effect_flag
         (* 'a *)
   | Ptyp_arrow of arg_label * core_type * effect_type * core_type
         (* T1 -> T2       Simple
@@ -78,7 +78,7 @@ and core_type_desc =
            T #tconstr
            (T1, ..., Tn) #tconstr
          *)
-  | Ptyp_alias of core_type * string
+  | Ptyp_alias of core_type * string * effect_flag
         (* T as 'a *)
   | Ptyp_variant of row_field list * closed_flag * label list option
         (* [ `A|`B ]         (flag = Closed; labels = None)
@@ -108,6 +108,7 @@ and core_type_desc =
 
   | Ptyp_package of package_type
         (* (module S) *)
+  | Ptyp_effect of effect_desc
   | Ptyp_extension of extension
         (* [%id] *)
 
@@ -139,7 +140,7 @@ and effect_type = effect_desc option
 and effect_desc =
   {
     pefd_effects : Longident.t loc list;
-    pefd_var : string loc option;
+    pefd_row : core_type option;
   }
 
 (* Patterns *)

@@ -150,7 +150,7 @@ let attributes i ppf l =
     )
     l
 
-let fmt_poly_var ppf x =
+let fmt_var ppf x =
   match x with
   | (v, Type) -> fprintf ppf "'%s" v
   | (v, Effect) -> fprintf ppf "!%s" v
@@ -161,7 +161,7 @@ let rec core_type i ppf x =
   let i = i+1 in
   match x.ctyp_desc with
   | Ttyp_any -> line i ppf "Ttyp_any\n";
-  | Ttyp_var (s) -> line i ppf "Ttyp_var %s\n" s;
+  | Ttyp_var (n, s) -> line i ppf "Ttyp_var %a\n" fmt_var (n, s);
   | Ttyp_arrow (l, ct1, eft, ct2) ->
       line i ppf "Ttyp_arrow\n";
       arg_label i ppf l;
@@ -191,17 +191,20 @@ let rec core_type i ppf x =
   | Ttyp_class (li, _, l) ->
       line i ppf "Ttyp_class %a\n" fmt_path li;
       list i core_type ppf l;
-  | Ttyp_alias (ct, s) ->
-      line i ppf "Ttyp_alias \"%s\"\n" s;
+  | Ttyp_alias (ct, n, s) ->
+      line i ppf "Ttyp_alias \"%a\"\n" fmt_var (n, s);
       core_type i ppf ct;
   | Ttyp_poly (pvl, ct) ->
       line i ppf "Ttyp_poly%a\n"
-        (fun ppf -> List.iter (fun pv -> fprintf ppf " %a" fmt_poly_var pv))
+        (fun ppf -> List.iter (fun pv -> fprintf ppf " %a" fmt_var pv))
         pvl;
       core_type i ppf ct;
   | Ttyp_package { pack_path = s; pack_fields = l } ->
       line i ppf "Ttyp_package %a\n" fmt_path s;
       list i package_with ppf l;
+  | Ttyp_effect efd ->
+      line i ppf "Ptyp_effect\n";
+      effect_desc i ppf efd
 
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
@@ -215,8 +218,8 @@ and effect_desc i ppf x =
   let i = i+1 in
   line i ppf "peft_constrs =\n";
   list (i+1) longident_x_path ppf x.efd_effects;
-  line i ppf "peft_var =\n";
-  option (i+1) string_loc ppf x.efd_var
+  line i ppf "peft_row =\n";
+  option (i+1) core_type ppf x.efd_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;

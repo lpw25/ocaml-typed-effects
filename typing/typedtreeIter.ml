@@ -26,6 +26,7 @@ module type IteratorArgument = sig
     val enter_type_extension : type_extension -> unit
     val enter_extension_constructor : extension_constructor -> unit
     val enter_effect_declaration : effect_declaration -> unit
+    val enter_effect_desc : effect_desc -> unit
     val enter_pattern : pattern -> unit
     val enter_expression : expression -> unit
     val enter_package_type : package_type -> unit
@@ -53,6 +54,7 @@ module type IteratorArgument = sig
     val leave_type_extension : type_extension -> unit
     val leave_extension_constructor : extension_constructor -> unit
     val leave_effect_declaration : effect_declaration -> unit
+    val leave_effect_desc : effect_desc -> unit
     val leave_pattern : pattern -> unit
     val leave_expression : expression -> unit
     val leave_package_type : package_type -> unit
@@ -264,7 +266,11 @@ module MakeIterator(Iter : IteratorArgument) : sig
       end;
       Iter.leave_pattern pat
 
-    and option f x = match x with None -> () | Some e -> f e
+    and option : 'a. ('a -> unit) -> 'a option -> unit =
+      fun f x ->
+        match x with
+        | None -> ()
+        | Some e -> f e
 
     and iter_expression exp =
       Iter.enter_expression exp;
@@ -558,14 +564,20 @@ module MakeIterator(Iter : IteratorArgument) : sig
       end;
       Iter.leave_class_type_field ctf
 
+    and iter_effect_desc efd =
+      Iter.enter_effect_desc efd;
+      option iter_core_type efd.efd_row;
+      Iter.leave_effect_desc efd
+
     and iter_core_type ct =
       Iter.enter_core_type ct;
       begin
         match ct.ctyp_desc with
           Ttyp_any -> ()
-        | Ttyp_var s -> ()
+        | Ttyp_var _ -> ()
         | Ttyp_arrow (label, ct1, eft, ct2) ->
             iter_core_type ct1;
+            option iter_effect_desc eft.eft_desc;
             iter_core_type ct2
         | Ttyp_tuple list -> List.iter iter_core_type list
         | Ttyp_constr (path, _, list) ->
@@ -574,12 +586,13 @@ module MakeIterator(Iter : IteratorArgument) : sig
             List.iter (fun (_, _, t) -> iter_core_type t) list
         | Ttyp_class (path, _, list) ->
             List.iter iter_core_type list
-        | Ttyp_alias (ct, s) ->
+        | Ttyp_alias (ct, n, s) ->
             iter_core_type ct
         | Ttyp_variant (list, bool, labels) ->
             List.iter iter_row_field list
         | Ttyp_poly (list, ct) -> iter_core_type ct
         | Ttyp_package pack -> iter_package_type pack
+        | Ttyp_effect efd -> iter_effect_desc efd
       end;
       Iter.leave_core_type ct
 
@@ -627,6 +640,7 @@ module DefaultIteratorArgument = struct
       let enter_type_extension _ = ()
       let enter_extension_constructor _ = ()
       let enter_effect_declaration _ = ()
+      let enter_effect_desc _ = ()
       let enter_pattern _ = ()
       let enter_expression _ = ()
       let enter_package_type _ = ()
@@ -655,6 +669,7 @@ module DefaultIteratorArgument = struct
       let leave_type_extension _ = ()
       let leave_extension_constructor _ = ()
       let leave_effect_declaration _ = ()
+      let leave_effect_desc _ = ()
       let leave_pattern _ = ()
       let leave_expression _ = ()
       let leave_package_type _ = ()

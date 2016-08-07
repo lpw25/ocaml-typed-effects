@@ -37,17 +37,21 @@ let add bv lid =
 
 let addmodule bv lid = add_path bv lid.txt
 
+let add_opt add_fn bv = function
+    None -> ()
+  | Some x -> add_fn bv x
+
 let rec add_type bv ty =
   match ty.ptyp_desc with
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
   | Ptyp_arrow(_, t1, eft, t2) ->
-      add_type bv t1; add_effect_type bv eft; add_type bv t2
+      add_type bv t1; add_opt add_effect_desc bv eft; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) -> List.iter (fun (_, _, t) -> add_type bv t) fl
   | Ptyp_class(c, tl) -> add bv c; List.iter (add_type bv) tl
-  | Ptyp_alias(t, _) -> add_type bv t
+  | Ptyp_alias(t, _, _) -> add_type bv t
   | Ptyp_variant(fl, _, _) ->
       List.iter
         (function Rtag(_,_,_,stl) -> List.iter (add_type bv) stl
@@ -55,20 +59,16 @@ let rec add_type bv ty =
         fl
   | Ptyp_poly(_, t) -> add_type bv t
   | Ptyp_package pt -> add_package_type bv pt
+  | Ptyp_effect efd -> add_effect_desc bv efd
   | Ptyp_extension _ -> ()
 
 and add_package_type bv (lid, l) =
   add bv lid;
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
 
-and add_effect_type bv eft =
-  match eft with
-  | None -> ()
-  | Some desc -> List.iter (add bv) desc.pefd_effects
-
-let add_opt add_fn bv = function
-    None -> ()
-  | Some x -> add_fn bv x
+and add_effect_desc bv efd =
+  List.iter (add bv) efd.pefd_effects;
+  add_opt add_type bv efd.pefd_row
 
 let add_constructor_arguments bv = function
   | Pcstr_tuple l -> List.iter (add_type bv) l
