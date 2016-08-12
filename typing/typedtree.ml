@@ -72,7 +72,7 @@ and exp_extra =
   | Texp_coerce of core_type option * core_type
   | Texp_open of override_flag * Path.t * Longident.t loc * Env.t
   | Texp_poly of core_type option
-  | Texp_newtype of string
+  | Texp_newtype of string * effect_flag
 
 and expression_desc =
     Texp_ident of Path.t * Longident.t loc * Types.value_description
@@ -420,6 +420,7 @@ and type_declaration =
     typ_type: Types.type_declaration;
     typ_cstrs: (core_type * core_type * Location.t) list;
     typ_kind: type_kind;
+    typ_sort: effect_flag;
     typ_private: private_flag;
     typ_manifest: core_type option;
     typ_loc: Location.t;

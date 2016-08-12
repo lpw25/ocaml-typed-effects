@@ -128,6 +128,7 @@ and untype_type_declaration decl =
           Ptype_record (List.map untype_label_declaration list)
       | Ttype_open -> Ptype_open
     );
+    ptype_sort = decl.typ_sort;
     ptype_private = decl.typ_private;
     ptype_manifest = option untype_core_type decl.typ_manifest;
     ptype_attributes = decl.typ_attributes;
@@ -275,7 +276,7 @@ and untype_extra (extra, loc, attrs) sexp =
         Pexp_constraint (sexp, untype_core_type cty)
     | Texp_open (ovf, _path, lid, _) -> Pexp_open (ovf, lid, sexp)
     | Texp_poly cto -> Pexp_poly (sexp, option untype_core_type cto)
-    | Texp_newtype s -> Pexp_newtype (s, sexp)
+    | Texp_newtype (n, s) -> Pexp_newtype (n, s, sexp)
   in
   Exp.mk ~loc ~attrs desc
 

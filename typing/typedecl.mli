@@ -97,6 +97,7 @@ type error =
   | Varying_anonymous
   | Val_in_structure
   | Not_allowed_in_functor_body
+  | Effect_type_with_definition
 
 exception Error of Location.t * error
 

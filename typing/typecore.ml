@@ -167,7 +167,7 @@ let iter_expression f e =
     | Pexp_record (iel, eo) ->
         may expr eo; List.iter (fun (_, e) -> expr e) iel
     | Pexp_open (_, _, e)
-    | Pexp_newtype (_, e)
+    | Pexp_newtype (_, _, e)
     | Pexp_poly (e, _)
     | Pexp_lazy e
     | Pexp_assert e
@@ -3001,8 +3001,9 @@ and type_expect_ ?in_function ?(recarg=Rejected) env expected_eff sexp
       in
       re { exp with exp_extra =
              (Texp_poly cty, loc, sexp.pexp_attributes) :: exp.exp_extra }
-  | Pexp_newtype(name, sbody) ->
-      let ty = newvar Stype in
+  | Pexp_newtype(name, ssort, sbody) ->
+      let sort = Typetexp.transl_sort ssort in
+      let ty = newvar sort in
       (* remember original level *)
       begin_def ();
       (* Create a fake abstract type declaration for name. *)
@@ -3010,7 +3011,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env expected_eff sexp
       let decl = {
         type_params = [];
         type_arity = 0;
-        type_sort = Stype;
+        type_sort = sort;
         type_kind = Type_abstract;
         type_private = Public;
         type_manifest = None;
@@ -3048,7 +3049,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env expected_eff sexp
          any new extra node in the typed AST. *)
       rue { body with exp_loc = loc; exp_type = ety;
             exp_extra =
-            (Texp_newtype name, loc, sexp.pexp_attributes) :: body.exp_extra }
+            (Texp_newtype (name, ssort), loc, sexp.pexp_attributes) :: body.exp_extra }
   | Pexp_pack m ->
       let (p, nl, tl) =
         match Ctype.expand_head env (instance env ty_expected) with

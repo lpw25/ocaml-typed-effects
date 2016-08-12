@@ -385,7 +385,7 @@ let exp_extra sub (extra, loc, attrs) sexp =
     | Texp_open (ovf, _path, lid, _) ->
         Pexp_open (ovf, map_loc sub lid, sexp)
     | Texp_poly cto -> Pexp_poly (sexp, map_opt (sub.typ sub) cto)
-    | Texp_newtype s -> Pexp_newtype (s, sexp)
+    | Texp_newtype(s, e) -> Pexp_newtype (s, e, sexp)
   in
   Exp.mk ~loc ~attrs desc
 

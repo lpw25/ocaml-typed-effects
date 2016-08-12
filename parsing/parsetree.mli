@@ -331,7 +331,7 @@ and expression_desc =
            for methods (not values). *)
   | Pexp_object of class_structure
         (* object ... end *)
-  | Pexp_newtype of string * expression
+  | Pexp_newtype of string * effect_flag * expression
         (* fun (type t) -> E *)
   | Pexp_pack of module_expr
         (* (module ME)
@@ -378,6 +378,7 @@ and type_declaration =
      ptype_cstrs: (core_type * core_type * Location.t) list;
            (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
      ptype_kind: type_kind;
+     ptype_sort: effect_flag;
      ptype_private: private_flag;   (* = private ... *)
      ptype_manifest: core_type option;  (* = T *)
      ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)

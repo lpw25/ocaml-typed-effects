@@ -230,26 +230,26 @@ let exp_of_label lbl pos =
 let pat_of_label lbl pos =
   mkpat (Ppat_var (mkrhs (Longident.last lbl) pos))
 
-let check_variable vl loc v s =
-  match s with
-  | Type ->
-      if List.mem v vl then
-        raise Syntaxerr.(Error(Variable_in_scope(loc,v)))
-  | Effect -> ()
+let check_variable newtypes loc v s =
+  if List.mem (v, s) newtypes then
+    raise Syntaxerr.(Error(Variable_in_scope(loc, v, s)))
 
-let varify_constructors var_names t =
+let varify_constructors newtypes t =
   let rec loop t =
     let desc =
       match t.ptyp_desc with
       | Ptyp_any -> Ptyp_any
       | Ptyp_var (name, sort) ->
-          check_variable var_names t.ptyp_loc name sort;
+          check_variable newtypes t.ptyp_loc name sort;
           Ptyp_var (name, sort)
       | Ptyp_arrow (label,core_type,e,core_type') ->
           Ptyp_arrow(label, loop core_type, e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
-      | Ptyp_constr( { txt = Lident s }, []) when List.mem s var_names ->
-          Ptyp_var(s, Type)
+      | Ptyp_constr( { txt = Lident n }, []) as desc -> begin
+          match List.find (fun (n', _) -> n = n') newtypes with
+          | (_, sort) -> Ptyp_var(n, sort)
+          | exception Not_found -> desc
+        end
       | Ptyp_constr(longident, lst) ->
           Ptyp_constr(longident, List.map loop lst)
       | Ptyp_object (lst, o) ->
@@ -258,20 +258,20 @@ let varify_constructors var_names t =
       | Ptyp_class (longident, lst) ->
           Ptyp_class (longident, List.map loop lst)
       | Ptyp_alias(core_type, name, sort) ->
-          check_variable var_names t.ptyp_loc name sort;
+          check_variable newtypes t.ptyp_loc name sort;
           Ptyp_alias(loop core_type, name, sort)
       | Ptyp_variant(row_field_list, flag, lbl_lst_option) ->
           Ptyp_variant(List.map loop_row_field row_field_list,
                        flag, lbl_lst_option)
-      | Ptyp_poly(var_lst, core_type) ->
+      | Ptyp_poly(vars, core_type) ->
           List.iter
-            (fun (name, sort) -> check_variable var_names t.ptyp_loc name sort)
-            var_lst;
-          Ptyp_poly(var_lst, loop core_type)
+            (fun (name, sort) -> check_variable newtypes t.ptyp_loc name sort)
+            vars;
+          Ptyp_poly(vars, loop core_type)
       | Ptyp_package(longident,lst) ->
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
       | Ptyp_effect desc ->
-          Ptyp_effect desc
+          Ptyp_effect (loop_effect_desc desc)
       | Ptyp_extension (s, arg) ->
           Ptyp_extension (s, arg)
     in
@@ -282,17 +282,22 @@ let varify_constructors var_names t =
           Rtag(label,attrs,flag,List.map loop lst)
       | Rinherit t ->
           Rinherit (loop t)
+  and loop_effect_desc desc =
+    match desc.pefd_row with
+    | None -> desc
+    | Some t -> { desc with pefd_row = Some (loop t) }
   in
   loop t
 
 let wrap_type_annotation newtypes core_type body =
   let exp = mkexp(Pexp_constraint(body,core_type)) in
   let exp =
-    List.fold_right (fun newtype exp -> mkexp (Pexp_newtype (newtype, exp)))
+    List.fold_right
+      (fun (newtype, sort) exp -> mkexp (Pexp_newtype (newtype, sort, exp)))
       newtypes exp
   in
-  let poly_vars = List.map (fun newtype -> (newtype, Type)) newtypes in
-  (exp, ghtyp(Ptyp_poly(poly_vars,varify_constructors newtypes core_type)))
+  let typ = varify_constructors (List.rev newtypes) core_type in
+  (exp, ghtyp(Ptyp_poly(newtypes, typ)))
 
 let wrap_exp_attrs body (ext, attrs) =
   (* todo: keep exact location for the entire attribute *)
@@ -1105,7 +1110,7 @@ method_:
   | override_flag private_flag label COLON poly_type EQUAL seq_expr
       { mkloc $3 (rhs_loc 3), $2,
         Cfk_concrete ($1, ghexp(Pexp_poly($7, Some $5))) }
-  | override_flag private_flag label COLON TYPE lident_list
+  | override_flag private_flag label COLON TYPE poly_type_list
     DOT core_type EQUAL seq_expr
       { let exp, poly = wrap_type_annotation $6 $8 $10 in
         mkloc $3 (rhs_loc 3), $2,
@@ -1286,8 +1291,8 @@ expr:
   | FUN ext_attributes labeled_simple_pattern fun_def
       { let (l,o,p) = $3 in
         mkexp_attrs (Pexp_fun(l, o, p, $4)) $2 }
-  | FUN ext_attributes LPAREN TYPE LIDENT RPAREN fun_def
-      { mkexp_attrs (Pexp_newtype($5, $7)) $2 }
+  | FUN ext_attributes LPAREN TYPE LIDENT type_sort RPAREN fun_def
+      { mkexp_attrs (Pexp_newtype($5, $6, $8)) $2 }
   | MATCH ext_attributes seq_expr WITH opt_bar match_cases
       { mkexp_attrs (Pexp_match($3, List.rev $6)) $2 }
   | TRY ext_attributes seq_expr WITH opt_bar match_cases
@@ -1526,9 +1531,24 @@ label_expr:
 label_ident:
     LIDENT   { ($1, mkexp(Pexp_ident(mkrhs (Lident $1) 1))) }
 ;
-lident_list:
-    LIDENT                            { [$1] }
-  | LIDENT lident_list                { $1 :: $2 }
+poly_type_list_multi:
+    LIDENT
+      { [$1, Type] }
+  | LPAREN LIDENT COLON EFFECT RPAREN
+      { [$2, Effect] }
+  | LPAREN LIDENT COLON TYPE RPAREN
+      { [$2, Type] }
+  | LIDENT poly_type_list_multi
+      { ($1, Type) :: $2 }
+  | LPAREN LIDENT COLON EFFECT RPAREN poly_type_list_multi
+      { ($2, Effect) :: $6 }
+  | LPAREN LIDENT COLON TYPE RPAREN poly_type_list_multi
+      { ($2, Type) :: $6 }
+;
+poly_type_list:
+  | poly_type_list_multi              { $1 }
+  | LIDENT COLON EFFECT               { [$1, Effect] }
+  | LIDENT COLON TYPE                 { [$1, Type] }
 ;
 let_binding_body:
     val_ident fun_binding
@@ -1537,7 +1557,7 @@ let_binding_body:
       { (ghpat(Ppat_constraint(mkpatvar $1 1,
                                ghtyp(Ptyp_poly(List.rev $3,$5)))),
          $7) }
-  | val_ident COLON TYPE lident_list DOT core_type EQUAL seq_expr
+  | val_ident COLON TYPE poly_type_list DOT core_type EQUAL seq_expr
       { let exp, poly = wrap_type_annotation $4 $6 $8 in
         (ghpat(Ppat_constraint(mkpatvar $1 1, poly)), exp) }
   | pattern EQUAL seq_expr
@@ -1568,8 +1588,8 @@ strict_binding:
       { $2 }
   | labeled_simple_pattern fun_binding
       { let (l, o, p) = $1 in ghexp(Pexp_fun(l, o, p, $2)) }
-  | LPAREN TYPE LIDENT RPAREN fun_binding
-      { mkexp(Pexp_newtype($3, $5)) }
+  | LPAREN TYPE LIDENT type_sort RPAREN fun_binding
+      { mkexp(Pexp_newtype($3, $4, $6)) }
 ;
 match_cases:
     match_case { [$1] }
@@ -1589,8 +1609,8 @@ fun_def:
        let (l,o,p) = $1 in
        ghexp(Pexp_fun(l, o, p, $2))
       }
-  | LPAREN TYPE LIDENT RPAREN fun_def
-      { mkexp(Pexp_newtype($3, $5)) }
+  | LPAREN TYPE LIDENT type_sort RPAREN fun_def
+      { mkexp(Pexp_newtype($3, $4, $6)) }
 ;
 expr_comma_list:
     expr_comma_list COMMA expr                  { $3 :: $1 }
@@ -1786,28 +1806,37 @@ type_declarations:
 ;
 
 type_declaration:
-    TYPE nonrec_flag optional_type_parameters LIDENT type_kind constraints
-    post_item_attributes
-      { let (kind, priv, manifest) = $5 in
+    TYPE nonrec_flag optional_type_parameters LIDENT type_sort type_kind
+    constraints post_item_attributes
+      { let (kind, priv, manifest) = $6 in
         let ty =
-          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $6) ~kind
-            ~priv ?manifest ~attrs:$7
+          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $7) ~kind
+            ~priv ?manifest ~attrs:$8
             ~loc:(symbol_rloc ()) ~docs:(symbol_docs ())
         in
           ($2, ty) }
 ;
 and_type_declaration:
-    AND optional_type_parameters LIDENT type_kind constraints
+    AND optional_type_parameters LIDENT type_sort type_kind constraints
     post_item_attributes
-      { let (kind, priv, manifest) = $4 in
-          Type.mk (mkrhs $3 3) ~params:$2 ~cstrs:(List.rev $5)
-            ~kind ~priv ?manifest ~attrs:$6 ~loc:(symbol_rloc ())
+      { let (kind, priv, manifest) = $5 in
+          Type.mk (mkrhs $3 3) ~params:$2 ~cstrs:(List.rev $6)
+            ~sort:$4 ~kind ~priv ?manifest ~attrs:$7 ~loc:(symbol_rloc ())
             ~text:(symbol_text ()) ~docs:(symbol_docs ()) }
 ;
 constraints:
         constraints CONSTRAINT constrain        { $3 :: $1 }
       | /* empty */                             { [] }
 ;
+type_sort:
+    /* empty */
+      { Type }
+  | COLON TYPE
+      { Type }
+  | COLON EFFECT
+      { Effect }
+;
+
 type_kind:
     /*empty*/
       { (Ptype_abstract, Public, None) }

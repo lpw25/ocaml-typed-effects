@@ -115,7 +115,7 @@ module Exp = struct
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_lazy a)
   let poly ?loc ?attrs a b = mk ?loc ?attrs (Pexp_poly (a, b))
   let object_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_object a)
-  let newtype ?loc ?attrs a b = mk ?loc ?attrs (Pexp_newtype (a, b))
+  let newtype ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_newtype (a, b, c))
   let pack ?loc ?attrs a = mk ?loc ?attrs (Pexp_pack a)
   let open_ ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_open (a, b, c))
   let extension ?loc ?attrs a = mk ?loc ?attrs (Pexp_extension a)
@@ -391,6 +391,7 @@ module Type = struct
         ?(docs = empty_docs) ?(text = [])
       ?(params = [])
       ?(cstrs = [])
+      ?(sort = Type)
       ?(kind = Ptype_abstract)
       ?(priv = Public)
       ?manifest
@@ -399,6 +400,7 @@ module Type = struct
      ptype_name = name;
      ptype_params = params;
      ptype_cstrs = cstrs;
+     ptype_sort = sort;
      ptype_kind = kind;
      ptype_private = priv;
      ptype_manifest = manifest;

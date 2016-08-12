@@ -88,6 +88,10 @@ let type_variance = function
   | Covariant -> "+"
   | Contravariant -> "-"
 
+let type_sort = function
+  | Type -> ""
+  | Effect -> ": effect"
+
 type construct =
   [ `cons of expression list
   | `list of expression list
@@ -682,8 +686,8 @@ class printer  ()= object(self:'self)
     | Pexp_constant c -> self#constant f c;
     | Pexp_pack me ->
         pp f "(module@;%a)"  self#module_expr me
-    | Pexp_newtype (lid, e) ->
-        pp f "fun@;(type@;%s)@;->@;%a"  lid  self#expression  e
+    | Pexp_newtype (lid, s, e) ->
+        pp f "fun@;(type@;%s%s)@;->@;%a" lid (type_sort s) self#expression e
     | Pexp_tuple l ->
         pp f "@[<hov2>(%a)@]"  (self#list self#simple_expr  ~sep:",@;")  l
     | Pexp_constraint (e, ct) ->
@@ -1095,8 +1099,8 @@ class printer  ()= object(self:'self)
             pp f "%a@ %a" self#simple_pattern p pp_print_pexp_function e
           else
             pp f "%a@ %a" self#label_exp (label,eo,p) pp_print_pexp_function e
-      | Pexp_newtype (str,e) ->
-          pp f "(type@ %s)@ %a" str pp_print_pexp_function e
+      | Pexp_newtype (str,s,e) ->
+          pp f "(type@ %s%s)@ %a" str (type_sort s) pp_print_pexp_function e
       | _ -> pp f "=@;%a" self#expression x in
     if x.pexp_attributes <> [] then
       pp f "%a@;=@;%a" self#pattern p self#expression x

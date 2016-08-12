@@ -85,6 +85,11 @@ let fmt_closed_flag f x =
   | Closed -> fprintf f "Closed"
   | Open -> fprintf f "Open"
 
+let fmt_effect_flag f x =
+  match x with
+  | Type -> fprintf f "Type"
+  | Effect -> fprintf f "Effect"
+
 let fmt_rec_flag f x =
   match x with
   | Nonrecursive -> fprintf f "Nonrec";
@@ -391,8 +396,8 @@ and expression i ppf x =
   | Pexp_object s ->
       line i ppf "Pexp_object\n";
       class_structure i ppf s
-  | Pexp_newtype (s, e) ->
-      line i ppf "Pexp_newtype \"%s\"\n" s;
+  | Pexp_newtype (n, s, e) ->
+      line i ppf "Pexp_newtype \"%s\" %a\n" n fmt_effect_flag s;
       expression i ppf e
   | Pexp_pack me ->
       line i ppf "Pexp_pack\n";

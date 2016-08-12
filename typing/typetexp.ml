@@ -335,6 +335,7 @@ let create_package_mty fake loc env (p, l) =
       let d = {ptype_name = mkloc (Longident.last s.txt) s.loc;
                ptype_params = [];
                ptype_cstrs = [];
+               ptype_sort = Type;
                ptype_kind = Ptype_abstract;
                ptype_private = Asttypes.Public;
                ptype_manifest = if fake then None else Some t;

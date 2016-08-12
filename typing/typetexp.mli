@@ -14,6 +14,8 @@
 
 open Types
 
+val transl_sort:
+        Asttypes.effect_flag -> Types.type_sort
 val transl_simple_type:
         Env.t -> bool -> Types.type_sort option ->
         Parsetree.core_type -> Typedtree.core_type
