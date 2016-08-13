@@ -24,8 +24,8 @@ let () =
     (Invalid_argument "index out of bounds")
 
 
-external raise : exn -> 'a = "%raise"
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise : exn => 'a = "%raise"
+external raise_notrace : exn => 'a = "%raise_notrace"
 
 let failwith s = raise(Failure s)
 let invalid_arg s = raise(Invalid_argument s)
@@ -35,9 +35,11 @@ exception Exit
 (* Effects *)
 
 
-type ('a, 'b) stack
-external take_cont : ('a, 'b) continuation -> ('a, 'b) stack = "caml_bvar_take"
-external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
+type ('a, !p, 'b) stack
+external take_cont : ('a, !p, 'b) continuation -> ('a, !p, 'b) stack =
+  "caml_bvar_take"
+external resume : ('a, !p, 'b) stack => ('c -[!p]-> 'a) => 'c -[!p]-> 'b =
+  "%resume"
 
 let continue k v =
   resume (take_cont k) (fun x -> x) v

@@ -963,8 +963,10 @@ and class_expr cl_num val_env met_env scl =
           Cty_arrow _ -> false
         | _ -> true
       in
+      let cont = Ctype.newvar Stype in
       let partial, _ =
-        Typecore.check_partial val_env pat.pat_type eff_expected pat.pat_loc
+        Typecore.check_partial val_env cont pat.pat_type
+          eff_expected pat.pat_loc
           [{c_lhs=pat;
             c_guard=None;
             c_rhs = (* Dummy expression *)
