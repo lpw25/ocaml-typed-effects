@@ -252,6 +252,7 @@ let primitive ppf = function
   | Pbswap16 -> fprintf ppf "bswap16"
   | Pbbswap(bi) -> print_boxed_integer "bswap" ppf bi
   | Pint_as_pointer -> fprintf ppf "int_as_pointer"
+  | Ptag -> fprintf ppf "tag"
 
 let rec lam ppf = function
   | Lvar id ->

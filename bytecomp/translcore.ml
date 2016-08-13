@@ -317,6 +317,7 @@ let primitives_table = create_hashtable 57 [
   "%bswap_int64", Pbbswap(Pint64);
   "%bswap_native", Pbbswap(Pnativeint);
   "%int_as_pointer", Pint_as_pointer;
+  "%tag", Ptag;
 ]
 
 let index_primitives_table =
@@ -920,7 +921,7 @@ and transl_exp0 e =
       let is_const = ecstr.ecstr_arity = 0 in
       let arg =
         if is_const then tag
-        else Lprim(Pmakeblock(0, Immutable), tag :: transl_list args)
+        else Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
       in
       let is_raise = ecstr.ecstr_res = None in
       if is_raise then

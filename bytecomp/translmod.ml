@@ -76,10 +76,7 @@ let transl_type_extension env rootpath tyext body =
     body
 
 let transl_effect_constructor _ec =
-  Lprim(prim_set_oo_id,
-        [Lprim(Pmakeblock(Obj.object_tag, Mutable),
-               [lambda_unit;
-                Lconst(Const_base(Const_int 0))])])
+  Lprim(Pmakeblock(1, Mutable), [lambda_unit])
 
 let transl_effect_declaration env eff =
   match eff.eff_manifest with

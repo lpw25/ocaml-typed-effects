@@ -1527,12 +1527,6 @@ let matcher_lazy p rem = match p.pat_desc with
    No call other than Obj.tag when the value has been forced before.
 *)
 
-let prim_obj_tag =
-  {prim_name = "caml_obj_tag";
-   prim_arity = 1; prim_alloc = false;
-   prim_native_name = "";
-   prim_native_float = false}
-
 let get_mod_field modname field =
   lazy (
     try
@@ -1569,7 +1563,7 @@ let inline_lazy_force_cond arg loc =
   let tag = Ident.create "tag" in
   let force_fun = Lazy.force code_force_lazy_block in
   Llet(Strict, idarg, arg,
-       Llet(Alias, tag, Lprim(Pccall prim_obj_tag, [varg]),
+       Llet(Alias, tag, Lprim(Ptag, [varg]),
             Lifthenelse(
               (* if (tag == Obj.forward_tag) then varg.(0) else ... *)
               Lprim(Pintcomp Ceq,
@@ -3210,16 +3204,13 @@ let for_trywith param exn_pat_act_list eff_pat_act_list =
       (fun () -> Lstaticraise(eff_fail, []))
       param eff_pat_act_list Partial
   in
-  let constr_id = Ident.create "constr" in
+  let tag_id = Ident.create "tag" in
   Lstaticcatch(effs, (eff_fail, []),
-  Llet(Alias, constr_id, Lprim(Pfield 0, [param]),
-    Lifthenelse(
-      Lprim(Pisint, [Lvar constr_id]),
-        Lprim(Praise Raise_notrace, [param]),
+    Llet(Alias, tag_id, Lprim(Ptag, [param]),
       Lifthenelse(
-        Lprim(Pisint, [Lprim(Pfield 0, [Lvar constr_id])]),
+          Lprim(Pintcomp Ceq, [Lvar tag_id; Lconst(Const_base(Const_int 1))]),
           Lprim(Praise Raise_notrace, [param]),
-        exns))))
+          exns)))
 
 let for_handler param raw_cont pat_act_list =
   let cont = Lprim (Pmakeblock(0,Mutable), [raw_cont]) in
