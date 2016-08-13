@@ -69,4 +69,5 @@ val marshal : t -> bytes
 val unmarshal : bytes -> int -> t * int
   [@@ocaml.deprecated "Use Marshal.from_bytes and Marshal.total_size instead."]
 
-val clone : ('a,'b) continuation -> ('a,'b) continuation
+external clone : ('a, !p, 'b) continuation -> ('a, !p, 'b) continuation =
+  "caml_clone_cont"

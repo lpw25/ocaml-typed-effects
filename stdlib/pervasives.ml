@@ -24,8 +24,8 @@ let () =
     (Invalid_argument "index out of bounds")
 
 
-external raise : exn -> 'a = "%raise"
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise : exn => 'a = "%raise"
+external raise_notrace : exn => 'a = "%raise_notrace"
 
 let failwith s = raise(Failure s)
 let invalid_arg s = raise(Invalid_argument s)
@@ -34,9 +34,11 @@ exception Exit
 
 (* Effects *)
 
-type ('a, 'b) stack
-external take_cont : exn -> ('a, 'b) continuation -> ('a, 'b) stack = "%take_cont"
-external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
+type ('a, !p, 'b) stack
+external take_cont : exn => ('a, !p, 'b) continuation => ('a, !p, 'b) stack =
+  "%take_cont"
+external resume : ('a, !p, 'b) stack => ('c -[!p]-> 'a) => 'c -[!p]-> 'b =
+  "%resume"
 
 let cont_taken = Invalid_argument "continuation already taken"
 

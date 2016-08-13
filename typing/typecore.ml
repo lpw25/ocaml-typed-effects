@@ -1347,7 +1347,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
         | None, None -> None
         | Some res_type, Some scont ->
             let ty_cont =
-              instance_def (Predef.type_continuation res_type expected_ty)
+              instance_def
+                (Predef.type_continuation res_type expected_eff expected_ty)
             in
             Some (type_continuation_pat !env ty_cont scont)
         | None, Some _ ->
