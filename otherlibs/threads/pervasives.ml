@@ -33,15 +33,19 @@ let invalid_arg s = raise(Invalid_argument s)
 exception Exit
 
 (* Effects *)
+type ('a, !p, 'b) stack
+external take_cont : exn => ('a, !p, 'b) continuation -> ('a, !p, 'b) stack =
+  "%take_cont"
+external resume : ('a, !p, 'b) stack => ('c -[!p]-> 'a) => 'c -[!p]-> 'b =
+  "%resume"
 
-type ('a, 'b) stack
-external take_cont : ('a, 'b) continuation -> ('a, 'b) stack = "caml_bvar_take"
-external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
+let cont_taken = Invalid_argument "continuation already taken"
 
 let continue k v =
-  resume (take_cont k) (fun x -> x) v
+  resume (take_cont cont_taken k) (fun x -> x) v
+
 let discontinue k e =
-  resume (take_cont k) (fun e -> raise e) e
+  resume (take_cont cont_taken k) (fun e -> raise e) e
 
 (* Composition operators *)
 

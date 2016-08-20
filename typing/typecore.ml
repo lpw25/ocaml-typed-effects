@@ -943,11 +943,13 @@ let unify_head_only loc env ty constr =
 (* Typing of patterns *)
 
 (* Simplified patterns for effect continuations *)
-let type_continuation_pat env expected_ty sp =
+let type_continuation_pat env expected_ty expected_eff sp =
   let loc = sp.ppat_loc in
   match sp.ppat_desc with
   | Ppat_any -> None
   | Ppat_var name ->
+      let eff = instance_def (Predef.effect_io (newvar Seffect)) in
+      unify_pat_effects loc env eff expected_eff;
       let id = enter_variable loc name expected_ty in
       Some (id, name)
   | Ppat_extension ext ->
@@ -1350,7 +1352,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
               instance_def
                 (Predef.type_continuation res_type expected_eff expected_ty)
             in
-            Some (type_continuation_pat !env ty_cont scont)
+            Some (type_continuation_pat !env ty_cont expected_eff scont)
         | None, Some _ ->
             raise(Error(loc, !env, Unexpected_continuation_pattern lid.txt))
         | Some _, None ->
