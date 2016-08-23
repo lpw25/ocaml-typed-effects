@@ -43,7 +43,7 @@ val type_self_pattern:
             Vars.t ref *
         Env.t * Env.t * Env.t
 val check_partial:
-        ?lev:int -> Env.t -> type_expr -> type_expr ->
+        ?lev:int -> Env.t -> type_expr -> type_expr -> type_expr ->
 	Location.t -> Typedtree.case list -> Typedtree.partial * Path.t list
 val type_expect:
         ?in_function:(Location.t * type_expr) ->

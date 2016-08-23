@@ -199,7 +199,7 @@ let effect_constructor_descrs eff_path ecs =
           | Some res ->
               let res_vars = free_vars res in
               let arg_vars = free_vars (newgenty (Ttuple ec_args)) in
-              TypeSet.elements (TypeSet.diff arg_vars res_vars)
+              TypeSet.elements (TypeSet.union arg_vars res_vars)
         in
         let ecstr =
           { ecstr_name = Ident.name ec_id;
