@@ -465,6 +465,7 @@ and effect_declaration =
      peff_name: string loc;
      peff_kind : effect_kind;
      peff_manifest: Longident.t loc option;
+     peff_handler: effect_handler option;
      peff_loc : Location.t;
      peff_attributes: attributes;
     }
@@ -482,6 +483,9 @@ and effect_constructor =
      pec_attributes: attributes;
     }
 
+and effect_handler =
+  { peh_cases: case list;
+    peh_loc: Location.t; }
 
 (** {2 Class language} *)
 

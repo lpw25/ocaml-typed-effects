@@ -483,9 +483,12 @@ and effect_declaration i ppf x =
   line i ppf "effect_declaration %a\n" fmt_location x.peff_loc;
   attributes i ppf x.peff_attributes;
   let i = i + 1 in
-  line i ppf "peff_manifest = \"%s\"\n" x.peff_name.txt;
+  line i ppf "peff_manifest =\n";
+  option i longident_loc ppf x.peff_manifest;
   line i ppf "peff_kind =\n";
   effect_kind (i + 1) ppf x.peff_kind;
+  line i ppf "peff_handler =\n";
+  option i effect_handler ppf x.peff_handler
 
 and effect_kind i ppf x =
   match x with
@@ -504,6 +507,12 @@ and effect_constructor i ppf x =
   constructor_arguments (i+1) ppf x.pec_args;
   line i ppf "pec_res =\n";
   option (i+1) core_type ppf x.pec_res
+
+and effect_handler i ppf x =
+  line i ppf "effect_handler %a\n" fmt_location x.peh_loc;
+  let i = i + 1 in
+  line i ppf "peh_cases =\n";
+  list i case ppf x.peh_cases
 
 and class_type i ppf x =
   line i ppf "class_type %a\n" fmt_location x.pcty_loc;

@@ -478,6 +478,7 @@ and effect_declaration =
     eff_type: Types.effect_declaration;
     eff_kind: effect_kind;
     eff_manifest: (Longident.t loc * Path.t) option;
+    eff_handler: effect_handler option;
     eff_loc: Location.t;
     eff_attributes: attribute list;
    }
@@ -494,6 +495,13 @@ and effect_constructor =
      ec_res: core_type option;
      ec_loc: Location.t;
      ec_attributes: attribute list;
+    }
+
+and effect_handler =
+    {
+      eh_cases: case list;
+      eh_env : Env.t;
+      eh_loc: Location.t;
     }
 
 and class_type =

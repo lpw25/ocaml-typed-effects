@@ -1418,10 +1418,16 @@ class printer  ()= object(self:'self)
       | Peff_variant xs ->
           pp f "=@\n%a" (self#list ~sep:"@\n" constructor) xs
     in
-      pp f "effect %s%a%a"
+    let handler f = function
+      | None -> ()
+      | Some x ->
+          pp f "@[<hv>with handler%a@]" self#case_list x.peh_cases
+    in
+      pp f "effect %s%a%a%a"
          x.peff_name.txt
          manifest x.peff_manifest
          kind x.peff_kind
+         handler x.peff_handler
 
   method case_list f l : unit =
     let aux f {pc_lhs; pc_guard; pc_rhs} =

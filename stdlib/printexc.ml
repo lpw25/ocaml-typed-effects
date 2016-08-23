@@ -262,9 +262,9 @@ let handle_uncaught_exception' exn debugger_in_use =
         eprintf "Fatal error: exception %s\n" (to_string exn);
         print_raw_backtrace stderr raw_backtrace;
         flush stderr
-    | Some handler ->
+    | Some exn_handler ->
         try
-          handler exn raw_backtrace
+          exn_handler exn raw_backtrace
         with exn' ->
           let raw_backtrace' = try_get_raw_backtrace () in
           eprintf "Fatal error: exception %s\n" (to_string exn);

@@ -56,6 +56,9 @@ val type_approx:
 val type_argument:
         Env.t -> Parsetree.expression -> type_expr ->
         type_expr -> type_expr -> Typedtree.expression
+val type_default_handler:
+        Env.t -> Path.t -> Parsetree.effect_handler ->
+        type_expr -> Typedtree.effect_handler
 
 val option_some: Typedtree.expression -> Typedtree.expression
 val option_none: type_expr -> Location.t -> Typedtree.expression
@@ -122,6 +125,9 @@ type error =
   | Invalid_continuation_pattern
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
+  | Default_handler_mismatch of Path.t * Path.t
+  | Default_handler_not_exhaustive
+  | Default_handler_nonreturning of Longident.t
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

@@ -195,12 +195,14 @@ module Te:
 module Eff:
   sig
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      ?kind:effect_kind -> ?manifest:lid -> str ->
+      ?kind:effect_kind -> ?manifest:lid -> ?handler:effect_handler -> str ->
       effect_declaration
 
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->
       ?args:constructor_arguments -> ?res:core_type -> str ->
       effect_constructor
+
+    val handler: ?loc:loc -> case list -> effect_handler
   end
 
 (** {2 Module language} *)

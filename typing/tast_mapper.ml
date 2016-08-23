@@ -182,6 +182,10 @@ let extension_constructor sub x =
   in
   {x with ext_kind}
 
+let effect_handler sub x =
+  let eh_cases = sub.cases sub x.eh_cases in
+  { x with eh_cases }
+
 let effect_constructor sub x =
   let ec_args = List.map (sub.typ sub) x.ec_args in
   let ec_res = opt (sub.typ sub) x.ec_res in
@@ -195,7 +199,8 @@ let effect_declaration sub x =
         let list = List.map (effect_constructor sub) list in
         Teff_variant list
   in
-  { x with eff_kind }
+  let eff_handler = opt (effect_handler sub) x.eff_handler in
+  { x with eff_kind; eff_handler }
 
 let pat sub x =
   let extra = function

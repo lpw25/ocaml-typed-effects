@@ -1488,12 +1488,26 @@ let transl_effect_decl env funct_body seff =
   Ctype.end_def();
   generalize_effect_decl eff;
   let newenv = Env.add_effect id eff env in
+  let handler =
+    match seff.peff_handler with
+    | None -> None
+    | Some handler ->
+        let eff_expected =
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
+        in
+        let handler =
+          Typecore.type_default_handler newenv
+            (Path.Pident id) handler eff_expected
+        in
+        Some handler
+  in
   let teff =
     { Typedtree.eff_id = id;
       eff_name = seff.peff_name;
       eff_type = eff;
       eff_loc = seff.peff_loc;
       eff_manifest = tman;
+      eff_handler = handler;
       eff_kind = tkind;
       eff_attributes = seff.peff_attributes; }
   in

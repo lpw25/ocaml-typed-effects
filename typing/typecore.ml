@@ -75,6 +75,9 @@ type error =
   | Invalid_continuation_pattern
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
+  | Default_handler_mismatch of Path.t * Path.t
+  | Default_handler_not_exhaustive
+  | Default_handler_nonreturning of Longident.t
 
 
 exception Error of Location.t * Env.t * error
@@ -964,10 +967,10 @@ type type_pat_mode =
 (* type_pat propagates the expected type as well as maps for
    constructors and labels.
    Unification may update the typing environment. *)
-let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
-                 cont_ty expected_eff sp expected_ty =
+let rec type_pat ?in_handler ~constrs ~labels ~no_existentials ~mode ~env
+                 ~allow_exn cont_ty expected_eff sp expected_ty =
   let type_pat ?(mode=mode) ?(env=env) =
-    type_pat ~constrs ~labels ~no_existentials
+    type_pat ?in_handler ~constrs ~labels ~no_existentials
      ~mode ~env ~allow_exn:false cont_ty expected_eff
   in
   let loc = sp.ppat_loc in
@@ -1321,6 +1324,14 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
       if not allow_exn then
         raise (Error (loc, !env, Effect_pattern_below_toplevel));
       let ecstr = Typetexp.find_effect_constructor !env lid.loc lid.txt in
+      begin
+        match in_handler with
+        | None -> ()
+        | Some (p, _) ->
+            if not (Path.same p ecstr.ecstr_eff_path) then
+              raise (Error (loc, !env,
+                Default_handler_mismatch(ecstr.ecstr_eff_path, p)))
+      end;
       let sargs =
         match sarg with
         | None -> []
@@ -1341,22 +1352,39 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
         instance_effect_constructor
           ~in_pattern:(env, get_newtype_level ()) ecstr
       in
+      begin match in_handler with
+        | None -> ()
+        | Some (_, ty) ->
+            let res_type =
+              match ty_res with
+              | Some res_type -> res_type
+              | None ->
+                  raise(Error(loc, !env, Default_handler_nonreturning lid.txt))
+            in
+              try
+                unify !env ty res_type
+              with Unify _ -> assert false
+      end;
       let args =
         List.map2 (fun p t -> type_pat p t) sargs ty_args
       in
       let cont =
-        match ty_res, scont with
-        | None, None -> None
-        | Some res_type, Some scont ->
-            let ty_cont =
-              instance_def
-                (Predef.type_continuation res_type expected_eff cont_ty)
-            in
-            Some (type_continuation_pat !env ty_cont expected_eff scont)
-        | None, Some _ ->
-            raise(Error(loc, !env, Unexpected_continuation_pattern lid.txt))
-        | Some _, None ->
-            raise(Error(loc, !env, Missing_continuation_pattern lid.txt))
+        match in_handler with
+        | Some _ -> None
+        | None ->
+            match ty_res, scont with
+            | None, None -> None
+            | Some res_type, Some scont ->
+                let ty_cont =
+                  instance_def
+                    (Predef.type_continuation res_type expected_eff cont_ty)
+                in
+                Some (type_continuation_pat !env ty_cont expected_eff scont)
+            | None, Some _ ->
+                raise(Error(loc, !env,
+                  Unexpected_continuation_pattern lid.txt))
+            | Some _, None ->
+                raise(Error(loc, !env, Missing_continuation_pattern lid.txt))
       in
         rp {
         pat_desc = Tpat_effect(lid, ecstr, args, cont);
@@ -1367,14 +1395,16 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env ~allow_exn
   | Ppat_extension ext ->
       raise (Error_forward (Typetexp.error_of_extension ext))
 
-let type_pat ?(allow_existentials=false) ?constrs ?labels
+let type_pat ?in_handler ?(allow_existentials=false) ?constrs ?labels
     ?(lev=get_current_level()) ~env ~allow_exn
     cont_ty expected_eff sp expected_ty =
   newtype_level := Some lev;
   try
     let r =
-      type_pat ~no_existentials:(not allow_existentials) ~constrs ~labels
-        ~mode:Normal ~env ~allow_exn cont_ty expected_eff sp expected_ty in
+      type_pat ?in_handler ~no_existentials:(not allow_existentials) ~constrs
+        ~labels ~mode:Normal ~env ~allow_exn
+        cont_ty expected_eff sp expected_ty
+    in
     iter_pattern (fun p -> p.pat_env <- !env) r;
     newtype_level := None;
     r
@@ -1430,11 +1460,12 @@ let add_pattern_variables ?check ?check_as env =
      pv env,
    get_ref module_variables)
 
-let type_pattern ~lev ~allow_exn env spat scope cont_ty expected_ty expected_eff =
+let type_pattern ?in_handler ~lev ~allow_exn env spat scope
+                 cont_ty expected_ty expected_eff =
   reset_pattern scope true;
   let new_env = ref env in
   let pat =
-    type_pat ~allow_existentials:true ~lev ~env:new_env ~allow_exn
+    type_pat ?in_handler ~allow_existentials:true ~lev ~env:new_env ~allow_exn
              cont_ty expected_eff spat expected_ty
   in
   let new_env, unpacks =
@@ -3843,7 +3874,8 @@ and type_statement env sexp eff_expected =
 
 (* Typing of match cases *)
 
-and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
+and type_cases ?in_function ?in_handler ~allow_exn
+               env ty_arg ty_eff ty_res loc caselist =
   (* ty_arg is _fully_ generalized *)
   let patterns = List.map (fun {pc_lhs=p} -> p) caselist in
   let erase_either =
@@ -3887,12 +3919,18 @@ and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
         in
         if !Clflags.principal then begin_def (); (* propagation of pattern *)
         let scope = Some (Annot.Idef loc) in
+        let in_handler =
+          match in_handler with
+          | None -> None
+          | Some p -> Some(p, newvar Stype)
+        in
         let (pat, ext_env, force, unpacks) =
           let partial =
             if !Clflags.principal || erase_either
             then Some false else None in
           let ty_arg = instance ?partial env ty_arg in
-          type_pattern ~lev ~allow_exn env pc_lhs scope ty_res ty_arg ty_eff
+          type_pattern ~lev ?in_handler ~allow_exn
+            env pc_lhs scope ty_res ty_arg ty_eff
         in
         pattern_force := force @ !pattern_force;
         let pat =
@@ -3902,7 +3940,7 @@ and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
             { pat with pat_type = instance env pat.pat_type }
           end else pat
         in
-        (pat, (ext_env, unpacks)))
+        (pat, (ext_env, unpacks, in_handler)))
       caselist in
   (* Unify cases (delayed to keep it order-free) *)
   let patl = List.map fst pat_env_list in
@@ -3924,19 +3962,23 @@ and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
   let in_function = if List.length caselist = 1 then in_function else None in
   let cases =
     List.map2
-      (fun (pat, (ext_env, unpacks)) {pc_lhs; pc_guard; pc_rhs} ->
+      (fun (pat, (ext_env, unpacks, in_handler)) {pc_lhs; pc_guard; pc_rhs} ->
         let sexp = wrap_unpacks pc_rhs unpacks in
         let ty_res' =
-          if !Clflags.principal then begin
-            begin_def ();
-            let ty = instance ~partial:true env ty_res in
-            end_def ();
-            generalize_structure ty; ty
-          end
-          else if contains_gadt env pc_lhs then correct_levels ty_res
-          else ty_res in
-(*        Format.printf "@[%i %i, ty_res' =@ %a@]@." lev (get_current_level())
-          Printtyp.raw_type_expr ty_res'; *)
+          match in_handler with
+          | Some(_, ty) -> ty
+          | None ->
+              if !Clflags.principal then begin
+                begin_def ();
+                let ty = instance ~partial:true env ty_res in
+                end_def ();
+                generalize_structure ty; ty
+              end
+              else if contains_gadt env pc_lhs then correct_levels ty_res
+              else ty_res
+        in
+(*      Format.printf "@[%i %i, ty_res' =@ %a@]@." lev (get_current_level())
+        Printtyp.raw_type_expr ty_res'; *)
         let guard =
           match pc_guard with
           | None -> None
@@ -3954,7 +3996,7 @@ and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
       )
       pat_env_list caselist
   in
-  if !Clflags.principal || has_gadts then begin
+  if (!Clflags.principal || has_gadts) && in_handler = None then begin
     let ty_res' = instance env ty_res in
     List.iter (fun c -> unify_exp env c.c_rhs ty_res') cases
   end;
@@ -3963,7 +4005,7 @@ and type_cases ?in_function ~allow_exn env ty_arg ty_eff ty_res loc caselist =
   in
   add_delayed_check
     (fun () ->
-      List.iter (fun (pat, (env, _)) -> check_absent_variant env pat)
+      List.iter (fun (pat, (env, _, _)) -> check_absent_variant env pat)
         pat_env_list;
       Parmatch.check_unused env cases);
   if has_gadts then begin
@@ -4204,6 +4246,21 @@ let type_expression env sexp eff_expected =
       let (path, desc) = Env.lookup_value lid.txt env in
       {exp with exp_type = desc.val_type}
   | _ -> exp
+
+(* Typing of default effect handlers *)
+let type_default_handler env path seh eff_expected =
+  Typetexp.reset_type_variables ();
+  let cases, _, handled =
+    type_cases env ~allow_exn:true ~in_handler:path (newvar Stype)
+       eff_expected (newvar Stype) seh.peh_loc seh.peh_cases
+  in
+  begin match handled with
+  | [p] when Path.same p path -> ()
+  | _ -> raise (Error(seh.peh_loc, env, Default_handler_not_exhaustive))
+  end;
+  { eh_cases = cases;
+    eh_env = env;
+    eh_loc = seh.peh_loc; }
 
 (* Error report *)
 
@@ -4475,6 +4532,18 @@ let report_error env ppf = function
       fprintf ppf
         "@[Missing continuation pattern: effect %a has a continuation.@]"
         longident lid
+  | Default_handler_mismatch(p1, p2) ->
+      fprintf ppf
+        "@[This pattern matches effect %a, but the expected effect was %a.@]"
+        path p1 path p2
+  | Default_handler_not_exhaustive ->
+      fprintf ppf
+        "@[This default handler does not exhausitvely handle the effect.@]"
+  | Default_handler_nonreturning lid ->
+      fprintf ppf
+        "@[Effect %a is nonreturning, it cannot have a default handler.@]"
+        longident lid
+
 
 let report_error env ppf err =
   wrap_printing_env env (fun () -> report_error env ppf err)

@@ -239,11 +239,15 @@ module MakeMap(Map : MapArgument) = struct
           let list = List.map map_effect_constructor list in
           Teff_variant list
     in
-    Map.leave_effect_declaration { eff with eff_kind }
+    let eff_handler = may_map map_effect_handler eff.eff_handler in
+    Map.leave_effect_declaration { eff with eff_kind; eff_handler }
 
   and map_effect_constructor ec =
     { ec with ec_args = List.map map_core_type ec.ec_args;
       ec_res = may_map map_core_type ec.ec_res }
+
+  and map_effect_handler eh =
+    { eh with eh_cases = map_cases eh.eh_cases }
 
   and map_pattern pat =
     let pat = Map.enter_pattern pat in

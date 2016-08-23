@@ -80,7 +80,8 @@ let effect_kind sub = function
   | Teff_variant ecs -> List.iter (effect_constructor sub) ecs
 
 let effect_declaration sub eff =
-  effect_kind sub eff.eff_kind
+  effect_kind sub eff.eff_kind;
+  opt (sub # cases) eff.eff_handler
 
 let pattern sub pat =
   let extra = function

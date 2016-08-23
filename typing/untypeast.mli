@@ -39,6 +39,7 @@ type mapper = {
   effect_kind: mapper -> Typedtree.effect_kind -> effect_kind;
   effect_constructor: mapper -> Typedtree.effect_constructor
                          -> effect_constructor;
+  effect_handler: mapper -> Typedtree.effect_handler -> effect_handler;
   effect_desc: mapper -> Typedtree.effect_desc -> effect_desc;
   include_declaration:
     mapper -> Typedtree.include_declaration -> include_declaration;

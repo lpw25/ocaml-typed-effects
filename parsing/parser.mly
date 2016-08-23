@@ -1900,9 +1900,9 @@ sig_exception_declaration:
             ~loc:(symbol_rloc()) ~docs:(symbol_docs ()) }
 ;
 effect_declaration:
-  | EFFECT LIDENT effect_kind post_item_attributes
+  | EFFECT LIDENT effect_kind effect_handler post_item_attributes
       { let (kind, manifest) = $3 in
-          Eff.mk (mkrhs $2 2) ~kind ?manifest ~attrs:$4
+          Eff.mk (mkrhs $2 2) ~kind ?manifest ?handler:$4 ~attrs:$5
             ~loc:(symbol_rloc ()) ~docs:(symbol_docs ()) }
 ;
 effect_kind:
@@ -1935,6 +1935,28 @@ bar_effect_constructor:
        Eff.constructor (mkrhs $2 2) ~args ?res ~attrs:$4
          ~loc:(symbol_rloc()) ~info:(symbol_info ())
       }
+;
+effect_handler:
+  | /* empty */
+      { None }
+  | WITH opt_bar handler_cases
+      { Some (Eff.handler ~loc:(symbol_rloc()) $3)  }
+;
+handler_cases:
+    handler_case { [$1] }
+  | handler_cases BAR handler_case { $3 :: $1 }
+;
+handler_case:
+    handler_pattern MINUSGREATER seq_expr
+      { Exp.case $1 $3 }
+  | handler_pattern WHEN seq_expr MINUSGREATER seq_expr
+      { Exp.case $1 ~guard:$3 $5 }
+;
+handler_pattern:
+  | constr_longident
+      { mkpat(Ppat_effect(mkrhs $1 1, None, None)) }
+  | constr_longident simple_pattern
+      { mkpat(Ppat_effect(mkrhs $1 1, Some $2, None)) }
 ;
 generalized_constructor_arguments:
     /*empty*/                     { (Pcstr_tuple [],None) }

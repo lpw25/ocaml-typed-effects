@@ -228,11 +228,15 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Teff_variant list ->
             List.iter iter_effect_constructor list
       end;
+      option iter_effect_handler eff.eff_handler;
       Iter.leave_effect_declaration eff
 
     and iter_effect_constructor ec =
       List.iter iter_core_type ec.ec_args;
       option iter_core_type ec.ec_res
+
+    and iter_effect_handler eh =
+      iter_cases eh.eh_cases
 
     and iter_pattern pat =
       Iter.enter_pattern pat;

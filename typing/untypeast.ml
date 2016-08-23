@@ -40,6 +40,7 @@ type mapper = {
   effect_declaration: mapper -> T.effect_declaration -> effect_declaration;
   effect_kind: mapper -> T.effect_kind -> effect_kind;
   effect_constructor: mapper -> T.effect_constructor -> effect_constructor;
+  effect_handler: mapper -> T.effect_handler -> effect_handler;
   effect_desc: mapper -> T.effect_desc -> effect_desc;
   include_declaration: mapper -> T.include_declaration -> include_declaration;
   include_description: mapper -> T.include_description -> include_description;
@@ -256,6 +257,7 @@ let effect_declaration sub eff =
     peff_name = eff.eff_name;
     peff_kind = sub.effect_kind sub eff.eff_kind;
     peff_manifest = Misc.may_map fst eff.eff_manifest;
+    peff_handler = Misc.may_map (sub.effect_handler sub) eff.eff_handler;
     peff_loc = eff.eff_loc;
     peff_attributes = eff.eff_attributes;
   }
@@ -272,7 +274,13 @@ let effect_constructor sub ec =
     pec_res = map_opt (sub.typ sub) ec.ec_res;
     pec_loc = ec.ec_loc;
     pec_attributes = ec.ec_attributes;
-}
+  }
+
+let effect_handler sub eh =
+  {
+    peh_cases = sub.cases sub eh.eh_cases;
+    peh_loc = eh.eh_loc;
+  }
 
 let pattern sub pat =
   let loc = sub.location sub pat.pat_loc; in
@@ -812,6 +820,7 @@ let default_mapper =
     effect_declaration = effect_declaration;
     effect_kind = effect_kind;
     effect_constructor = effect_constructor;
+    effect_handler = effect_handler;
     effect_desc = effect_desc;
     value_description = value_description;
     pat = pattern;
