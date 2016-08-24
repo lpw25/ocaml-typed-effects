@@ -637,7 +637,7 @@ and transl_signature env sg =
             final_env
         | Psig_effect seff ->
             check_name check_effect names seff.peff_name;
-            let (teff, newenv) = Typedecl.transl_effect_decl env false seff in
+            let (teff, newenv) = Typedecl.transl_effect_desc env false seff in
             let (trem, rem, final_env) = transl_sig newenv srem in
             mksig (Tsig_effect teff) env loc :: trem,
             Sig_effect(teff.eff_id, teff.eff_type) :: rem,

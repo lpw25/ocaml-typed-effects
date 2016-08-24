@@ -108,7 +108,7 @@ and core_type_desc =
 
   | Ptyp_package of package_type
         (* (module S) *)
-  | Ptyp_effect of effect_desc
+  | Ptyp_effect of effect_row
   | Ptyp_extension of extension
         (* [%id] *)
 
@@ -135,12 +135,12 @@ and row_field =
   | Rinherit of core_type
         (* [ T ] *)
 
-and effect_type = effect_desc option
+and effect_type = effect_row option
 
-and effect_desc =
+and effect_row =
   {
-    pefd_effects : Longident.t loc list;
-    pefd_row : core_type option;
+    pefr_effects : Longident.t loc list;
+    pefr_row : core_type option;
   }
 
 (* Patterns *)
@@ -460,15 +460,18 @@ and extension_constructor_kind =
          | C = D
        *)
 
-and effect_declaration =
+and 'a effect_infos =
     {
      peff_name: string loc;
      peff_kind : effect_kind;
      peff_manifest: Longident.t loc option;
-     peff_handler: effect_handler option;
+     peff_handler: 'a;
      peff_loc : Location.t;
      peff_attributes: attributes;
     }
+
+and effect_declaration = effect_handler option effect_infos
+and effect_description = bool effect_infos
 
 and effect_kind =
   | Peff_abstract
@@ -695,7 +698,7 @@ and signature_item_desc =
         (* type t1 += ... *)
   | Psig_exception of extension_constructor
         (* exception C of T *)
-  | Psig_effect of effect_declaration
+  | Psig_effect of effect_description
         (* effect e = ... *)
   | Psig_module of module_declaration
         (* module X : MT *)

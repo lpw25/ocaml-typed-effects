@@ -293,7 +293,7 @@ and signature_item_desc =
   | Tsig_type of rec_flag * type_declaration list
   | Tsig_typext of type_extension
   | Tsig_exception of extension_constructor
-  | Tsig_effect of effect_declaration
+  | Tsig_effect of effect_description
   | Tsig_module of module_declaration
   | Tsig_recmodule of module_declaration list
   | Tsig_modtype of module_type_declaration
@@ -369,7 +369,7 @@ and core_type_desc =
   | Ttyp_variant of row_field list * closed_flag * label list option
   | Ttyp_poly of (string * effect_flag) list * core_type
   | Ttyp_package of package_type
-  | Ttyp_effect of effect_desc
+  | Ttyp_effect of effect_row
 
 and package_type = {
   pack_path : Path.t;
@@ -383,14 +383,14 @@ and row_field =
   | Tinherit of core_type
 
 and effect_type = {
-  eft_desc: effect_desc option;
+  eft_desc: effect_row option;
   eft_type: Types.type_expr;
 }
 
-and effect_desc = {
-  efd_effects : (Longident.t loc * Path.t) list;
-  efd_type: Types.type_expr;
-  efd_row : core_type option;
+and effect_row = {
+  efr_effects : (Longident.t loc * Path.t) list;
+  efr_type: Types.type_expr;
+  efr_row : core_type option;
 }
 
 and value_description =
@@ -471,16 +471,20 @@ and extension_constructor_kind =
     Text_decl of constructor_arguments * core_type option
   | Text_rebind of Path.t * Longident.t loc
 
-and effect_declaration =
+and 'a effect_infos =
   { eff_id: Ident.t;
     eff_name: string loc;
     eff_type: Types.effect_declaration;
     eff_kind: effect_kind;
     eff_manifest: (Longident.t loc * Path.t) option;
-    eff_handler: effect_handler option;
+    eff_handler: 'a;
     eff_loc: Location.t;
     eff_attributes: attribute list;
    }
+
+and effect_declaration = effect_handler option effect_infos
+
+and effect_description = bool effect_infos
 
 and effect_kind =
     Teff_abstract

@@ -624,7 +624,7 @@ and untype_core_type ct =
         Ptyp_variant (List.map untype_row_field list, bool, labels)
     | Ttyp_poly (list, ct) -> Ptyp_poly (list, untype_core_type ct)
     | Ttyp_package pack -> Ptyp_package (untype_package_type pack)
-    | Ttyp_effect efd -> Ptyp_effect (untype_effect_desc efd)
+    | Ttyp_effect efd -> Ptyp_effect (untype_effect_row efd)
   in
   Typ.mk ~loc:ct.ctyp_loc desc
 
@@ -644,12 +644,12 @@ and untype_row_field rf =
       Rtag (label, attrs, bool, List.map untype_core_type list)
   | Tinherit ct -> Rinherit (untype_core_type ct)
 
-and untype_effect_desc efd =
+and untype_effect_row efd =
   { pefd_effects = List.map fst efd.efd_effects;
     pefd_row = Misc.may_map untype_core_type efd.efd_row; }
 
 and untype_effect_type eft =
-  Misc.may_map untype_effect_desc eft.eft_desc
+  Misc.may_map untype_effect_row eft.eft_desc
 
 and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->

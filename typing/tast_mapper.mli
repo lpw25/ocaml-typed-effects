@@ -34,7 +34,8 @@ type mapper =
     extension_constructor: mapper -> extension_constructor ->
       extension_constructor;
     effect_declaration: mapper -> effect_declaration -> effect_declaration;
-    effect_desc: mapper -> effect_desc -> effect_desc;
+    effect_description: mapper -> effect_description -> effect_description;
+    effect_row: mapper -> effect_row -> effect_row;
     module_binding: mapper -> module_binding -> module_binding;
     module_coercion: mapper -> module_coercion -> module_coercion;
     module_declaration: mapper -> module_declaration -> module_declaration;

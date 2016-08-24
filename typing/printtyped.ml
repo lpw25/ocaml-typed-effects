@@ -203,23 +203,23 @@ let rec core_type i ppf x =
       line i ppf "Ttyp_package %a\n" fmt_path s;
       list i package_with ppf l;
   | Ttyp_effect efd ->
-      line i ppf "Ptyp_effect\n";
-      effect_desc i ppf efd
+      line i ppf "Ttyp_effect\n";
+      effect_row i ppf efd
 
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_desc ppf x.eft_desc
+  option i effect_row ppf x.eft_desc
 
-and effect_desc i ppf x =
-  line i ppf "effect_desc\n";
+and effect_row i ppf x =
+  line i ppf "effect_row\n";
   let i = i+1 in
-  line i ppf "peft_constrs =\n";
-  list (i+1) longident_x_path ppf x.efd_effects;
-  line i ppf "peft_row =\n";
-  option (i+1) core_type ppf x.efd_row
+  line i ppf "pefr_constrs =\n";
+  list (i+1) longident_x_path ppf x.efr_effects;
+  line i ppf "pefr_row =\n";
+  option (i+1) core_type ppf x.efr_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;
@@ -471,14 +471,28 @@ and extension_constructor_kind i ppf x =
         line i ppf "Text_rebind\n";
         line (i+1) ppf "%a\n" fmt_path p;
 
+and effect_infos
+    : 'a. (int -> formatter -> 'a -> unit) ->
+      int -> formatter -> 'a effect_infos -> unit =
+  fun handler i ppf x ->
+    line i ppf "effect_declaration %a %a\n" fmt_ident x.eff_id fmt_location x.eff_loc;
+    attributes i ppf x.eff_attributes;
+    let i = i+1 in
+    line i ppf "peff_kind =\n";
+    effect_kind (i+1) ppf x.eff_kind;
+    line i ppf "peff_manifest =\n";
+    option (i+1) longident_x_path ppf x.eff_manifest;
+    line i ppf "peff_handler =\n";
+    handler i ppf x.eff_handler
+
 and effect_declaration i ppf x =
-  line i ppf "effect_declaration %a %a\n" fmt_ident x.eff_id fmt_location x.eff_loc;
-  attributes i ppf x.eff_attributes;
-  let i = i+1 in
-  line i ppf "peff_kind =\n";
-  effect_kind (i+1) ppf x.eff_kind;
-  line i ppf "peff_manifest =\n";
-  option (i+1) longident_x_path ppf x.eff_manifest;
+  let handler i ppf x =
+    option i effect_handler ppf x
+  in
+  effect_infos handler i ppf x
+
+and effect_description i ppf x =
+  effect_infos bool i ppf x
 
 and effect_kind i ppf x =
   match x with
@@ -494,6 +508,12 @@ and effect_constructor i ppf x =
   attributes i ppf x.ec_attributes;
   list (i+1) core_type ppf x.ec_args;
   option (i+1) core_type ppf x.ec_res
+
+and effect_handler i ppf x =
+  line i ppf "effect_handler %a\n" fmt_location x.eh_loc;
+  let i = i + 1 in
+  line i ppf "peh_cases =\n";
+  list i case ppf x.eh_cases
 
 and class_type i ppf x =
   line i ppf "class_type %a\n" fmt_location x.cltyp_loc;
@@ -683,7 +703,7 @@ and signature_item i ppf x =
       extension_constructor i ppf ext
   | Tsig_effect eff ->
       line i ppf "Psig_effect\n";
-      effect_declaration i ppf eff
+      effect_description i ppf eff
   | Tsig_module md ->
       line i ppf "Tsig_module \"%a\"\n" fmt_ident md.md_id;
       attributes i ppf md.md_attributes;

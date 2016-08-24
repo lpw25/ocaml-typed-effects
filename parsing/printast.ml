@@ -190,7 +190,7 @@ let rec core_type i ppf x =
       list i package_with ppf l;
   | Ptyp_effect desc ->
       line i ppf "Ptyp_effect\n";
-      effect_desc i ppf desc
+      effect_row i ppf desc
   | Ptyp_extension (s, arg) ->
       line i ppf "Ptyp_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -200,15 +200,15 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_desc ppf x
+  option i effect_row ppf x
 
-and effect_desc i ppf x =
-  line i ppf "effect_desc\n";
+and effect_row i ppf x =
+  line i ppf "effect_row\n";
   let i = i+1 in
-  line i ppf "peft_constrs =\n";
-  list (i+1) longident_loc ppf x.pefd_effects;
-  line i ppf "peft_row =\n";
-  option (i+1) core_type ppf x.pefd_row
+  line i ppf "pefr_constrs =\n";
+  list (i+1) longident_loc ppf x.pefr_effects;
+  line i ppf "pefr_row =\n";
+  option (i+1) core_type ppf x.pefr_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.ppat_loc;
@@ -479,8 +479,11 @@ and extension_constructor_kind i ppf x =
         line i ppf "Pext_rebind\n";
         line (i+1) ppf "%a\n" fmt_longident_loc li;
 
-and effect_declaration i ppf x =
-  line i ppf "effect_declaration %a\n" fmt_location x.peff_loc;
+and effect_infos
+    : 'a. (int -> formatter -> 'a -> unit) ->
+      int -> formatter -> 'a effect_infos -> unit =
+ fun handler i ppf x ->
+  line i ppf "effect_info %a\n" fmt_location x.peff_loc;
   attributes i ppf x.peff_attributes;
   let i = i + 1 in
   line i ppf "peff_manifest =\n";
@@ -488,7 +491,13 @@ and effect_declaration i ppf x =
   line i ppf "peff_kind =\n";
   effect_kind (i + 1) ppf x.peff_kind;
   line i ppf "peff_handler =\n";
-  option i effect_handler ppf x.peff_handler
+  handler i ppf x.peff_handler
+
+and effect_declaration i ppf x =
+  effect_infos (fun i ppf x -> option i effect_handler ppf x) i ppf x
+
+and effect_description i ppf x =
+  effect_infos bool i ppf x
 
 and effect_kind i ppf x =
   match x with
@@ -721,7 +730,7 @@ and signature_item i ppf x =
       extension_constructor i ppf ext;
   | Psig_effect ext ->
       line i ppf "Psig_effect\n";
-      effect_declaration i ppf ext;
+      effect_description i ppf ext;
   | Psig_module pmd ->
       line i ppf "Psig_module %a\n" fmt_string_loc pmd.pmd_name;
       attributes i ppf pmd.pmd_attributes;

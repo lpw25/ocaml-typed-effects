@@ -56,7 +56,7 @@ module Typ :
               (string * effect_flag) list -> core_type -> core_type
     val package: ?loc:loc -> ?attrs:attrs -> lid -> (lid * core_type) list
                  -> core_type
-    val effect_: ?loc:loc -> ?attrs:attrs -> effect_desc -> core_type
+    val effect_: ?loc:loc -> ?attrs:attrs -> effect_row -> core_type
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> core_type
 
     val force_poly: core_type -> core_type
@@ -194,9 +194,16 @@ module Te:
 (** Effect declarations *)
 module Eff:
   sig
-    val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
+    val infos: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
+      ?kind:effect_kind -> ?manifest:lid -> 'a -> str -> 'a effect_infos
+
+    val decl: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
       ?kind:effect_kind -> ?manifest:lid -> ?handler:effect_handler -> str ->
       effect_declaration
+
+    val desc: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
+      ?kind:effect_kind -> ?manifest:lid -> ?handler:bool -> str ->
+      effect_description
 
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->
       ?args:constructor_arguments -> ?res:core_type -> str ->
@@ -248,7 +255,7 @@ module Sig:
     val type_: ?loc:loc -> rec_flag -> type_declaration list -> signature_item
     val type_extension: ?loc:loc -> type_extension -> signature_item
     val exception_: ?loc:loc -> extension_constructor -> signature_item
-    val effect_: ?loc:loc -> effect_declaration -> signature_item
+    val effect_: ?loc:loc -> effect_description -> signature_item
     val module_: ?loc:loc -> module_declaration -> signature_item
     val rec_module: ?loc:loc -> module_declaration list -> signature_item
     val modtype: ?loc:loc -> module_type_declaration -> signature_item

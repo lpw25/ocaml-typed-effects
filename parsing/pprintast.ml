@@ -236,7 +236,7 @@ class printer  ()= object(self:'self)
     match x with
     | None -> pp f "->"
     | Some e  ->
-        match e.pefd_effects, e.pefd_row with
+        match e.pefr_effects, e.pefr_row with
         | [], None -> pp f "=>"
         | effs, None ->
             pp f "-[%a]->" effects effs
@@ -977,7 +977,7 @@ class printer  ()= object(self:'self)
     | Psig_exception ed ->
         self#exception_declaration f ed
     | Psig_effect ed ->
-        self#effect_declaration f ed
+        self#effect_description f ed
     | Psig_class l ->
         let class_description kwd f ({pci_params=ls;pci_name={txt;_};_} as x) =
           pp f "@[<2>%s %a%a%s@;:@;%a@]%a" kwd
@@ -1383,51 +1383,63 @@ class printer  ()= object(self:'self)
           self#attributes x.pext_attributes
           self#longident_loc li
 
+  method private effect_info
+    : 'a. (formatter -> 'a -> unit) -> formatter -> 'a effect_infos -> unit =
+    fun handler f x ->
+      let manifest f = function
+        | None -> ()
+        | Some lid ->
+            pp f " =@ %a" self#longident_loc lid
+      in
+      let constructor f x =
+        match x.pec_res with
+        | Some res ->
+            pp f "%s%a:@;%a" x.pec_name.txt
+               self#attributes x.pec_attributes
+               (fun f -> function
+                 | Pcstr_tuple [] -> self#core_type1 f res
+                 | Pcstr_tuple l -> pp f "%a@;->@;%a"
+                                       (self#list self#core_type1 ~sep:"*@;") l
+                                       self#core_type1 res
+                 | Pcstr_record l ->
+                     pp f "%a@;->@;%a" (self#record_declaration) l
+                        self#core_type1 res)
+               x.pec_args
+        | None ->
+            pp f "|@;%s%a%a" x.pec_name.txt
+               (fun f -> function
+                 | Pcstr_tuple [] -> ()
+                 | Pcstr_tuple l ->
+                     pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l
+                 | Pcstr_record l -> pp f "@;of@;%a" (self#record_declaration) l)
+               x.pec_args
+               self#attributes x.pec_attributes
+      in
+      let kind f = function
+        | Peff_abstract -> ()
+        | Peff_variant xs ->
+            pp f "=@\n%a" (self#list ~sep:"@\n" constructor) xs
+      in
+        pp f "effect %s%a%a%a"
+           x.peff_name.txt
+           manifest x.peff_manifest
+           kind x.peff_kind
+           handler x.peff_handler
+
   method effect_declaration f x =
-    let manifest f = function
-      | None -> ()
-      | Some lid ->
-          pp f " =@ %a" self#longident_loc lid
-    in
-    let constructor f x =
-      match x.pec_res with
-      | Some res ->
-          pp f "%s%a:@;%a" x.pec_name.txt
-             self#attributes x.pec_attributes
-             (fun f -> function
-               | Pcstr_tuple [] -> self#core_type1 f res
-               | Pcstr_tuple l -> pp f "%a@;->@;%a"
-                                     (self#list self#core_type1 ~sep:"*@;") l
-                                     self#core_type1 res
-               | Pcstr_record l ->
-                   pp f "%a@;->@;%a" (self#record_declaration) l
-                      self#core_type1 res)
-             x.pec_args
-      | None ->
-          pp f "|@;%s%a%a" x.pec_name.txt
-             (fun f -> function
-               | Pcstr_tuple [] -> ()
-               | Pcstr_tuple l ->
-                   pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l
-               | Pcstr_record l -> pp f "@;of@;%a" (self#record_declaration) l)
-             x.pec_args
-             self#attributes x.pec_attributes
-    in
-    let kind f = function
-      | Peff_abstract -> ()
-      | Peff_variant xs ->
-          pp f "=@\n%a" (self#list ~sep:"@\n" constructor) xs
-    in
     let handler f = function
       | None -> ()
       | Some x ->
-          pp f "@[<hv>with handler%a@]" self#case_list x.peh_cases
+          pp f "@[<hv>with function%a@]" self#case_list x.peh_cases
     in
-      pp f "effect %s%a%a%a"
-         x.peff_name.txt
-         manifest x.peff_manifest
-         kind x.peff_kind
-         handler x.peff_handler
+    self#effect_info handler f x
+
+  method effect_description f x =
+    let handler f = function
+      | false -> ()
+      | true -> pp f "@[<hv>with function@]"
+    in
+    self#effect_info handler f x
 
   method case_list f l : unit =
     let aux f {pc_lhs; pc_guard; pc_rhs} =

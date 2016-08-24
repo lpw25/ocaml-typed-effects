@@ -471,10 +471,10 @@ module Te = struct
 end
 
 module Eff = struct
-  let mk ?(loc = !default_loc) ?(attrs = [])
+  let infos ?(loc = !default_loc) ?(attrs = [])
         ?(docs = empty_docs) ?(text = [])
       ?(kind = Peff_abstract)
-      ?manifest ?handler
+      ?manifest handler
       name =
     {
      peff_name = name;
@@ -485,6 +485,12 @@ module Eff = struct
        add_text_attrs text (add_docs_attrs docs attrs);
      peff_loc = loc;
     }
+
+  let decl ?loc ?attrs ?docs ?text ?kind ?manifest ?handler name =
+    infos ?loc ?attrs ?docs ?text ?kind ?manifest handler name
+
+  let desc ?loc ?attrs ?docs ?text ?kind ?manifest ?(handler=false) name =
+    infos ?loc ?attrs ?docs ?text ?kind ?manifest handler name
 
   let constructor ?(loc = !default_loc) ?(attrs = []) ?(info = empty_info)
         ?(args = Pcstr_tuple []) ?res name =

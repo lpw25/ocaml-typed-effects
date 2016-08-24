@@ -26,7 +26,8 @@ module type IteratorArgument = sig
     val enter_type_extension : type_extension -> unit
     val enter_extension_constructor : extension_constructor -> unit
     val enter_effect_declaration : effect_declaration -> unit
-    val enter_effect_desc : effect_desc -> unit
+    val enter_effect_description : effect_description -> unit
+    val enter_effect_row : effect_row -> unit
     val enter_pattern : pattern -> unit
     val enter_expression : expression -> unit
     val enter_package_type : package_type -> unit
@@ -54,7 +55,8 @@ module type IteratorArgument = sig
     val leave_type_extension : type_extension -> unit
     val leave_extension_constructor : extension_constructor -> unit
     val leave_effect_declaration : effect_declaration -> unit
-    val leave_effect_desc : effect_desc -> unit
+    val leave_effect_description : effect_description -> unit
+    val leave_effect_row : effect_row -> unit
     val leave_pattern : pattern -> unit
     val leave_expression : expression -> unit
     val leave_package_type : package_type -> unit
@@ -221,15 +223,28 @@ module MakeIterator(Iter : IteratorArgument) : sig
       List.iter iter_extension_constructor tyext.tyext_constructors;
       Iter.leave_type_extension tyext
 
+    and iter_effect_infos : 'a. ('a -> unit) -> 'a effect_infos -> unit =
+      fun iter_handler eff ->
+        begin match eff.eff_kind with
+            Teff_abstract -> ()
+          | Teff_variant list ->
+              List.iter iter_effect_constructor list
+        end;
+        iter_handler eff.eff_handler
+
     and iter_effect_declaration eff =
+      let iter_handler eh =
+        option iter_effect_handler eh
+      in
       Iter.enter_effect_declaration eff;
-      begin match eff.eff_kind with
-          Teff_abstract -> ()
-        | Teff_variant list ->
-            List.iter iter_effect_constructor list
-      end;
-      option iter_effect_handler eff.eff_handler;
+      iter_effect_infos iter_handler eff;
       Iter.leave_effect_declaration eff
+
+    and iter_effect_description eff =
+      let iter_handler _ = () in
+      Iter.enter_effect_description eff;
+      iter_effect_infos iter_handler eff;
+      Iter.leave_effect_description eff
 
     and iter_effect_constructor ec =
       List.iter iter_core_type ec.ec_args;
@@ -399,7 +414,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tsig_exception ext ->
             iter_extension_constructor ext
         | Tsig_effect eff ->
-            iter_effect_declaration eff
+            iter_effect_description eff
         | Tsig_typext tyext ->
             iter_type_extension tyext
         | Tsig_module md ->
@@ -568,10 +583,10 @@ module MakeIterator(Iter : IteratorArgument) : sig
       end;
       Iter.leave_class_type_field ctf
 
-    and iter_effect_desc efd =
-      Iter.enter_effect_desc efd;
-      option iter_core_type efd.efd_row;
-      Iter.leave_effect_desc efd
+    and iter_effect_row efr =
+      Iter.enter_effect_row efr;
+      option iter_core_type efr.efr_row;
+      Iter.leave_effect_row efr
 
     and iter_core_type ct =
       Iter.enter_core_type ct;
@@ -581,7 +596,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Ttyp_var _ -> ()
         | Ttyp_arrow (label, ct1, eft, ct2) ->
             iter_core_type ct1;
-            option iter_effect_desc eft.eft_desc;
+            option iter_effect_row eft.eft_desc;
             iter_core_type ct2
         | Ttyp_tuple list -> List.iter iter_core_type list
         | Ttyp_constr (path, _, list) ->
@@ -596,7 +611,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             List.iter iter_row_field list
         | Ttyp_poly (list, ct) -> iter_core_type ct
         | Ttyp_package pack -> iter_package_type pack
-        | Ttyp_effect efd -> iter_effect_desc efd
+        | Ttyp_effect efd -> iter_effect_row efd
       end;
       Iter.leave_core_type ct
 
@@ -644,7 +659,8 @@ module DefaultIteratorArgument = struct
       let enter_type_extension _ = ()
       let enter_extension_constructor _ = ()
       let enter_effect_declaration _ = ()
-      let enter_effect_desc _ = ()
+      let enter_effect_description _ = ()
+      let enter_effect_row _ = ()
       let enter_pattern _ = ()
       let enter_expression _ = ()
       let enter_package_type _ = ()
@@ -673,7 +689,8 @@ module DefaultIteratorArgument = struct
       let leave_type_extension _ = ()
       let leave_extension_constructor _ = ()
       let leave_effect_declaration _ = ()
-      let leave_effect_desc _ = ()
+      let leave_effect_description _ = ()
+      let leave_effect_row _ = ()
       let leave_pattern _ = ()
       let leave_expression _ = ()
       let leave_package_type _ = ()

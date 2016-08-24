@@ -35,7 +35,8 @@ type mapper =
     extension_constructor: mapper -> extension_constructor ->
       extension_constructor;
     effect_declaration: mapper -> effect_declaration -> effect_declaration;
-    effect_desc: mapper -> effect_desc -> effect_desc;
+    effect_description: mapper -> effect_description -> effect_description;
+    effect_row: mapper -> effect_row -> effect_row;
     module_binding: mapper -> module_binding -> module_binding;
     module_coercion: mapper -> module_coercion -> module_coercion;
     module_declaration: mapper -> module_declaration -> module_declaration;
@@ -191,7 +192,7 @@ let effect_constructor sub x =
   let ec_res = opt (sub.typ sub) x.ec_res in
   { x with ec_args; ec_res }
 
-let effect_declaration sub x =
+let effect_infos handler sub x =
   let eff_kind =
     match x.eff_kind with
     | Teff_abstract -> Teff_abstract
@@ -199,8 +200,18 @@ let effect_declaration sub x =
         let list = List.map (effect_constructor sub) list in
         Teff_variant list
   in
-  let eff_handler = opt (effect_handler sub) x.eff_handler in
+  let eff_handler = handler sub x.eff_handler in
   { x with eff_kind; eff_handler }
+
+let effect_declaration sub x =
+  let handler sub x =
+    opt (effect_handler sub) x
+  in
+  effect_infos handler sub x
+
+let effect_description sub x =
+  let handler sub x = x in
+  effect_infos handler sub x
 
 let pat sub x =
   let extra = function
@@ -382,7 +393,7 @@ let signature_item sub x =
     | Tsig_exception ext ->
         Tsig_exception (sub.extension_constructor sub ext)
     | Tsig_effect ext ->
-        Tsig_effect (sub.effect_declaration sub ext)
+        Tsig_effect (sub.effect_description sub ext)
     | Tsig_module x ->
         Tsig_module (sub.module_declaration sub x)
     | Tsig_recmodule list ->
@@ -577,7 +588,7 @@ let typ sub x =
     | Ttyp_var _ as d -> d
     | Ttyp_arrow (label, ct1, eft, ct2) ->
         let eft =
-          { eft with eft_desc = opt (sub.effect_desc sub) eft.eft_desc }
+          { eft with eft_desc = opt (sub.effect_row sub) eft.eft_desc }
         in
         Ttyp_arrow (label, sub.typ sub ct1, eft, sub.typ sub ct2)
     | Ttyp_tuple list -> Ttyp_tuple (List.map (sub.typ sub) list)
@@ -601,15 +612,15 @@ let typ sub x =
     | Ttyp_poly (sl, ct) ->
         Ttyp_poly (sl, sub.typ sub ct)
     | Ttyp_effect efd ->
-        Ttyp_effect (sub.effect_desc sub efd)
+        Ttyp_effect (sub.effect_row sub efd)
     | Ttyp_package pack ->
         Ttyp_package (sub.package_type sub pack)
   in
   {x with ctyp_desc; ctyp_env}
 
-let effect_desc sub x =
-  let efd_row = opt (sub.typ sub) x.efd_row in
-  {x with efd_row}
+let effect_row sub x =
+  let efr_row = opt (sub.typ sub) x.efr_row in
+  {x with efr_row}
 
 let class_structure sub x =
   let cstr_self = sub.pat sub x.cstr_self in
@@ -682,7 +693,8 @@ let default =
     expr;
     extension_constructor;
     effect_declaration;
-    effect_desc;
+    effect_description;
+    effect_row;
     module_binding;
     module_coercion;
     module_declaration;

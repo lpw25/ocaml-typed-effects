@@ -1419,7 +1419,7 @@ let check_effect_coherence env loc id eff =
   | _ -> ()
 
 (* Translate an effect declaration *)
-let transl_effect_decl env funct_body seff =
+let transl_effect_infos transl_handler env funct_body seff =
   reset_type_variables();
   Ctype.begin_def ();
   let (tman, man) =
@@ -1488,19 +1488,7 @@ let transl_effect_decl env funct_body seff =
   Ctype.end_def();
   generalize_effect_decl eff;
   let newenv = Env.add_effect id eff env in
-  let handler =
-    match seff.peff_handler with
-    | None -> None
-    | Some handler ->
-        let eff_expected =
-          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
-        in
-        let handler =
-          Typecore.type_default_handler newenv
-            (Path.Pident id) handler eff_expected
-        in
-        Some handler
-  in
+  let handler = transl_handler newenv id seff.peff_handler in
   let teff =
     { Typedtree.eff_id = id;
       eff_name = seff.peff_name;
@@ -1519,6 +1507,26 @@ let transl_effect_decl env funct_body seff =
   (* Check re-exportation *)
   check_effect_coherence newenv seff.peff_loc id eff;
   (teff, newenv)
+
+let transl_effect_decl env funct_body seff =
+  let transl_handler env id handler =
+    match handler with
+    | None -> None
+    | Some handler ->
+        let eff_expected =
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
+        in
+        let handler =
+          Typecore.type_default_handler env
+            (Path.Pident id) handler eff_expected
+        in
+        Some handler
+  in
+  transl_effect_infos transl_handler env funct_body seff
+
+let transl_effect_desc env funct_body seff =
+  let transl_handler env id handler = handler in
+  transl_effect_infos transl_handler env funct_body seff
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =

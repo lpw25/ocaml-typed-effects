@@ -36,11 +36,13 @@ type mapper = {
                          -> extension_constructor;
   effect_declaration: mapper -> Typedtree.effect_declaration
                       -> effect_declaration;
+  effect_description: mapper -> Typedtree.effect_description
+                      -> effect_description;
   effect_kind: mapper -> Typedtree.effect_kind -> effect_kind;
   effect_constructor: mapper -> Typedtree.effect_constructor
                          -> effect_constructor;
   effect_handler: mapper -> Typedtree.effect_handler -> effect_handler;
-  effect_desc: mapper -> Typedtree.effect_desc -> effect_desc;
+  effect_row: mapper -> Typedtree.effect_row -> effect_row;
   include_declaration:
     mapper -> Typedtree.include_declaration -> include_declaration;
   include_description:

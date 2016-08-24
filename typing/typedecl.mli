@@ -27,6 +27,10 @@ val transl_effect_decl:
     Env.t -> bool ->
     Parsetree.effect_declaration -> Typedtree.effect_declaration * Env.t
 
+val transl_effect_desc:
+    Env.t -> bool ->
+    Parsetree.effect_description -> Typedtree.effect_description * Env.t
+
 val transl_type_extension:
     bool -> Env.t -> Location.t -> Parsetree.type_extension ->
     Typedtree.type_extension * Env.t
