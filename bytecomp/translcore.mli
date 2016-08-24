@@ -25,6 +25,8 @@ val transl_let: rec_flag -> value_binding list -> lambda -> lambda
 val transl_primitive: Location.t -> Primitive.description -> Env.t
                       -> Types.type_expr -> lambda
 
+val transl_effect_handler: effect_handler -> lambda
+
 val check_recursive_lambda: Ident.t list -> lambda -> bool
 
 type error =

@@ -75,18 +75,30 @@ let transl_type_extension env rootpath tyext body =
     tyext.tyext_constructors
     body
 
-let transl_effect_constructor _ec =
-  Lprim(Pmakeblock(1, Mutable), [lambda_unit])
+let transl_effect_constructor handler _ec =
+  Lprim(Pmakeblock(1, Mutable), [handler])
 
-let transl_effect_declaration env eff =
+let transl_effect_declaration env eff body =
   match eff.eff_manifest with
   | Some (_, path) -> transl_path ~loc:eff.eff_loc env path
   | None ->
       match eff.eff_kind with
       | Teff_abstract -> lambda_unit
       | Teff_variant ecs ->
-          Lprim(Pmakeblock(0, Immutable),
-                List.map transl_effect_constructor ecs)
+          match eff.eff_handler with
+          | None ->
+              Llet(Strict, eff.eff_id,
+                   Lprim(Pmakeblock(0, Immutable),
+                         List.map (transl_effect_constructor lambda_unit) ecs),
+                   body)
+          | Some eh ->
+              let handler_id = Ident.create "handler" in
+              let constructors =
+                List.map (transl_effect_constructor (Lvar handler_id)) ecs
+              in
+              let decl = Lprim(Pmakeblock(0, Immutable), constructors) in
+              let handler = transl_effect_handler eh in
+                Lletrec([eff.eff_id, decl; handler_id, handler], body)
 
 (* Compile a coercion *)
 
@@ -449,8 +461,8 @@ and transl_structure fields cc rootpath = function
            transl_structure (id :: fields) cc rootpath rem)
   | Tstr_effect eff ->
       let id = eff.eff_id in
-      Llet(Strict, id, transl_effect_declaration item.str_env eff,
-           transl_structure (id :: fields) cc rootpath rem)
+      transl_effect_declaration item.str_env eff
+        (transl_structure (id :: fields) cc rootpath rem)
   | Tstr_module mb ->
       let id = mb.mb_id in
       Llet(pure_module mb.mb_expr, id,
@@ -651,7 +663,8 @@ let transl_store_structure glob map prims str =
       let lam = transl_extension_constructor item.str_env path ext in
       Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                 transl_store rootpath (add_ident false id subst) rem)
-  | Tstr_effect {eff_id; eff_kind = Teff_variant ecs; eff_manifest = None} ->
+  | Tstr_effect {eff_id; eff_kind = Teff_variant ecs;
+                 eff_manifest = None; eff_handler = None} ->
       let lam = transl_effect_declaration_store subst ecs in
       let subst = !transl_store_subst in
         Lsequence(lam,
@@ -664,9 +677,11 @@ let transl_store_structure glob map prims str =
                    transl_store rootpath (add_ident false eff_id subst) rem))
   | Tstr_effect eff ->
       let id = eff.eff_id in
-      let lam = transl_effect_declaration item.str_env eff in
-      Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
-                transl_store rootpath (add_ident false id subst) rem)
+      let lam =
+        transl_effect_declaration item.str_env eff (store_ident id)
+      in
+        Lsequence(subst_lambda subst lam,
+                  transl_store rootpath (add_ident false id subst) rem)
   | Tstr_module{mb_id=id; mb_expr={mod_desc = Tmod_structure str}} ->
     let lam = transl_store (field_path rootpath id) subst str.str_items in
       (* Careful: see next case *)
@@ -731,7 +746,7 @@ let transl_store_structure glob map prims str =
         lambda_unit
     | ec :: rem ->
         let id = ec.ec_id in
-        let lam = transl_effect_constructor ec in
+        let lam = transl_effect_constructor lambda_unit ec in
           Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                     transl_effect_declaration_store (add_ident false id subst) ecs)
 
@@ -893,8 +908,9 @@ let transl_toplevel_item item =
       toploop_setvalue ext.ext_id
         (transl_extension_constructor item.str_env None ext)
   | Tstr_effect eff ->
-      toploop_setvalue eff.eff_id
-        (transl_effect_declaration item.str_env eff)
+      set_toplevel_unique_name eff.eff_id;
+      transl_effect_declaration item.str_env eff
+        (toploop_setvalue_id eff.eff_id)
   | Tstr_module {mb_id=id; mb_expr=modl} ->
       (* we need to use the unique name for the module because of issues
          with "open" (PR#1672) *)
