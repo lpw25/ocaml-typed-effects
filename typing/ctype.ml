@@ -4153,6 +4153,25 @@ let enlarge_type env ty =
   let (ty', _) = build_subtype env [] [] true 4 ty in
   (ty', !warn)
 
+module TypeVariOps = struct
+  type t = type_expr * (bool * bool)
+
+  let compare (t1, (co1, cn1)) (t2, (co2, cn2)) =
+    let c = TypeOps.compare t1 t2 in
+    if c <> 0 then c else
+    let c = compare co1 co2 in
+    if c <> 0 then c else
+    compare cn1 cn2
+
+  let hash (t, vari) =
+    Hashtbl.hash (TypeOps.hash t, vari)
+
+  let equal (t1, (co1, cn1)) (t2, (co2, cn2)) =
+    t1 == t2 && co1 = co2 && cn1 = cn2
+end
+
+module TypeVariMap = Map.Make(TypeVariOps)
+
 type effect_change =
   | Unchanged
   | Equiv of int
@@ -4179,19 +4198,13 @@ let unchanged depth change =
 let collect_effect_change l =
   List.fold_left (fun c1 (_, c2) -> max_effect_change c1 c2) Unchanged l
 
-let rec find_open_visited ty ((co, cn) as vari) = function
-  | [] -> raise Not_found
-  | (ty', (co', cn'), stub, depth) :: rest ->
-      if ty == ty' && co = co' && cn = cn' then (stub, Equiv depth)
-      else find_open_visited ty vari rest
-
 let rec open_effects env depth visited vari ty =
   let (co, cn) = vari in
   let ty = repr ty in
   if ty.level <> generic_level then ty, Unchanged
   else if ((not co) && (not cn)) then ty, Unchanged
   else try
-    find_open_visited ty vari visited
+    TypeVariMap.find (ty, vari) visited
   with Not_found ->
     match ty.desc with
     | Tenil ->
@@ -4200,13 +4213,18 @@ let rec open_effects env depth visited vari ty =
     | Tvar _ | Tnil | Tunivar _ | Tpackage _ -> (ty, Unchanged)
     | Tconstr(p, _, _, _)
           when generic_abbrev env p && safe_abbrev env ty ->
+        let stub = newgenvar Stype in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let t = expand_abbrev env ty in
         let (t', change) = open_effects env (depth + 1) visited vari t in
-        if change = Unchanged then (ty, Unchanged)
-        else (t', change)
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          stub.desc <- t'.desc;
+          (stub, change)
+        end
     | Tconstr (path, tl, sort, abbrev) ->
         let stub = newgenvar sort in
-        let visited = (ty, vari, stub, depth) :: visited in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let variance =
           try (Env.find_type path env).type_variance
           with Not_found -> List.map (fun _ -> Variance.may_inv) tl
@@ -4228,7 +4246,7 @@ let rec open_effects env depth visited vari ty =
         end
     | Tarrow (l, t1, t2, t3, com) ->
         let stub = newgenvar Stype in
-        let visited = (ty, vari, stub, depth) :: visited in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let t1', c1 = open_effects env (depth + 1) visited (cn, co) t1 in
         let t2', c2 = open_effects env (depth + 1) visited vari t2 in
         let t3', c3 = open_effects env (depth + 1) visited vari t3 in
@@ -4240,7 +4258,7 @@ let rec open_effects env depth visited vari ty =
         end
     | Ttuple tl ->
         let stub = newgenvar Stype in
-        let visited = (ty, vari, stub, depth) :: visited in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let changes =
           List.map
             (open_effects env (depth + 1) visited vari)
@@ -4254,7 +4272,7 @@ let rec open_effects env depth visited vari ty =
         end
     | Tobject(t, _) ->
         let stub = newgenvar Stype in
-        let visited = (ty, vari, stub, depth) :: visited in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let t', change = open_effects env (depth + 1) visited vari t in
         if unchanged depth change then (ty, Unchanged)
         else begin
@@ -4263,7 +4281,7 @@ let rec open_effects env depth visited vari ty =
         end
     | Tvariant row ->
         let stub = newgenvar Stype in
-        let visited = (ty, vari, stub, depth) :: visited in
+        let visited = TypeVariMap.add (ty, vari) (stub, Equiv depth) visited in
         let row = row_repr row in
         let fields = filter_row_fields false row.row_fields in
         let fields =
@@ -4306,10 +4324,10 @@ let rec open_effects env depth visited vari ty =
     | Tlink _ | Tsubst _ -> assert false
 
 let open_effects_covariant env ty =
-  fst (open_effects env 0 [] (true, false) ty)
+  fst (open_effects env 0 TypeVariMap.empty (true, false) ty)
 
 let open_effects_contravariant env ty =
-  fst (open_effects env 0 [] (false, true) ty)
+  fst (open_effects env 0 TypeVariMap.empty (false, true) ty)
 
 let rec mem_close_visited ty ((co, cn) as vari) = function
   | [] -> false
