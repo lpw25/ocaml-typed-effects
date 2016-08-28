@@ -626,9 +626,14 @@ and print_out_effect_decl ppf eff =
       fprintf ppf " =@;<1 2>%a"
         (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) ecs
   in
-  fprintf ppf "@[<hv 2>%a%a@]"
+  let print_out_handler ppf = function
+    | false -> ()
+    | true -> fprintf ppf "@ with function"
+  in
+  fprintf ppf "@[<hv 2>%a%a%a@]"
     print_out_manifest eff.oeff_manifest
     print_out_ekind eff.oeff_kind
+    print_out_handler eff.oeff_handler
 
 let _ = out_module_type := print_out_module_type
 let _ = out_signature := print_out_signature

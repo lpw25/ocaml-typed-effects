@@ -187,6 +187,7 @@ let common_initial_env add_type add_extension add_effect empty_env =
   and effect_io =
     { eff_kind = Eff_abstract;
       eff_manifest = None;
+      eff_handler = true;
       eff_loc = Location.none;
       eff_attributes = []; }
   in

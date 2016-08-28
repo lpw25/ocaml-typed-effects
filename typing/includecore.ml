@@ -348,6 +348,7 @@ let extension_constructors env id ext1 ext2 =
 type effect_mismatch =
   | Effect_kind
   | Effect_manifest
+  | Effect_handler
   | Effect_constructor_arg_type of Ident.t
   | Effect_constructor_ret_type of Ident.t
   | Effect_constructor_arity of Ident.t
@@ -359,6 +360,7 @@ let report_effect_mismatch0 first second eff ppf err =
   match err with
   | Effect_kind -> pr "Their kinds differ"
   | Effect_manifest -> ()
+  | Effect_handler -> pr "%s %s has no handler" first eff
   | Effect_constructor_arg_type s ->
       pr "The argument types for constructor %s are not equal" (Ident.name s)
   | Effect_constructor_ret_type s ->
@@ -417,13 +419,19 @@ let effect_declarations env name eff1 id eff2 =
     | _, _ -> [Effect_kind]
   in
   if err <> [] then err else
-  match eff1.eff_manifest, eff2.eff_manifest with
-  | _, None -> []
-  | Some p1, Some p2 ->
-      if effect_manifest env p1 p2 then [] else [Effect_manifest]
-  | None, Some p2 ->
-      let p1 = Pident id in
-      if effect_manifest env p1 p2 then [] else [Effect_manifest]
+  let err =
+    match eff1.eff_manifest, eff2.eff_manifest with
+    | _, None -> []
+    | Some p1, Some p2 ->
+        if effect_manifest env p1 p2 then [] else [Effect_manifest]
+    | None, Some p2 ->
+        let p1 = Pident id in
+        if effect_manifest env p1 p2 then [] else [Effect_manifest]
+  in
+  if err <> [] then err else
+  match eff1.eff_handler, eff2.eff_handler with
+  | true, true | false, false | true, false -> []
+  | false, true -> [Effect_handler]
 
 (* Inclusion between class types *)
 let encode_val (mut, ty) rem =

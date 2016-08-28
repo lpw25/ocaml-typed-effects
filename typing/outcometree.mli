@@ -78,6 +78,7 @@ and out_arrow =
 
 type out_effect =
   { oeff_manifest: out_ident option;
+    oeff_handler: bool;
     oeff_kind: out_effect_kind; }
 
 and out_effect_kind =

@@ -36,6 +36,7 @@ type type_mismatch =
 type effect_mismatch =
   | Effect_kind
   | Effect_manifest
+  | Effect_handler
   | Effect_constructor_arg_type of Ident.t
   | Effect_constructor_ret_type of Ident.t
   | Effect_constructor_arity of Ident.t

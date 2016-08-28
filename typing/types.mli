@@ -196,6 +196,7 @@ and type_transparence =
 type effect_declaration =
   { eff_kind: effect_kind;
     eff_manifest: Path.t option;
+    eff_handler: bool;
     eff_loc: Location.t;
     eff_attributes: Parsetree.attributes;
   }

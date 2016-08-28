@@ -1076,7 +1076,8 @@ let rec tree_of_effect_declaration id eff =
     | Eff_variant ecs ->
         Oeff_variant (List.map tree_of_effect_constructor ecs)
   in
-  let eff = { oeff_manifest; oeff_kind; } in
+  let oeff_handler = eff.eff_handler in
+  let eff = { oeff_manifest; oeff_kind; oeff_handler } in
   Osig_effect (Ident.name id, eff)
 
 and tree_of_effect_constructor ec =

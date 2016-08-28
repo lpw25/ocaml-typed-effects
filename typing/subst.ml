@@ -296,6 +296,7 @@ let effect_declaration s eff =
             None -> None
           | Some p -> Some(effect_path s p)
         end;
+      eff_handler = eff.eff_handler;
       eff_loc = loc s eff.eff_loc;
       eff_attributes = attrs s eff.eff_attributes;
     }

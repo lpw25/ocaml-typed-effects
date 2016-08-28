@@ -1391,10 +1391,11 @@ let transl_exception env sext =
     ext, newenv
 
 (* Enter declared effects into the environment as abstract effects *)
-let enter_effect env seff man =
+let enter_effect env seff has_handler man =
   let eff =
     { Types.eff_kind = Eff_abstract;
       eff_manifest = man;
+      eff_handler = has_handler;
       eff_loc = seff.peff_loc;
       eff_attributes = seff.peff_attributes; }
   in
@@ -1419,7 +1420,7 @@ let check_effect_coherence env loc id eff =
   | _ -> ()
 
 (* Translate an effect declaration *)
-let transl_effect_infos transl_handler env funct_body seff =
+let transl_effect_infos transl_handler has_handler env funct_body seff =
   reset_type_variables();
   Ctype.begin_def ();
   let (tman, man) =
@@ -1429,7 +1430,7 @@ let transl_effect_infos transl_handler env funct_body seff =
         let p, _ = find_effect env lid.loc lid.txt in
         Some(lid, p), Some p
   in
-  let id, temp_env = enter_effect env seff man in
+  let id, temp_env = enter_effect env seff has_handler man in
   let (tkind, kind) =
     match seff.peff_kind with
       | Peff_abstract -> Teff_abstract, Eff_abstract
@@ -1482,6 +1483,7 @@ let transl_effect_infos transl_handler env funct_body seff =
   let eff =
     { Types.eff_kind = kind;
       eff_manifest = man;
+      eff_handler = has_handler;
       eff_loc = seff.peff_loc;
       eff_attributes = seff.peff_attributes; }
   in
@@ -1509,6 +1511,11 @@ let transl_effect_infos transl_handler env funct_body seff =
   (teff, newenv)
 
 let transl_effect_decl env funct_body seff =
+  let has_handler =
+    match seff.peff_handler with
+    | None -> false
+    | Some _ -> true
+  in
   let transl_handler env id handler =
     match handler with
     | None -> None
@@ -1522,11 +1529,12 @@ let transl_effect_decl env funct_body seff =
         in
         Some handler
   in
-  transl_effect_infos transl_handler env funct_body seff
+  transl_effect_infos transl_handler has_handler env funct_body seff
 
 let transl_effect_desc env funct_body seff =
+  let has_handler = seff.peff_handler in
   let transl_handler env id handler = handler in
-  transl_effect_infos transl_handler env funct_body seff
+  transl_effect_infos transl_handler has_handler env funct_body seff
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
@@ -1682,6 +1690,7 @@ let approx_type_decl env sdecl_list =
 let approx_effect_decl =
   { eff_kind = Eff_abstract;
     eff_manifest = None;
+    eff_handler = false;
     eff_loc = Location.none;
     eff_attributes = []; }
 

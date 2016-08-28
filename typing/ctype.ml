@@ -5008,6 +5008,7 @@ let nondep_effect_decl env mid is_covariant eff =
     clear_hash ();
     { eff_kind = ek;
       eff_manifest = em;
+      eff_handler = eff.eff_handler;
       eff_loc = eff.eff_loc;
       eff_attributes = eff.eff_attributes;
     }
