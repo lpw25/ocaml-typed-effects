@@ -186,7 +186,8 @@ sp is a local copy of the global variable caml_extern_sp. */
 static intnat caml_bcodcount;
 #endif
 
-value raise_unhandled = Val_unit;
+value resume_raise = Val_unit;
+value resume_value = Val_unit;
 
 /* The interpreter itself */
 
@@ -229,16 +230,21 @@ value caml_interprete(code_t prog, asize_t prog_size)
 #endif
 
   if (prog == NULL) {           /* Interpreter is initializing */
-    static opcode_t raise_unhandled_code[] = { ACC, 0, RAISE };
+    static opcode_t resume_raise_code[] = { ACC, 0, RAISE };
+    static opcode_t resume_value_code[] = { ACC, 0, RETURN, 1 };
 #ifdef THREADED_CODE
     caml_instr_table = (char **) jumptable;
     caml_instr_base = Jumptbl_base;
-    caml_thread_code(raise_unhandled_code,
-                     sizeof(raise_unhandled_code));
+    caml_thread_code(resume_raise_code,
+                     sizeof(resume_raise_code));
+    caml_thread_code(resume_value_code,
+                     sizeof(resume_value_code));
 #endif
-    raise_unhandled = caml_alloc_small(1, Closure_tag);
-    Field(raise_unhandled, 0) = Val_bytecode(raise_unhandled_code);
-    caml_register_global_root(&raise_unhandled);
+    resume_raise = caml_alloc_small(1, Closure_tag);
+    Field(resume_raise, 0) = Val_bytecode(resume_raise_code);
+    resume_value = caml_alloc_small(1, Closure_tag);
+    Field(resume_value, 0) = Val_bytecode(resume_value_code);
+    caml_register_global_root(&resume_raise);
     caml_register_global_root(&caml_global_data);
     caml_init_callbacks();
     return Val_unit;
@@ -881,6 +887,9 @@ value caml_interprete(code_t prog, asize_t prog_size)
     raise_notrace:
       if (caml_trap_sp_off > 0) {
         if (Stack_parent(caml_current_stack) == Val_long(0)) {
+          if (Tag_val(accu) == 1) {
+            caml_fatal_error ("Fatal error: unhandled effect.\n");
+          }
           caml_external_raise = initial_external_raise;
           caml_trap_sp_off = initial_trap_sp_off;
           caml_extern_sp = caml_stack_high - initial_stack_words;
@@ -1231,8 +1240,24 @@ do_resume:
       value heff = Stack_handle_effect(caml_current_stack);
 
       if (parent_stack == Val_long(0)) {
-        accu = Field(caml_global_data, UNHANDLED_EXN);
-        goto raise_exception;
+        value handler = Field(eff, 0);
+        if (Tag_val(eff) != 2){
+          if (Is_block(handler) && Tag_val(handler) == 2) {
+            handler = Field(handler, 0);
+          } else {
+            caml_fatal_error ("Fatal error: unhandled effect.\n");
+          }
+        }
+        sp -= 4;
+        sp[0] = eff;
+        sp[1] = Val_pc(pc);
+        sp[2] = env;
+        sp[3] = Val_long(extra_args);
+        accu = handler;
+        pc = Code_val(handler);
+        env = handler;
+        extra_args = 0;
+        goto check_stacks;
       }
 
       sp -= 4;
@@ -1268,9 +1293,33 @@ do_resume:
       sp[1] = Val_long(extra_args);
 
       if (parent == Val_long(0)) {
-        accu = performer;
-        resume_fn = raise_unhandled;
-        resume_arg = Field(caml_global_data, UNHANDLED_EXN);
+        value handler = Field(eff, 0);
+        if (Tag_val(eff) != 2){
+          if (Is_block(handler) && Tag_val(handler) == 2) {
+            handler = Field(handler, 0);
+          } else {
+            caml_fatal_error ("Fatal error: unhandled effect.\n");
+          }
+        }
+        value res;
+        sp -= 2;
+        sp[0] = performer;
+        sp[1] = env;
+        caml_extern_sp = sp;
+        res = caml_callback_exn (Field(eff, 0), eff);
+        sp = caml_extern_sp;
+        env = sp[1];
+        performer = sp[0];
+        sp += 2;
+        if (Is_exception_result (res)) {
+          accu = performer;
+          resume_fn = resume_raise;
+          resume_arg = Extract_exception (res);
+        } else {
+          accu = performer;
+          resume_fn = resume_value;
+          resume_arg = res;
+        }
         goto do_resume;
       }
 

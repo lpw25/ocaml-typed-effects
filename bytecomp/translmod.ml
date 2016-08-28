@@ -75,8 +75,8 @@ let transl_type_extension env rootpath tyext body =
     tyext.tyext_constructors
     body
 
-let transl_effect_constructor handler _ec =
-  Lprim(Pmakeblock(1, Mutable), [handler])
+let transl_effect_constructor tag handler _ec =
+  Lprim(Pmakeblock(tag, Mutable), [handler])
 
 let transl_effect_declaration env eff body =
   match eff.eff_manifest with
@@ -89,12 +89,12 @@ let transl_effect_declaration env eff body =
           | None ->
               Llet(Strict, eff.eff_id,
                    Lprim(Pmakeblock(0, Immutable),
-                         List.map (transl_effect_constructor lambda_unit) ecs),
+                         List.map (transl_effect_constructor 1 lambda_unit) ecs),
                    body)
           | Some eh ->
               let handler_id = Ident.create "handler" in
               let constructors =
-                List.map (transl_effect_constructor (Lvar handler_id)) ecs
+                List.map (transl_effect_constructor 2 (Lvar handler_id)) ecs
               in
               let decl = Lprim(Pmakeblock(0, Immutable), constructors) in
               let handler = transl_effect_handler eh in
@@ -746,7 +746,7 @@ let transl_store_structure glob map prims str =
         lambda_unit
     | ec :: rem ->
         let id = ec.ec_id in
-        let lam = transl_effect_constructor lambda_unit ec in
+        let lam = transl_effect_constructor 1 lambda_unit ec in
           Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                     transl_effect_declaration_store (add_ident false id subst) ecs)
 
