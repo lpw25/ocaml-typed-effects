@@ -146,7 +146,7 @@ and raw_type_desc ppf = function
         print_name name raw_type_sort sort
   | Tarrow(l,t1,t2,t3,c) ->
       fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%a,@,%s)@]"
-        (string_of_label l) raw_type t1 raw_type t2 raw_type t2
+        (string_of_label l) raw_type t1 raw_type t2 raw_type t3
         (safe_commu_repr [] c)
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
