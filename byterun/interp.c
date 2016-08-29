@@ -1240,10 +1240,13 @@ do_resume:
       value heff = Stack_handle_effect(caml_current_stack);
 
       if (parent_stack == Val_long(0)) {
-        value handler = Field(eff, 0);
-        if (Tag_val(eff) != 2){
-          if (Is_block(handler) && Tag_val(handler) == 2) {
-            handler = Field(handler, 0);
+        value handler;
+        if (Tag_val(eff) == 2){
+          handler = Field(eff, 0);
+        } else {
+          value defn = Field(eff, 0);
+          if (Is_block(defn) && Tag_val(defn) == 2) {
+            handler = Field(defn, 0);
           } else {
             caml_fatal_error ("Fatal error: unhandled effect.\n");
           }
@@ -1288,40 +1291,32 @@ do_resume:
       value self = caml_current_stack;
       value parent = Stack_parent(caml_current_stack);
 
-      sp = sp + *pc - 2;
-      sp[0] = Val_long(caml_trap_sp_off);
-      sp[1] = Val_long(extra_args);
-
       if (parent == Val_long(0)) {
-        value handler = Field(eff, 0);
-        if (Tag_val(eff) != 2){
-          if (Is_block(handler) && Tag_val(handler) == 2) {
-            handler = Field(handler, 0);
+        value handler;
+        if (Tag_val(eff) == 2){
+          handler = Field(eff, 1);
+        } else {
+          value defn = Field(eff, 0);
+          if (Is_block(defn) && Tag_val(defn) == 2) {
+            handler = Field(defn, 1);
           } else {
             caml_fatal_error ("Fatal error: unhandled effect.\n");
           }
         }
-        value res;
-        sp -= 2;
-        sp[0] = performer;
-        sp[1] = env;
-        caml_extern_sp = sp;
-        res = caml_callback_exn (Field(eff, 0), eff);
-        sp = caml_extern_sp;
-        env = sp[1];
-        performer = sp[0];
-        sp += 2;
-        if (Is_exception_result (res)) {
-          accu = performer;
-          resume_fn = resume_raise;
-          resume_arg = Extract_exception (res);
-        } else {
-          accu = performer;
-          resume_fn = resume_value;
-          resume_arg = res;
-        }
-        goto do_resume;
+
+        sp = sp + *pc - 2;
+        sp[0] = eff;
+        sp[1] = performer;
+        accu = handler;
+        pc = Code_val(handler);
+        env = handler;
+        extra_args += 1;
+        goto check_stacks;
       }
+
+      sp = sp + *pc - 2;
+      sp[0] = Val_long(caml_trap_sp_off);
+      sp[1] = Val_long(extra_args);
 
       Stack_parent(self) = performer;
 

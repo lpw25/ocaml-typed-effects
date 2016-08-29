@@ -26,6 +26,7 @@ val transl_primitive: Location.t -> Primitive.description -> Env.t
                       -> Types.type_expr -> lambda
 
 val transl_effect_handler: effect_handler -> lambda
+val delegate_effect_handler: Ident.t -> lambda
 
 val check_recursive_lambda: Ident.t list -> lambda -> bool
 

@@ -75,8 +75,8 @@ let transl_type_extension env rootpath tyext body =
     tyext.tyext_constructors
     body
 
-let transl_effect_constructor tag handler _ec =
-  Lprim(Pmakeblock(tag, Mutable), [handler])
+let transl_effect_constructor tag handler delegate_handler _ec =
+  Lprim(Pmakeblock(tag, Mutable), [handler; delegate_handler])
 
 let transl_effect_declaration env eff body =
   match eff.eff_manifest with
@@ -87,18 +87,30 @@ let transl_effect_declaration env eff body =
       | Teff_variant ecs ->
           match eff.eff_handler with
           | None ->
-              Llet(Strict, eff.eff_id,
-                   Lprim(Pmakeblock(0, Immutable),
-                         List.map (transl_effect_constructor 1 lambda_unit) ecs),
-                   body)
+              let constructors =
+                List.map
+                  (transl_effect_constructor 1 lambda_unit lambda_unit)
+                  ecs
+              in
+                Llet(Strict, eff.eff_id,
+                     Lprim(Pmakeblock(0, Immutable), constructors),
+                     body)
           | Some eh ->
               let handler_id = Ident.create "handler" in
+              let delegate_handler_id = Ident.create "delegate_handler" in
               let constructors =
-                List.map (transl_effect_constructor 2 (Lvar handler_id)) ecs
+                List.map
+                  (transl_effect_constructor 2
+                     (Lvar handler_id) (Lvar delegate_handler_id))
+                  ecs
               in
               let decl = Lprim(Pmakeblock(0, Immutable), constructors) in
               let handler = transl_effect_handler eh in
-                Lletrec([eff.eff_id, decl; handler_id, handler], body)
+              let delegate_handler = delegate_effect_handler handler_id in
+                Lletrec([eff.eff_id, decl;
+                         handler_id, handler;
+                         delegate_handler_id, delegate_handler],
+                        body)
 
 (* Compile a coercion *)
 
@@ -746,7 +758,7 @@ let transl_store_structure glob map prims str =
         lambda_unit
     | ec :: rem ->
         let id = ec.ec_id in
-        let lam = transl_effect_constructor 1 lambda_unit ec in
+        let lam = transl_effect_constructor 1 lambda_unit lambda_unit ec in
           Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                     transl_effect_declaration_store (add_ident false id subst) ecs)
 

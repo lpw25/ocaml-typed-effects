@@ -1346,6 +1346,34 @@ let transl_effect_handler eh =
   in
     Lfunction{kind; params; body}
 
+let delegate_effect_handler handler_id =
+  let eff_id = Ident.create "eff" in
+  let cont_id = Ident.create "k" in
+  let exn_id = Ident.create "exn" in
+  let val_id = Ident.create "v" in
+  let continue =
+    let arg_id = Ident.create "x" in
+    Lfunction{kind = Curried; params = [arg_id]; body = Lvar arg_id}
+  in
+  let discontinue =
+    let arg_id = Ident.create "x" in
+    Lfunction{kind = Curried; params = [arg_id];
+              body = Lprim(Praise Raise_regular, [Lvar arg_id])}
+  in
+  let kind = Curried in
+  let params = [eff_id; cont_id] in
+  let static_exception_id = next_negative_raise_count () in
+  let body =
+    Lstaticcatch
+      (Ltrywith
+         (Lstaticraise (static_exception_id,
+            [Lapply(Lvar handler_id, [Lvar eff_id], no_apply_info)]),
+         exn_id, Lprim(Presume, [Lvar cont_id; discontinue; Lvar exn_id])),
+      (static_exception_id, [val_id]),
+      Lprim(Presume, [Lvar cont_id; continue; Lvar val_id]))
+  in
+  Lfunction{kind; params; body}
+
 (* Wrapper for class compilation *)
 
 (*
