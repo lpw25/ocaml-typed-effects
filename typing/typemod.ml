@@ -39,6 +39,7 @@ type error =
   | Scoping_pack of Longident.t * type_expr
   | Recursive_module_require_explicit_type
   | Apply_generative
+  | Module_effect_clash of (type_expr * type_expr) list
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -1099,7 +1100,7 @@ let wrap_constraint env arg mty explicit =
 
 (* Type a module value expression *)
 
-let rec type_module ?(alias=false) sttn funct_body anchor env smod =
+let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
   match smod.pmod_desc with
     Pmod_ident lid ->
       let path =
@@ -1127,7 +1128,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
       in rm md
   | Pmod_structure sstr ->
       let (str, sg, finalenv) =
-        type_structure funct_body anchor env sstr smod.pmod_loc in
+        type_structure funct_body anchor eff env sstr smod.pmod_loc in
       let md =
         rm { mod_desc = Tmod_structure str;
              mod_type = Mty_signature sg;
@@ -1145,17 +1146,32 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
       let (id, newenv), funct_body =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
-      let body = type_module sttn funct_body None newenv sbody in
+      let eff =
+        Expected (Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil)))
+      in
+      let body = type_module sttn funct_body None newenv eff sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
            mod_type = Mty_functor(id, ty_arg, body.mod_type);
            mod_env = env;
            mod_attributes = smod.pmod_attributes;
            mod_loc = smod.pmod_loc }
   | Pmod_apply(sfunct, sarg) ->
-      let arg = type_module true funct_body None env sarg in
+      begin
+        match eff with
+        | Toplevel _ -> ()
+        | Expected eff ->
+            let io =
+              Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
+            in
+            try
+              Ctype.unify env io eff
+            with Ctype.Unify trace ->
+              raise(Error(smod.pmod_loc, env, Module_effect_clash(trace)))
+      end;
+      let arg = type_module true funct_body None env eff sarg in
       let path = path_of_module arg in
       let funct =
-        type_module (sttn && path <> None) funct_body None env sfunct in
+        type_module (sttn && path <> None) funct_body None env eff sfunct in
       begin match Env.scrape_alias env funct.mod_type with
         Mty_functor(param, mty_param, mty_res) as mty_functor ->
           let generative, mty_param =
@@ -1195,7 +1211,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
           raise(Error(sfunct.pmod_loc, env, Cannot_apply funct.mod_type))
       end
   | Pmod_constraint(sarg, smty) ->
-      let arg = type_module ~alias true funct_body anchor env sarg in
+      let arg = type_module ~alias true funct_body anchor env eff sarg in
       let mty = transl_modtype env smty in
       rm {(wrap_constraint env arg mty.mty_type (Tmodtype_explicit mty)) with
           mod_loc = smod.pmod_loc;
@@ -1204,10 +1220,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
 
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
-      let eff_expected =
-        Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
-      in
-      let exp = Typecore.type_exp env sexp eff_expected in
+      let exp = Typecore.type_exp env eff sexp in
       if !Clflags.principal then begin
         Ctype.end_def ();
         Ctype.generalize_structure exp.exp_type
@@ -1240,7 +1253,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
   | Pmod_extension ext ->
       raise (Error_forward (Typetexp.error_of_extension ext))
 
-and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
+and type_structure ?(toplevel = false) funct_body anchor eff env sstr scope =
   let type_names = ref StringSet.empty
   and effect_names = ref StringSet.empty
   and module_names = ref StringSet.empty
@@ -1249,15 +1262,9 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
   let type_str_item env srem {pstr_loc = loc; pstr_desc = desc} =
     match desc with
     | Pstr_eval (sexpr, attrs) ->
-        let eff_expected =
-          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
-        in
-        let expr = Typecore.type_expression env sexpr eff_expected in
+        let expr = Typecore.type_expression env eff sexpr in
         Tstr_eval (expr, attrs), [], env
     | Pstr_value(rec_flag, sdefs) ->
-        let eff_expected =
-          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
-        in
         let scope =
           match rec_flag with
           | Recursive ->
@@ -1272,7 +1279,8 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
               Some (Annot.Idef {scope with Location.loc_start = start})
         in
         let (defs, newenv) =
-          Typecore.type_binding env rec_flag sdefs eff_expected scope in
+          Typecore.type_binding env eff rec_flag sdefs scope
+        in
         (* Note: Env.find_value does not trigger the value_used event. Values
            will be marked as being used during the signature inclusion test. *)
         Tstr_value(rec_flag, defs),
@@ -1319,7 +1327,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         check_name "module" module_names name;
         let modl =
           type_module ~alias:true true funct_body
-            (anchor_submodule name.txt anchor) env smodl in
+            (anchor_submodule name.txt anchor) env eff smodl in
         let md =
           { md_type = enrich_module_type anchor name.txt modl.mod_type env;
             md_attributes = attrs;
@@ -1366,7 +1374,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
             (fun {md_id=id; md_type=mty} (name, _, smodl, attrs, loc) ->
                let modl =
                  type_module true funct_body (anchor_recmodule id anchor) newenv
-                   smodl in
+                   eff smodl in
                let mty' =
                  enrich_module_type anchor (Ident.name id) modl.mod_type newenv
                in
@@ -1456,7 +1464,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         new_env
     | Pstr_include sincl ->
         let smodl = sincl.pincl_mod in
-        let modl = type_module true funct_body None env smodl in
+        let modl = type_module true funct_body None env eff smodl in
         (* Rename all identifiers bound by this signature to avoid clashes *)
         let sg = Subst.signature Subst.identity
             (extract_sig_open env smodl.pmod_loc modl.mod_type) in
@@ -1525,12 +1533,21 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
     (Cmt_format.Partial_structure str :: previous_saved_types);
   str, sg, final_env
 
-let type_toplevel_phrase env s =
+let type_phrase toplevel env s =
   Env.reset_required_globals ();
-  type_structure ~toplevel:true false None env s Location.none
+  Ctype.init_def(Ident.current_time());
+  Ctype.begin_def();
+  let eff_expected = Ctype.new_toplevel_expectation () in
+  let (str, sg, finalenv) =
+    type_structure ~toplevel false None eff_expected env s Location.none
+  in
+  Ctype.end_def ();
+  Typecore.check_expectation finalenv eff_expected;
+  (str, sg, finalenv)
+
 (*let type_module_alias = type_module ~alias:true true false None*)
-let type_module = type_module true false None
-let type_structure = type_structure false None
+let type_module env expected_eff md =
+  type_module true false None env expected_eff md
 
 (* Normalize types in a signature *)
 
@@ -1559,7 +1576,8 @@ let type_module_type_of env smod =
              mod_env = env;
              mod_attributes = smod.pmod_attributes;
              mod_loc = smod.pmod_loc }
-    | _ -> type_module env smod in
+    | _ -> type_module env (Expected (Ctype.newvar Seffect)) smod
+  in
   let mty = tmty.mod_type in
   (* PR#6307: expand aliases at root and submodules *)
   let mty = Mtype.remove_aliases env mty in
@@ -1576,14 +1594,14 @@ let rec get_manifest_types = function
       (Ident.name id, ty) :: get_manifest_types rem
   | _ :: rem -> get_manifest_types rem
 
-let type_package env m p nl tl =
+let type_package env expected_eff m p nl tl =
   (* Same as Pexp_letmodule *)
   (* remember original level *)
   let lv = Ctype.get_current_level () in
   Ctype.begin_def ();
   Ident.set_current_time lv;
   let context = Typetexp.narrow () in
-  let modl = type_module env m in
+  let modl = type_module env expected_eff m in
   Ctype.init_def(Ident.current_time());
   Typetexp.widen context;
   let (mp, env) =
@@ -1636,9 +1654,14 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     let map = Typetexp.emit_external_warnings in
     ignore (map.Ast_mapper.structure map ast)
   end;
-
+  Ctype.init_def(Ident.current_time());
+  Ctype.begin_def();
+  let eff_expected = Ctype.new_toplevel_expectation () in
   let (str, sg, finalenv) =
-    type_structure initial_env ast (Location.in_file sourcefile) in
+    type_structure false None eff_expected
+      initial_env ast (Location.in_file sourcefile)
+  in
+  Ctype.end_def ();
   let simple_sg = simplify_signature sg in
   if !Clflags.print_types then begin
     Printtyp.wrap_printing_env initial_env
@@ -1658,6 +1681,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
       let coercion =
         Includemod.compunit initial_env sourcefile sg intf_file dclsig in
       Typecore.force_delayed_checks ();
+      Typecore.check_expectation finalenv eff_expected;
       (* It is important to run these checks after the inclusion test above,
          so that value declarations which are not used internally but exported
          are not reported as being unused. *)
@@ -1671,6 +1695,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
         Includemod.compunit initial_env sourcefile sg
                             "(inferred signature)" simple_sg in
       Typecore.force_delayed_checks ();
+      Typecore.check_expectation finalenv eff_expected;
       (* See comment above. Here the target signature contains all
          the value being exported. We can still capture unused
          declarations like "let x = true;; let x = 1;;", because in this
@@ -1771,7 +1796,7 @@ let package_units initial_env objfiles cmifile modulename =
 
 open Printtyp
 
-let report_error ppf = function
+let report_error env ppf = function
     Cannot_apply mty ->
       fprintf ppf
         "@[This module is not a functor; it has type@ %a@]" modtype mty
@@ -1849,9 +1874,15 @@ let report_error ppf = function
       fprintf ppf "Recursive modules require an explicit module type."
   | Apply_generative ->
       fprintf ppf "This is a generative functor. It can only be applied to ()"
+  | Module_effect_clash trace ->
+      report_unification_error ppf env trace
+        (function ppf ->
+           fprintf ppf "This module expression performs effect")
+        (function ppf ->
+           fprintf ppf "but a module expression was expected that performed")
 
 let report_error env ppf err =
-  Printtyp.wrap_printing_env env (fun () -> report_error ppf err)
+  Printtyp.wrap_printing_env env (fun () -> report_error env ppf err)
 
 let () =
   Location.register_error_of_exn
