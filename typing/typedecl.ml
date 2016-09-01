@@ -1520,13 +1520,15 @@ let transl_effect_decl env funct_body seff =
     match handler with
     | None -> None
     | Some handler ->
-        let eff_expected =
-          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
-        in
+        Ctype.init_def(Ident.current_time());
+        Ctype.begin_def();
+        let eff_expected = Ctype.new_toplevel_expectation () in
         let handler =
           Typecore.type_default_handler env
-            (Path.Pident id) handler eff_expected
+            eff_expected (Path.Pident id) handler
         in
+        Ctype.end_def ();
+        Typecore.check_expectation env eff_expected;
         Some handler
   in
   transl_effect_infos transl_handler has_handler env funct_body seff

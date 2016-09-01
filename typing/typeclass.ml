@@ -607,7 +607,7 @@ let rec class_field self_loc cl_num self_type meths vars
       if !Clflags.principal then Ctype.begin_def ();
       let eff = Predef.effect_io (Btype.newgenty Tenil) in
       let exp =
-        try type_exp val_env sexp eff with Ctype.Unify [(ty, _)] ->
+        try type_exp val_env (Expected eff) sexp with Ctype.Unify [(ty, _)] ->
           raise(Error(loc, val_env, Make_nongen_seltype ty))
       in
       if !Clflags.principal then begin
@@ -690,8 +690,9 @@ let rec class_field self_loc cl_num self_type meths vars
             Btype.newgenty (Tarrow(Nolabel, self_type, eff, ty, Cok)) in
           Ctype.raise_nongen_level ();
           vars := vars_local;
+          let eff = Btype.newgenty Tenil in
           let texp =
-            type_expect met_env meth_expr meth_type (Btype.newgenty Tenil)
+            type_expect met_env (Expected eff) meth_expr meth_type
           in
           Ctype.end_def ();
           mkcf (Tcf_method (lab, priv, Tcfk_concrete (ovf, texp)))
@@ -718,8 +719,9 @@ let rec class_field self_loc cl_num self_type meths vars
               (Tarrow (Nolabel, self_type, eff,
                        Ctype.instance_def Predef.type_unit, Cok)) in
           vars := vars_local;
+          let eff = Btype.newgenty Tenil in
           let texp =
-            type_expect met_env expr meth_type (Btype.newgenty Tenil)
+            type_expect met_env (Expected eff) expr meth_type
           in
           Ctype.end_def ();
           mkcf (Tcf_initializer texp)
@@ -754,7 +756,8 @@ and class_structure cl_num final val_env met_env loc
   (* Self binder *)
   let self_eff = Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil)) in
   let (pat, meths, vars, val_env, meth_env, par_env) =
-    type_self_pattern cl_num private_self val_env met_env par_env spat self_eff
+    type_self_pattern cl_num private_self
+      val_env met_env par_env (Expected self_eff) spat
   in
   let public_self = pat.pat_type in
 
@@ -944,11 +947,12 @@ and class_expr cl_num val_env met_env scl =
       class_expr cl_num val_env met_env sfun
   | Pcl_fun (l, None, spat, scl') ->
       if !Clflags.principal then Ctype.begin_def ();
-      let eff_expected =
+      let eff =
         Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
       in
       let (pat, pv, val_env', met_env) =
-        Typecore.type_class_arg_pattern cl_num val_env met_env l spat eff_expected
+        Typecore.type_class_arg_pattern cl_num
+          val_env met_env (Expected eff) l spat
       in
       if !Clflags.principal then begin
         Ctype.end_def ();
@@ -976,8 +980,8 @@ and class_expr cl_num val_env met_env scl =
       in
       let cont = Ctype.newvar Stype in
       let partial, _ =
-        Typecore.check_partial val_env cont pat.pat_type
-          eff_expected pat.pat_loc
+        Typecore.check_partial val_env (Expected eff) cont pat.pat_type
+          pat.pat_loc
           [{c_lhs=pat;
             c_guard=None;
             c_rhs = (* Dummy expression *)
@@ -1039,7 +1043,7 @@ and class_expr cl_num val_env met_env scl =
             let name = Btype.label_name l
             and optional =
               if Btype.is_optional l then Optional else Required in
-            let eff_expected =
+            let eff =
               Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
             in
             let sargs, more_sargs, arg =
@@ -1052,8 +1056,8 @@ and class_expr cl_num val_env met_env scl =
                       raise(Error(sarg0.pexp_loc, val_env,
                                   Apply_wrong_label l'))
                     else ([], more_sargs,
-                          Some (type_argument val_env sarg0
-                                  ty ty0 eff_expected))
+                          Some (type_argument val_env (Expected eff)
+                                  sarg0 ty ty0))
                 | _ ->
                     assert false
               end else try
@@ -1072,12 +1076,12 @@ and class_expr cl_num val_env met_env scl =
                     (Warnings.Nonoptional_label (Printtyp.string_of_label l));
                 sargs, more_sargs,
                 if optional = Required || Btype.is_optional l' then
-                  Some (type_argument val_env sarg0 ty ty0 eff_expected)
+                  Some (type_argument val_env (Expected eff) sarg0 ty ty0)
                 else
                   let ty' = extract_option_type val_env ty
                   and ty0' = extract_option_type val_env ty0 in
                   let arg =
-                    type_argument val_env sarg0 ty' ty0' eff_expected
+                    type_argument val_env (Expected eff) sarg0 ty' ty0'
                   in
                   Some (option_some arg)
               with Not_found ->
@@ -1118,12 +1122,12 @@ and class_expr cl_num val_env met_env scl =
           cl_attributes = scl.pcl_attributes;
          }
   | Pcl_let (rec_flag, sdefs, scl') ->
-      let eff_expected =
+      let eff =
         Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
       in
       let (defs, val_env) =
         try
-          Typecore.type_let val_env rec_flag sdefs eff_expected None
+          Typecore.type_let val_env (Expected eff) rec_flag sdefs None
         with Ctype.Unify [(ty, _)] ->
           raise(Error(scl.pcl_loc, val_env, Make_nongen_seltype ty))
       in

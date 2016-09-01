@@ -343,3 +343,9 @@ type effect_constructor_description =
     ecstr_loc: Location.t;
     ecstr_attributes: Parsetree.attributes;
    }
+
+(* Expected effect *)
+
+type effect_expectation =
+  | Toplevel of (type_expr * Location.t * string) list ref * int
+  | Expected of type_expr

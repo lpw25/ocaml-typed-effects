@@ -228,8 +228,7 @@ let execute_phrase print_outcome ppf phr =
       phrase_name := Printf.sprintf "TOP%i" !phrase_seqid;
       Compilenv.reset ?packname:None !phrase_name;
       Typecore.reset_delayed_checks ();
-      let (str, sg, newenv) = Typemod.type_structure oldenv sstr Location.none
-      in
+      let (str, sg, newenv) = Typemod.type_phrase false oldenv sstr in
       if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
       Typecore.force_delayed_checks ();
       let res = Translmod.transl_store_phrases !phrase_name str in

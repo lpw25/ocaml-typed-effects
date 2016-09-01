@@ -16,12 +16,10 @@ open Types
 open Format
 
 val type_module:
-        Env.t -> Parsetree.module_expr -> Typedtree.module_expr
-val type_structure:
-        Env.t -> Parsetree.structure -> Location.t ->
-         Typedtree.structure * Types.signature * Env.t
-val type_toplevel_phrase:
-        Env.t -> Parsetree.structure ->
+        Env.t -> effect_expectation ->
+        Parsetree.module_expr -> Typedtree.module_expr
+val type_phrase:
+        bool -> Env.t -> Parsetree.structure ->
          Typedtree.structure * Types.signature * Env.t
 val type_implementation:
   string -> string -> string -> Env.t -> Parsetree.structure ->
@@ -70,6 +68,7 @@ type error =
   | Scoping_pack of Longident.t * type_expr
   | Recursive_module_require_explicit_type
   | Apply_generative
+  | Module_effect_clash of (type_expr * type_expr) list
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

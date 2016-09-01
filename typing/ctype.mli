@@ -94,6 +94,13 @@ val equal_effect_constructor:
         Env.t -> effect_constructor_description ->
         effect_constructor_description -> bool
 
+exception No_default_handler of Path.t * Location.t * string
+exception Unknown_effects of type_expr * Location.t * string
+
+val new_toplevel_expectation : unit -> effect_expectation
+
+val check_expectation: Env.t -> effect_expectation -> unit
+
 val generalize: type_expr -> unit
         (* Generalize in-place the given type *)
 val iterative_generalization: int -> type_expr list -> type_expr list

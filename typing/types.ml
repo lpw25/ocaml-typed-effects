@@ -355,3 +355,9 @@ type label_description =
     lbl_loc: Location.t;
     lbl_attributes: Parsetree.attributes;
    }
+
+(* Expected effect *)
+
+type effect_expectation =
+  | Toplevel of (type_expr * Location.t * string) list ref * int
+  | Expected of type_expr
