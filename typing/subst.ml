@@ -197,6 +197,8 @@ let rec typexp s ty =
           end
       | Tfield(label, kind, t1, t2) when field_kind_repr kind = Fabsent ->
           Tlink (typexp s t2)
+      | Teffect(p, t1) ->
+          Teffect(effect_path s p, typexp s t1)
       | _ -> copy_type_desc (typexp s) desc
       end;
     ty'
