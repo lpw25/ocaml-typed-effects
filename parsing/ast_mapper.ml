@@ -46,6 +46,7 @@ type mapper = {
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
   effect_row: mapper -> effect_row -> effect_row;
+  effect_type: mapper -> effect_type -> effect_type;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor
@@ -101,7 +102,7 @@ module T = struct
     | Ptyp_var(n, s) -> var ~loc ~attrs n s
     | Ptyp_arrow (lab, t1, e, t2) ->
         arrow ~loc ~attrs lab (sub.typ sub t1)
-              (map_opt (sub.effect_row sub) e) (sub.typ sub t2)
+              (sub.effect_type sub e) (sub.typ sub t2)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
@@ -119,6 +120,18 @@ module T = struct
           (List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
     | Ptyp_effect d -> effect_ (sub.effect_row sub d)
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
+
+  let map_effect_type sub x =
+    let peft_desc =
+      match x.peft_desc with
+        | Peft_io -> Peft_io
+        | Peft_pure -> Peft_pure
+        | Peft_io_tilde -> Peft_io_tilde
+        | Peft_pure_tilde -> Peft_pure_tilde
+        | Peft_row efr -> Peft_row (sub.effect_row sub efr)
+    in
+    { peft_desc = peft_desc;
+      peft_loc = sub.location sub x.peft_loc; }
 
   let map_effect_row sub { pefr_effects; pefr_row } =
     { pefr_effects = List.map (map_loc sub) pefr_effects;
@@ -557,6 +570,7 @@ let default_mapper =
     effect_constructor = Eff.map_constructor;
     effect_kind = Eff.map_kind;
     effect_row = T.map_effect_row;
+    effect_type = T.map_effect_type;
     value_description =
       (fun this {pval_name; pval_type; pval_prim; pval_loc;
                  pval_attributes} ->

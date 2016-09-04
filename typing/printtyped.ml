@@ -211,7 +211,18 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_row ppf x.eft_desc
+  match x.eft_desc with
+  | Teft_io ->
+      line i ppf "Peft_io\n"
+  | Teft_pure ->
+      line i ppf "Peft_pure\n"
+  | Teft_io_tilde ->
+      line i ppf "Peft_io_tilde\n"
+  | Teft_pure_tilde ->
+      line i ppf "Peft_pure_tilde\n"
+  | Teft_row efr ->
+      line i ppf "Peft_row\n";
+      effect_row (i+1) ppf efr
 
 and effect_row i ppf x =
   line i ppf "effect_row\n";

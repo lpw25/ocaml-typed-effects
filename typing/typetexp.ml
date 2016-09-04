@@ -837,16 +837,16 @@ and transl_fields loc env policy seen o =
       let ty2 = transl_fields loc env policy (s :: seen) o l in
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
 
-and transl_effect_row env policy desc =
+and transl_effect_row env policy row =
   let efr_effects =
     List.map
       (fun lid ->
         let path, _ = find_effect env lid.loc lid.txt in
           lid, path)
-      desc.pefr_effects
+      row.pefr_effects
   in
   let efr_row, row =
-    match desc.pefr_row with
+    match row.pefr_row with
     | None -> None, newty Tenil
     | Some styp ->
         let typ = transl_type env policy (Some Seffect) styp in
@@ -860,17 +860,52 @@ and transl_effect_row env policy desc =
   in
   { efr_effects; efr_type; efr_row }
 
-and transl_effect_type env policy eft =
-  match eft with
-  | None ->
+and transl_tilde env loc policy =
+  let name = "~" in
+  let sort = Seffect in
+  let key = (name, sort) in
+  try
+    instance env (List.assoc key !univars)
+  with Not_found -> try
+    instance env (fst(Tbl.find key !used_variables))
+  with Not_found ->
+    let v =
+      if policy = Univars then new_pre_univar ~name sort
+      else newvar ~name sort
+    in
+    used_variables :=
+      Tbl.add key (v, loc) !used_variables;
+    v
+
+and transl_effect_type env policy seft =
+  match seft.peft_desc with
+  | Peft_io ->
       let tail = newty Tenil in
       let ty = instance_def (Predef.effect_io tail) in
-      { eft_desc = None;
-        eft_type = ty; }
-  | Some desc ->
-      let efr = transl_effect_row env policy desc in
-      { eft_desc = Some efr;
-        eft_type = efr.efr_type; }
+      { eft_desc = Teft_io;
+        eft_type = ty;
+        eft_loc = seft.peft_loc; }
+  | Peft_pure ->
+      let ty = newty Tenil in
+      { eft_desc = Teft_pure;
+        eft_type = ty;
+        eft_loc = seft.peft_loc; }
+  | Peft_io_tilde ->
+      let tail = transl_tilde env seft.peft_loc policy in
+      let ty = instance_def (Predef.effect_io tail) in
+      { eft_desc = Teft_io_tilde;
+        eft_type = ty;
+        eft_loc = seft.peft_loc; }
+  | Peft_pure_tilde ->
+      let ty = transl_tilde env seft.peft_loc policy in
+      { eft_desc = Teft_io_tilde;
+        eft_type = ty;
+        eft_loc = seft.peft_loc; }
+  | Peft_row efr ->
+      let efr = transl_effect_row env policy efr in
+      { eft_desc = Teft_row efr;
+        eft_type = efr.efr_type;
+        eft_loc = seft.peft_loc; }
 
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =

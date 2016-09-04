@@ -71,10 +71,11 @@ and out_variant =
   | Ovar_name of out_ident * out_type list
 
 and out_arrow =
-  | Oarr_simple
+  | Oarr_io
   | Oarr_pure
-  | Oarr_tilde
-  | Oarr_effects of out_ident list * out_type option
+  | Oarr_io_tilde
+  | Oarr_pure_tilde
+  | Oarr_row of out_ident list * out_type option
 
 type out_effect =
   { oeff_manifest: out_ident option;

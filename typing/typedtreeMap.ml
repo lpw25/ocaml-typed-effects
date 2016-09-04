@@ -21,6 +21,7 @@ module type MapArgument = sig
     extension_constructor -> extension_constructor
   val enter_effect_declaration : effect_declaration -> effect_declaration
   val enter_effect_row : effect_row -> effect_row
+  val enter_effect_type : effect_type -> effect_type
   val enter_pattern : pattern -> pattern
   val enter_expression : expression -> expression
   val enter_package_type : package_type -> package_type
@@ -51,6 +52,7 @@ module type MapArgument = sig
     extension_constructor -> extension_constructor
   val leave_effect_declaration : effect_declaration -> effect_declaration
   val leave_effect_row : effect_row -> effect_row
+  val leave_effect_type : effect_type -> effect_type
   val leave_pattern : pattern -> pattern
   val leave_expression : expression -> expression
   val leave_package_type : package_type -> package_type
@@ -618,8 +620,13 @@ module MakeMap(Map : MapArgument) = struct
     Map.leave_effect_row { efr with efr_row = efr_row }
 
   and map_effect_type eft =
-    let eft_desc = may_map map_effect_row eft.eft_desc in
-    { eft with eft_desc = eft_desc }
+    let eft = Map.enter_effect_type eft in
+    let eft_desc =
+      match eft.eft_desc with
+      | Teft_io | Teft_pure | Teft_io_tilde | Teft_pure_tilde -> eft.eft_desc
+      | Teft_row efr -> Teft_row (map_effect_row efr)
+    in
+     Map.leave_effect_type { eft with eft_desc = eft_desc }
 
   and map_core_type ct =
     let ct = Map.enter_core_type ct in
@@ -691,6 +698,7 @@ module DefaultMapArgument = struct
   let enter_extension_constructor t = t
   let enter_effect_declaration t = t
   let enter_effect_row t = t
+  let enter_effect_type t = t
   let enter_pattern t = t
   let enter_expression t = t
   let enter_package_type t = t
@@ -720,6 +728,7 @@ module DefaultMapArgument = struct
   let leave_extension_constructor t = t
   let leave_effect_declaration t = t
   let leave_effect_row t = t
+  let leave_effect_type t = t
   let leave_pattern t = t
   let leave_expression t = t
   let leave_package_type t = t

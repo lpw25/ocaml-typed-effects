@@ -799,11 +799,13 @@ and tree_of_typeffect sch ty =
   in
     match effects, row with
     | [], None -> Oarr_pure
-    | [p], None when Path.same p Predef.path_io -> Oarr_simple
-    | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_tilde
+    | [p], None when Path.same p Predef.path_io -> Oarr_io
+    | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_pure_tilde
+    | [p], Some (Otyp_var(false, ("~", Osrt_effect)))
+          when Path.same p Predef.path_io -> Oarr_io_tilde
     | _, _ ->
         let effects = List.map tree_of_path effects in
-        Oarr_effects(effects, row)
+        Oarr_row(effects, row)
 
 
 let typexp sch prio ppf ty =

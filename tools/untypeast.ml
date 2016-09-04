@@ -650,7 +650,16 @@ and untype_effect_row efr =
     pefr_row = Misc.may_map untype_core_type efr.efr_row; }
 
 and untype_effect_type eft =
-  Misc.may_map untype_effect_row eft.eft_desc
+  let desc =
+    match eft.eft_desc with
+    | Teft_io -> Peft_io
+    | Teft_pure -> Peft_pure
+    | Teft_io_tilde -> Peft_io_tilde
+    | Teft_pure_tilde -> Peft_pure_tilde
+    | Teft_row efr -> Peft_row (untype_effect_row efr)
+  in
+  { peft_desc = desc;
+    peft_loc = eft.eft_loc; }
 
 and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->

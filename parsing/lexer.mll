@@ -452,10 +452,11 @@ rule token = parse
   | "*"  { STAR }
   | ","  { COMMA }
   | "->" { MINUSGREATER }
+  | "->>" { MINUSGREATERGREATER }
   | "-[" { MINUSLBRACKET }
   | "]->" { RBRACKETMINUSGREATER }
   | "~>" { TILDEGREATER }
-  | "=>" { EQUALGREATER }
+  | "~>>" { TILDEGREATERGREATER }
   | "."  { DOT }
   | ".." { DOTDOT }
   | ":"  { COLON }

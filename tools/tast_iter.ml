@@ -316,7 +316,7 @@ let core_type sub ct =
   | Ttyp_var(_n, _s) -> ()
   | Ttyp_arrow (_label, ct1, eft, ct2) ->
       sub # core_type ct1;
-      opt (sub # effect_row) eft.eft_desc;
+      sub # effect_type eft;
       sub # core_type ct2
   | Ttyp_tuple list -> List.iter (sub # core_type) list
   | Ttyp_constr (_path, _, list) ->
@@ -332,6 +332,11 @@ let core_type sub ct =
   | Ttyp_poly (_list, ct) -> sub # core_type ct
   | Ttyp_effect efr -> sub # effect_row efr
   | Ttyp_package pack -> sub # package_type pack
+
+let effect_type sub eft =
+  match eft.eft_desc with
+  | Teft_io | Teft_pure | Teft_io_tilde | Teft_pure_tilde -> ()
+  | Teft_row efr -> sub # effect_row efr
 
 let effect_row sub efr =
   opt (sub # core_type) efr.efr_row
@@ -397,6 +402,7 @@ class iter = object(this)
   method extension_constructor = extension_constructor this
   method effect_declaration = effect_declaration this
   method effect_row = effect_row this
+  method effect_type = effect_type this
   method module_binding = module_binding this
   method module_expr = module_expr this
   method module_type = module_type this

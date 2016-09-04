@@ -200,7 +200,18 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_row ppf x
+  match x.peft_desc with
+  | Peft_io ->
+      line i ppf "Peft_io %a\n" fmt_location x.peft_loc
+  | Peft_pure ->
+      line i ppf "Peft_pure %a\n" fmt_location x.peft_loc
+  | Peft_io_tilde ->
+      line i ppf "Peft_io_tilde %a\n" fmt_location x.peft_loc
+  | Peft_pure_tilde ->
+      line i ppf "Peft_pure_tilde %a\n" fmt_location x.peft_loc
+  | Peft_row efr ->
+      line i ppf "Peft_row %a\n" fmt_location x.peft_loc;
+      effect_row (i+1) ppf efr
 
 and effect_row i ppf x =
   line i ppf "effect_row\n";

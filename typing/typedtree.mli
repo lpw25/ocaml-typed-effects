@@ -375,9 +375,17 @@ and row_field =
   | Tinherit of core_type
 
 and effect_type = {
-  eft_desc: effect_row option;
+  eft_desc: effect_type_desc;
   eft_type: Types.type_expr;
+  eft_loc: Location.t;
 }
+
+and effect_type_desc =
+  | Teft_io
+  | Teft_pure
+  | Teft_io_tilde
+  | Teft_pure_tilde
+  | Teft_row of effect_row
 
 and effect_row = {
   efr_effects : (Longident.t loc * Path.t) list;

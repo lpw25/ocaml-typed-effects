@@ -247,15 +247,15 @@ class printer  ()= object(self:'self)
     let effects f x =
       self#list ~sep:" | " self#longident_loc f x
     in
-    match x with
-    | None -> pp f "->"
-    | Some e  ->
-        match e.pefr_effects, e.pefr_row with
-        | [], None -> pp f "=>"
+    match x.peft_desc with
+    | Peft_io -> pp f "->"
+    | Peft_pure -> pp f "->>"
+    | Peft_io_tilde -> pp f "~>"
+    | Peft_pure_tilde -> pp f "~>>"
+    | Peft_row efr ->
+        match efr.pefr_effects, efr.pefr_row with
         | effs, None ->
             pp f "-[%a]->" effects effs
-        | [], Some { ptyp_desc = Ptyp_var("~", Effect) } ->
-            pp f "~>"
         | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
             pp f "-[!%s]->" s
         | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
@@ -268,7 +268,6 @@ class printer  ()= object(self:'self)
             pp f "-[.. as %a]->" self#core_type t
         | effs, Some t ->
             pp f "-[%a | .. as %a]->" effects effs self#core_type t
-
 
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
