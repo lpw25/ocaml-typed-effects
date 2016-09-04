@@ -34,9 +34,9 @@ exception Exit
 
 (* Effects *)
 type ('a, !p, 'b) stack
-external take_cont : exn => ('a, !p, 'b) continuation -> ('a, !p, 'b) stack =
+external take_cont : exn ->> ('a, !p, 'b) continuation ->> ('a, !p, 'b) stack =
   "%take_cont"
-external resume : ('a, !p, 'b) stack => ('c -[!p]-> 'a) => 'c -[!p]-> 'b =
+external resume : ('a, !p, 'b) stack ->> ('c -[!p]-> 'a) ->> 'c -[!p]-> 'b =
   "%resume"
 
 let cont_taken = Invalid_argument "continuation already taken"

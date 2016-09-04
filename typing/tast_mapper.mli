@@ -36,6 +36,7 @@ type mapper =
     effect_declaration: mapper -> effect_declaration -> effect_declaration;
     effect_description: mapper -> effect_description -> effect_description;
     effect_row: mapper -> effect_row -> effect_row;
+    effect_type: mapper -> effect_type -> effect_type;
     module_binding: mapper -> module_binding -> module_binding;
     module_coercion: mapper -> module_coercion -> module_coercion;
     module_declaration: mapper -> module_declaration -> module_declaration;

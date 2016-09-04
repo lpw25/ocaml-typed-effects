@@ -43,6 +43,7 @@ type mapper = {
   effect_constructor: mapper -> T.effect_constructor -> effect_constructor;
   effect_handler: mapper -> T.effect_handler -> effect_handler;
   effect_row: mapper -> T.effect_row -> effect_row;
+  effect_type: mapper -> T.effect_type -> effect_type;
   include_declaration: mapper -> T.include_declaration -> include_declaration;
   include_description: mapper -> T.include_description -> include_description;
   label_declaration: mapper -> T.label_declaration -> label_declaration;
@@ -720,7 +721,7 @@ let core_type sub ct =
     | Ttyp_arrow (label, ct1, eft, ct2) ->
         Ptyp_arrow
           (label, sub.typ sub ct1,
-           Misc.may_map (sub.effect_row sub) eft.eft_desc,
+           sub.effect_type sub eft,
            sub.typ sub ct2)
     | Ttyp_tuple list -> Ptyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (_path, lid, list) ->
@@ -762,6 +763,18 @@ and is_self_pat = function
   | { pat_desc = Tpat_alias(_pat, id, _) } ->
       string_is_prefix "self-" (Ident.name id)
   | _ -> false
+
+let effect_type sub eft =
+  let desc =
+    match eft.eft_desc with
+    | Teft_io -> Peft_io
+    | Teft_pure -> Peft_pure
+    | Teft_io_tilde -> Peft_io_tilde
+    | Teft_pure_tilde -> Peft_pure_tilde
+    | Teft_row efr -> Peft_row (sub.effect_row sub efr)
+  in
+  { peft_desc = desc;
+    peft_loc = eft.eft_loc; }
 
 let effect_row sub efr =
   { pefr_effects = List.map fst efr.efr_effects;
@@ -834,6 +847,7 @@ let default_mapper =
     effect_constructor = effect_constructor;
     effect_handler = effect_handler;
     effect_row = effect_row;
+    effect_type = effect_type;
     value_description = value_description;
     pat = pattern;
     expr = expression;

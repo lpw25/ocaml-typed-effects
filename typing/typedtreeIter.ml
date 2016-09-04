@@ -28,6 +28,7 @@ module type IteratorArgument = sig
     val enter_effect_declaration : effect_declaration -> unit
     val enter_effect_description : effect_description -> unit
     val enter_effect_row : effect_row -> unit
+    val enter_effect_type : effect_type -> unit
     val enter_pattern : pattern -> unit
     val enter_expression : expression -> unit
     val enter_package_type : package_type -> unit
@@ -57,6 +58,7 @@ module type IteratorArgument = sig
     val leave_effect_declaration : effect_declaration -> unit
     val leave_effect_description : effect_description -> unit
     val leave_effect_row : effect_row -> unit
+    val leave_effect_type : effect_type -> unit
     val leave_pattern : pattern -> unit
     val leave_expression : expression -> unit
     val leave_package_type : package_type -> unit
@@ -583,6 +585,15 @@ module MakeIterator(Iter : IteratorArgument) : sig
       end;
       Iter.leave_class_type_field ctf
 
+    and iter_effect_type eft =
+      Iter.enter_effect_type eft;
+      begin
+        match eft.eft_desc with
+        | Teft_io | Teft_pure | Teft_io_tilde | Teft_pure_tilde -> ()
+        | Teft_row efr -> iter_effect_row efr
+      end;
+      Iter.leave_effect_type eft
+
     and iter_effect_row efr =
       Iter.enter_effect_row efr;
       option iter_core_type efr.efr_row;
@@ -596,7 +607,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Ttyp_var _ -> ()
         | Ttyp_arrow (label, ct1, eft, ct2) ->
             iter_core_type ct1;
-            option iter_effect_row eft.eft_desc;
+            iter_effect_type eft;
             iter_core_type ct2
         | Ttyp_tuple list -> List.iter iter_core_type list
         | Ttyp_constr (path, _, list) ->
@@ -661,6 +672,7 @@ module DefaultIteratorArgument = struct
       let enter_effect_declaration _ = ()
       let enter_effect_description _ = ()
       let enter_effect_row _ = ()
+      let enter_effect_type _ = ()
       let enter_pattern _ = ()
       let enter_expression _ = ()
       let enter_package_type _ = ()
@@ -691,6 +703,7 @@ module DefaultIteratorArgument = struct
       let leave_effect_declaration _ = ()
       let leave_effect_description _ = ()
       let leave_effect_row _ = ()
+      let leave_effect_type _ = ()
       let leave_pattern _ = ()
       let leave_expression _ = ()
       let leave_package_type _ = ()

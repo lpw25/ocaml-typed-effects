@@ -318,10 +318,11 @@ and print_out_label ppf (name, mut, arg) =
 
 and print_arrow ppf =
   function
-  | Oarr_simple -> pp_print_string ppf "->"
-  | Oarr_pure -> pp_print_string ppf "=>"
-  | Oarr_tilde -> pp_print_string ppf "~>"
-  | Oarr_effects(cstrs, row_opt) ->
+  | Oarr_io -> pp_print_string ppf "->"
+  | Oarr_pure -> pp_print_string ppf "->>"
+  | Oarr_io_tilde -> pp_print_string ppf "~>"
+  | Oarr_pure_tilde -> pp_print_string ppf "~>>"
+  | Oarr_row(cstrs, row_opt) ->
       pp_print_string ppf "-[";
       print_list
         print_ident (fun ppf -> pp_print_string ppf " | ")

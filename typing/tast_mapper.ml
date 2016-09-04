@@ -37,6 +37,7 @@ type mapper =
     effect_declaration: mapper -> effect_declaration -> effect_declaration;
     effect_description: mapper -> effect_description -> effect_description;
     effect_row: mapper -> effect_row -> effect_row;
+    effect_type: mapper -> effect_type -> effect_type;
     module_binding: mapper -> module_binding -> module_binding;
     module_coercion: mapper -> module_coercion -> module_coercion;
     module_declaration: mapper -> module_declaration -> module_declaration;
@@ -587,10 +588,10 @@ let typ sub x =
     | Ttyp_any
     | Ttyp_var _ as d -> d
     | Ttyp_arrow (label, ct1, eft, ct2) ->
-        let eft =
-          { eft with eft_desc = opt (sub.effect_row sub) eft.eft_desc }
-        in
-        Ttyp_arrow (label, sub.typ sub ct1, eft, sub.typ sub ct2)
+        Ttyp_arrow (
+          label, sub.typ sub ct1,
+          sub.effect_type sub eft, sub.typ sub ct2
+        )
     | Ttyp_tuple list -> Ttyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (path, lid, list) ->
         Ttyp_constr (path, lid, List.map (sub.typ sub) list)
@@ -617,6 +618,14 @@ let typ sub x =
         Ttyp_package (sub.package_type sub pack)
   in
   {x with ctyp_desc; ctyp_env}
+
+let effect_type sub x =
+  let eft_desc =
+    match x.eft_desc with
+    | Teft_io | Teft_pure | Teft_io_tilde | Teft_pure_tilde -> x.eft_desc
+    | Teft_row efr -> Teft_row (sub.effect_row sub efr)
+  in
+  {x with eft_desc}
 
 let effect_row sub x =
   let efr_row = opt (sub.typ sub) x.efr_row in
@@ -695,6 +704,7 @@ let default =
     effect_declaration;
     effect_description;
     effect_row;
+    effect_type;
     module_binding;
     module_coercion;
     module_declaration;

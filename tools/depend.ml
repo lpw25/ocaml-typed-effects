@@ -46,7 +46,7 @@ let rec add_type bv ty =
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
   | Ptyp_arrow(_, t1, eft, t2) ->
-      add_type bv t1; add_opt add_effect_row bv eft; add_type bv t2
+      add_type bv t1; add_effect_type bv eft; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) -> List.iter (fun (_, _, t) -> add_type bv t) fl
@@ -65,6 +65,11 @@ let rec add_type bv ty =
 and add_package_type bv (lid, l) =
   add bv lid;
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
+
+and add_effect_type bv eft =
+  match eft.peft_desc with
+  | Peft_io | Peft_pure | Peft_io_tilde | Peft_pure_tilde -> ()
+  | Peft_row efr -> add_effect_row bv efr
 
 and add_effect_row bv efr =
   List.iter (add bv) efr.pefr_effects;

@@ -135,7 +135,18 @@ and row_field =
   | Rinherit of core_type
         (* [ T ] *)
 
-and effect_type = effect_row option
+and effect_type =
+  {
+    peft_desc : effect_type_desc;
+    peft_loc : Location.t;
+  }
+
+and effect_type_desc =
+  | Peft_io
+  | Peft_pure
+  | Peft_io_tilde
+  | Peft_pure_tilde
+  | Peft_row of effect_row
 
 and effect_row =
   {

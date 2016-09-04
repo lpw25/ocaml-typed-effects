@@ -36,6 +36,10 @@ let mkcf ?attrs ?docs d =
 
 let mkrhs rhs pos = mkloc rhs (rhs_loc pos)
 
+let mkarrow d =
+  { peft_desc = d;
+    peft_loc = symbol_rloc (); }
+
 let reloc_pat x = { x with ppat_loc = symbol_rloc () };;
 let reloc_exp x = { x with pexp_loc = symbol_rloc () };;
 
@@ -447,7 +451,6 @@ let tilde_effect =
 %token END
 %token EOF
 %token EQUAL
-%token EQUALGREATER
 %token EXCEPTION
 %token EXTERNAL
 %token FALSE
@@ -495,6 +498,7 @@ let tilde_effect =
 %token MINUS
 %token MINUSDOT
 %token MINUSGREATER
+%token MINUSGREATERGREATER
 %token MINUSLBRACKET
 %token MODULE
 %token MUTABLE
@@ -532,6 +536,7 @@ let tilde_effect =
 %token THEN
 %token TILDE
 %token TILDEGREATER
+%token TILDEGREATERGREATER
 %token TO
 %token TRUE
 %token TRY
@@ -586,7 +591,8 @@ The precedences must be listed from low to high.
 %left     BAR                           /* pattern (p|p|p) */
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/expr_comma_list (e,e,e) */
-%right    MINUSGREATER EQUALGREATER TILDEGREATER MINUSLBRACKET
+%right    MINUSGREATER MINUSGREATERGREATER TILDEGREATER
+          TILDEGREATERGREATER MINUSLBRACKET
                                         /* core_type2 (t -> t -> t) */
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
@@ -2153,13 +2159,15 @@ core_type2:
 
 arrow:
   | MINUSGREATER
-      { None }
-  | EQUALGREATER
-      { Some pure_effect }
+      { mkarrow Peft_io }
+  | MINUSGREATERGREATER
+      { mkarrow Peft_pure }
   | TILDEGREATER
-      { Some tilde_effect }
+      { mkarrow Peft_io_tilde }
+  | TILDEGREATERGREATER
+      { mkarrow Peft_pure_tilde }
   | MINUSLBRACKET effect_row RBRACKETMINUSGREATER
-      { Some $2 }
+      { mkarrow (Peft_row $2) }
 ;
 
 effect_row_effects:

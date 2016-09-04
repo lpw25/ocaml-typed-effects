@@ -202,16 +202,27 @@ let rec core_type i ppf x =
   | Ttyp_package { pack_path = s; pack_fields = l } ->
       line i ppf "Ttyp_package %a\n" fmt_path s;
       list i package_with ppf l;
-  | Ttyp_effect efd ->
-      line i ppf "Ttyp_effect\n";
-      effect_row i ppf efd
+  | Ttyp_effect efr ->
+      line i ppf "Ptyp_effect\n";
+      effect_row i ppf efr
 
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_row ppf x.eft_desc
+  match x.eft_desc with
+  | Teft_io ->
+      line i ppf "Peft_io\n"
+  | Teft_pure ->
+      line i ppf "Peft_pure\n"
+  | Teft_io_tilde ->
+      line i ppf "Peft_io_tilde\n"
+  | Teft_pure_tilde ->
+      line i ppf "Peft_pure_tilde\n"
+  | Teft_row efr ->
+      line i ppf "Peft_row\n";
+      effect_row (i+1) ppf efr
 
 and effect_row i ppf x =
   line i ppf "effect_row\n";
