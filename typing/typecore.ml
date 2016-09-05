@@ -3935,8 +3935,9 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
              ?(check_strict = fun s -> Warnings.Unused_var_strict s)
     env rec_flag spat_sexp_list scope allow expected_eff =
   let open Ast_helper in
+  let is_recursive = (rec_flag = Recursive) in
   begin_def();
-  if !Clflags.principal then begin_def ();
+  if is_recursive || !Clflags.principal then begin_def ();
 
   let is_fake_let =
     match spat_sexp_list with
@@ -3969,7 +3970,6 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
     type_pattern_list ~allow_exn:false env expected_eff spatl scope
       cont_ty nvs allow
   in
-  let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
   if is_recursive then
     List.iter2
@@ -3992,7 +3992,16 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
     pat_list;
   (* Generalize the structure *)
   let pat_list =
-    if !Clflags.principal then begin
+    if is_recursive then begin
+      end_def ();
+      List.map
+        (fun pat ->
+          iter_pattern
+             (fun pat ->
+                generalize_structure_and_closed_effects pat.pat_type) pat;
+          {pat with pat_type = instance env pat.pat_type})
+        pat_list
+    end else if !Clflags.principal then begin
       end_def ();
       List.map
         (fun pat ->
