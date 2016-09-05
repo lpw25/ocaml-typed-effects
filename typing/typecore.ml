@@ -1674,43 +1674,71 @@ let rec type_approx env sexp =
   | Pexp_fun (p, _, _, e) when is_optional p ->
       let ty1 = type_option (newvar Stype) in
       let ty2 = newvar Seffect in
-      let ty3 = type_approx env e in
-       newty (Tarrow(p, ty1, ty2, ty3, Cok))
+      let ty3, closable = type_approx env e in
+      let ty = newty (Tarrow(p, ty1, ty2, ty3, Cok)) in
+      let closable =
+        if pure_approx e then ty2 :: closable
+        else closable
+      in
+      ty, closable
   | Pexp_fun (p,_,_, e) ->
       let ty1 = newvar Stype in
       let ty2 = newvar Seffect in
-      let ty3 = type_approx env e in
-       newty (Tarrow(p, ty1, ty2, ty3, Cok))
+      let ty3, closable = type_approx env e in
+      let ty = newty (Tarrow(p, ty1, ty2, ty3, Cok)) in
+      let closable =
+        if pure_approx e then ty2 :: closable
+        else closable
+      in
+      ty, closable
   | Pexp_function ({pc_rhs=e}::_) ->
       let ty1 = newvar Stype in
       let ty2 = newvar Seffect in
-      let ty3 = type_approx env e in
-       newty (Tarrow("", ty1, ty2, ty3, Cok))
+      let ty3, closable = type_approx env e in
+      let ty = newty (Tarrow("", ty1, ty2, ty3, Cok)) in
+      ty, closable
   | Pexp_match (_, {pc_rhs=e}::_) -> type_approx env e
   | Pexp_try (e, _) -> type_approx env e
-  | Pexp_tuple l -> newty (Ttuple(List.map (type_approx env) l))
+  | Pexp_tuple l ->
+      let tyl, closable =
+        List.fold_right
+          (fun e (tyl_acc, closable_acc) ->
+            let ty, closable = type_approx env e in
+              ty :: tyl_acc, List.rev_append closable closable_acc)
+          l ([], [])
+      in
+      let ty = newty (Ttuple tyl) in
+      ty, closable
   | Pexp_ifthenelse (_,e,_) -> type_approx env e
   | Pexp_sequence (_,e) -> type_approx env e
   | Pexp_constraint (e, sty) ->
-      let ty = type_approx env e in
+      let ty, closable = type_approx env e in
       let ty1 = approx_type env sty in
       begin try unify env ty ty1 with Unify trace ->
         raise(Error(sexp.pexp_loc, env, Expr_type_clash trace))
       end;
-      ty1
+      ty1, closable
   | Pexp_coerce (e, sty1, sty2) ->
       let approx_ty_opt = function
         | None -> newvar Stype
         | Some sty -> approx_type env sty
       in
-      let ty = type_approx env e
+      let ty, closable = type_approx env e
       and ty1 = approx_ty_opt sty1
       and ty2 = approx_type env sty2 in
       begin try unify env ty ty1 with Unify trace ->
         raise(Error(sexp.pexp_loc, env, Expr_type_clash trace))
       end;
-      ty2
-  | _ -> newvar Stype
+      ty2, closable
+  | _ -> newvar Stype, []
+
+and pure_approx sexp =
+  match sexp.pexp_desc with
+  | Pexp_fun _ -> true
+  | Pexp_function _ -> true
+  | Pexp_constraint (e, _) -> pure_approx e
+  | Pexp_coerce (e, _, _) -> pure_approx e
+  | _ -> false
 
 (* List labels in a function type, and whether return type is a variable *)
 let rec list_labels_aux env visited ls ty_fun =
@@ -3970,18 +3998,24 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
     type_pattern_list ~allow_exn:false env expected_eff spatl scope
       cont_ty nvs allow
   in
-  (* If recursive, first unify with an approximation of the expression *)
-  if is_recursive then
-    List.iter2
-      (fun pat binding ->
-        let pat =
-          match pat.pat_type.desc with
-          | Tpoly (ty, tl) ->
-              {pat with pat_type =
-               snd (instance_poly ~keep_names:true false tl ty)}
-          | _ -> pat
-        in unify_pat env pat (type_approx env binding.pvb_expr))
-      pat_list spat_sexp_list;
+  let closable =
+    (* If recursive, first unify with an approximation of the expression *)
+    if is_recursive then
+      List.fold_left2
+        (fun acc pat binding ->
+          let pat =
+            match pat.pat_type.desc with
+            | Tpoly (ty, tl) ->
+                {pat with pat_type =
+                 snd (instance_poly ~keep_names:true false tl ty)}
+            | _ -> pat
+          in
+          let ty, closable = type_approx env binding.pvb_expr in
+          unify_pat env pat ty;
+          List.rev_append closable acc)
+        [] pat_list spat_sexp_list
+    else []
+  in
   (* Polymorphic variant processing *)
   List.iter
     (fun pat ->
@@ -3994,6 +4028,7 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   let pat_list =
     if is_recursive then begin
       end_def ();
+      List.iter (Ctype.close_effect_var env) closable;
       List.map
         (fun pat ->
           iter_pattern

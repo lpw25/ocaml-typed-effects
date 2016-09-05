@@ -660,10 +660,11 @@ let rec class_field self_loc cl_num self_type meths vars
             Tvar(_, Stype) ->
               let ty' = Ctype.newvar Stype in
               Ctype.unify val_env (Ctype.newty (Tpoly (ty', []))) ty;
-              Ctype.unify val_env (type_approx val_env sbody) ty'
+              let ty'', _ = type_approx val_env sbody in
+              Ctype.unify val_env ty'' ty'
           | Tpoly (ty1, tl) ->
               let _, ty1' = Ctype.instance_poly false tl ty1 in
-              let ty2 = type_approx val_env sbody in
+              let ty2, _ = type_approx val_env sbody in
               Ctype.unify val_env ty2 ty1'
           | _ -> assert false
           end

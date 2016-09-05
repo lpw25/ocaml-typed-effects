@@ -4397,6 +4397,15 @@ let close_effects_covariant env ty =
 let close_effects_contravariant env ty =
   close_effects env (false, true) ty
 
+let rec close_effect_var env ty =
+  let ty = repr ty in
+  if ty.level > !current_level then begin
+    match ty.desc with
+    | Tvar(_, Seffect) -> unify_var env ty (newty2 ty.level Tenil)
+    | Teffect(_, ty) -> close_effect_var env ty
+    | _ -> ()
+  end
+
 (**** Check whether a type is a subtype of another type. ****)
 
 (*

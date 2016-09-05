@@ -56,7 +56,7 @@ val type_exp:
         Env.t -> effect_expectation ->
         Parsetree.expression -> Typedtree.expression
 val type_approx:
-        Env.t -> Parsetree.expression -> type_expr
+        Env.t -> Parsetree.expression -> type_expr * type_expr list
 val type_argument:
         Env.t -> effect_expectation -> Parsetree.expression -> type_expr ->
         type_expr -> Typedtree.expression
