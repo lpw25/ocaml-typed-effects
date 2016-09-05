@@ -17,7 +17,7 @@ val to_string: exn -> string
 (** [Printexc.to_string e] returns a string representation of
    the exception [e]. *)
 
-val print: ('a -> 'b) -> 'a -> 'b
+val print: ('a ~> 'b) ->> 'a ~> 'b
 (** [Printexc.print fn x] applies [fn] to [x] and returns the result.
    If the evaluation of [fn x] raises any exception, the
    name of the exception is printed on standard error output,
@@ -25,7 +25,7 @@ val print: ('a -> 'b) -> 'a -> 'b
    The typical use is to catch and report exceptions that
    escape a function application. *)
 
-val catch: ('a -> 'b) -> 'a -> 'b
+val catch: ('a ~> 'b) ->> 'a ~> 'b
 (** [Printexc.catch fn x] is similar to {!Printexc.print}, but
    aborts the program with exit code 2 after printing the
    uncaught exception.  This function is deprecated: the runtime
@@ -109,7 +109,7 @@ val get_raw_backtrace: unit -> raw_backtrace
     @since 4.01.0
 *)
 
-val print_raw_backtrace: out_channel -> raw_backtrace -> unit
+val print_raw_backtrace: out_channel ->> raw_backtrace -> unit
 (** Print a raw backtrace in the same format
     [Printexc.print_backtrace] uses.
 
@@ -201,7 +201,7 @@ type location = {
 module Slot : sig
   type t = backtrace_slot
 
-  val is_raise : t -> bool
+  val is_raise : t ->> bool
   (** [is_raise slot] is [true] when [slot] refers to a raising
       point in the code, and [false] when it comes from a simple
       function call.
@@ -209,7 +209,7 @@ module Slot : sig
       @since 4.02
   *)
 
-  val location : t -> location option
+  val location : t ->> location option
   (** [location slot] returns the location information of the slot,
       if available, and [None] otherwise.
 
@@ -221,7 +221,7 @@ module Slot : sig
       @since 4.02
   *)
 
-  val format : int -> t -> string option
+  val format : int ->> t -> string option
   (** [format pos slot] returns the string representation of [slot] as
       [raw_backtrace_to_string] would format it, assuming it is the
       [pos]-th element of the backtrace: the [0]-th element is
@@ -260,7 +260,7 @@ val raw_backtrace_length : raw_backtrace -> int
     @since 4.02
 *)
 
-val get_raw_backtrace_slot : raw_backtrace -> int -> raw_backtrace_slot
+val get_raw_backtrace_slot : raw_backtrace ->> int -> raw_backtrace_slot
 (** [get_slot bckt pos] returns the slot in position [pos] in the
     backtrace [bckt].
 

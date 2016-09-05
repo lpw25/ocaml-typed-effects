@@ -1195,11 +1195,11 @@ let sprintf fmt =
 let asprintf (Format (fmt, _)) =
   let b = Buffer.create 512 in
   let ppf = formatter_of_buffer b in
-  let k' : (formatter -> (formatter, unit) acc -> string)
-    = fun ppf acc ->
-      output_acc ppf acc;
-      pp_flush_queue ppf false;
-      flush_buf_formatter b ppf in
+  let k' ppf acc =
+    output_acc ppf acc;
+    pp_flush_queue ppf false;
+    flush_buf_formatter b ppf
+  in
   make_printf k' ppf End_of_acc fmt
 
 (**************************************************************
@@ -1209,7 +1209,7 @@ let asprintf (Format (fmt, _)) =
  **************************************************************)
 
 (* Deprecated error prone function bprintf. *)
-let bprintf b (Format (fmt, _) : ('a, formatter, unit) format) =
+let bprintf b (Format (fmt, _)) =
   let k ppf acc = output_acc ppf acc; pp_flush_queue ppf false in
   make_printf k (formatter_of_buffer b) End_of_acc fmt
 

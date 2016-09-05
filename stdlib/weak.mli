@@ -42,20 +42,20 @@ val length : 'a t -> int
 (** [Weak.length ar] returns the length (number of elements) of
    [ar].*)
 
-val set : 'a t -> int -> 'a option -> unit
+val set : 'a t ->> int ->> 'a option -> unit
 (** [Weak.set ar n (Some el)] sets the [n]th cell of [ar] to be a
    (full) pointer to [el]; [Weak.set ar n None] sets the [n]th
    cell of [ar] to empty.
    Raise [Invalid_argument "Weak.set"] if [n] is not in the range
    0 to {!Weak.length}[ a - 1].*)
 
-val get : 'a t -> int -> 'a option
+val get : 'a t ->> int -> 'a option
 (** [Weak.get ar n] returns None if the [n]th cell of [ar] is
    empty, [Some x] (where [x] is the value) if it is full.
    Raise [Invalid_argument "Weak.get"] if [n] is not in the range
    0 to {!Weak.length}[ a - 1].*)
 
-val get_copy : 'a t -> int -> 'a option
+val get_copy : 'a t ->> int -> 'a option
 (** [Weak.get_copy ar n] returns None if the [n]th cell of [ar] is
    empty, [Some x] (where [x] is a (shallow) copy of the value) if
    it is full.
@@ -67,17 +67,17 @@ val get_copy : 'a t -> int -> 'a option
    0 to {!Weak.length}[ a - 1].*)
 
 
-val check : 'a t -> int -> bool
+val check : 'a t ->> int -> bool
 (** [Weak.check ar n] returns [true] if the [n]th cell of [ar] is
    full, [false] if it is empty.  Note that even if [Weak.check ar n]
    returns [true], a subsequent {!Weak.get}[ ar n] can return [None].*)
 
-val fill : 'a t -> int -> int -> 'a option -> unit
+val fill : 'a t ->> int ->> int ->> 'a option -> unit
 (** [Weak.fill ar ofs len el] sets to [el] all pointers of [ar] from
    [ofs] to [ofs + len - 1].  Raise [Invalid_argument "Weak.fill"]
    if [ofs] and [len] do not designate a valid subarray of [a].*)
 
-val blit : 'a t -> int -> 'a t -> int -> int -> unit
+val blit : 'a t ->> int ->> 'a t ->> int ->> int -> unit
 (** [Weak.blit ar1 off1 ar2 off2 len] copies [len] weak pointers
    from [ar1] (starting at [off1]) to [ar2] (starting at [off2]).
    It works correctly even if [ar1] and [ar2] are the same.
@@ -114,30 +114,30 @@ module type S = sig
         size [n].  The table will grow as needed. *)
   val clear : t -> unit
     (** Remove all elements from the table. *)
-  val merge : t -> data -> data
+  val merge : t ->> data -> data
     (** [merge t x] returns an instance of [x] found in [t] if any,
         or else adds [x] to [t] and return [x]. *)
-  val add : t -> data -> unit
+  val add : t ->> data -> unit
     (** [add t x] adds [x] to [t].  If there is already an instance
         of [x] in [t], it is unspecified which one will be
         returned by subsequent calls to [find] and [merge]. *)
-  val remove : t -> data -> unit
+  val remove : t ->> data -> unit
     (** [remove t x] removes from [t] one instance of [x].  Does
         nothing if there is no instance of [x] in [t]. *)
-  val find : t -> data -> data
+  val find : t ->> data -> data
     (** [find t x] returns an instance of [x] found in [t].
         Raise [Not_found] if there is no such element. *)
-  val find_all : t -> data -> data list
+  val find_all : t ->> data -> data list
     (** [find_all t x] returns a list of all the instances of [x]
         found in [t]. *)
-  val mem : t -> data -> bool
+  val mem : t ->> data -> bool
     (** [mem t x] returns [true] if there is at least one instance
         of [x] in [t], false otherwise. *)
-  val iter : (data -> unit) -> t -> unit
+  val iter : (data ~> unit) ->> t ~> unit
     (** [iter f t] calls [f] on each element of [t], in some unspecified
         order.  It is not specified what happens if [f] tries to change
         [t] itself. *)
-  val fold : (data -> 'a -> 'a) -> t -> 'a -> 'a
+  val fold : (data ~> 'a ~> 'a) ->> t ->> 'a ~> 'a
     (** [fold f t init] computes [(f d1 (... (f dN init)))] where
         [d1 ... dN] are the elements of [t] in some unspecified order.
         It is not specified what happens if [f] tries to change [t]

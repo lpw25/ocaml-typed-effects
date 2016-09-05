@@ -13,9 +13,9 @@
 
 open Printf;;
 
-let printers = ref []
+let printers : (exn -> string option) list ref = ref []
 
-let locfmt = format_of_string "File \"%s\", line %d, characters %d-%d: %s";;
+let locfmt : _ format6e = "File \"%s\", line %d, characters %d-%d: %s";;
 
 let field x i =
   let f = Obj.field x i in
@@ -40,7 +40,8 @@ let fields x =
   | n -> sprintf "(%s%s)" (field x 1) (other_fields x 2)
 ;;
 
-let to_string x =
+let to_string =
+  fun x ->
   let rec conv = function
     | hd :: tl ->
         (match try hd x with _ -> None with

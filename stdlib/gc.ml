@@ -77,7 +77,7 @@ let allocated_bytes () =
   (mi +. ma -. pro) *. float_of_int (Sys.word_size / 8)
 ;;
 
-external finalise : ('a -> unit) -> 'a -> unit = "caml_final_register";;
+external finalise : ('a -> unit) ->> 'a -> unit = "caml_final_register";;
 external finalise_release : unit -> unit = "caml_final_release";;
 
 

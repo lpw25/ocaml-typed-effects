@@ -16,17 +16,17 @@ type extern_flags =
   | Closures
   | Compat_32
 
-external to_bytes: 'a -> extern_flags list -> bytes
+external to_bytes: 'a ->> extern_flags list -> bytes
     = "caml_output_value_to_string"
 
-external to_string: 'a -> extern_flags list -> string
+external to_string: 'a ->> extern_flags list -> string
     = "caml_output_value_to_string"
 
 let to_channel chan v flags =
   output_string chan (to_string v flags)
 
 external to_buffer_unsafe:
-      bytes -> int -> int -> 'a -> extern_flags list -> int
+      bytes ->> int ->> int ->> 'a ->> extern_flags list -> int
     = "caml_output_value_to_buffer"
 
 let to_buffer buff ofs len v flags =

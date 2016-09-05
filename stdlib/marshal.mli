@@ -56,7 +56,7 @@ type extern_flags =
   | Compat_32                           (** Ensure 32-bit compatibility *)
 (** The flags to the [Marshal.to_*] functions below. *)
 
-val to_channel : out_channel -> 'a -> extern_flags list -> unit
+val to_channel : out_channel ->> 'a ->> extern_flags list -> unit
 (** [Marshal.to_channel chan v flags] writes the representation
    of [v] on channel [chan]. The [flags] argument is a
    possibly empty list of flags that governs the marshaling
@@ -110,7 +110,7 @@ val to_channel : out_channel -> 'a -> extern_flags list -> unit
  *)
 
 external to_bytes :
-  'a -> extern_flags list -> bytes = "caml_output_value_to_string"
+  'a ->> extern_flags list -> bytes = "caml_output_value_to_string"
 (** [Marshal.to_bytes v flags] returns a byte sequence containing
    the representation of [v].
    The [flags] argument has the same meaning as for
@@ -118,11 +118,11 @@ external to_bytes :
    @since 4.02.0 *)
 
 external to_string :
-  'a -> extern_flags list -> string = "caml_output_value_to_string"
+  'a ->> extern_flags list -> string = "caml_output_value_to_string"
 (** Same as [to_bytes] but return the result as a string instead of
     a byte sequence. *)
 
-val to_buffer : bytes -> int -> int -> 'a -> extern_flags list -> int
+val to_buffer : bytes ->> int ->> int ->> 'a ->> extern_flags list -> int
 (** [Marshal.to_buffer buff ofs len v flags] marshals the value [v],
    storing its byte representation in the sequence [buff],
    starting at index [ofs], and writing at most
@@ -137,7 +137,7 @@ val from_channel : in_channel -> 'a
    one of the [Marshal.to_*] functions, and reconstructs and
    returns the corresponding value.*)
 
-val from_bytes : bytes -> int -> 'a
+val from_bytes : bytes ->> int -> 'a
 (** [Marshal.from_bytes buff ofs] unmarshals a structured value
    like {!Marshal.from_channel} does, except that the byte
    representation is not read from a channel, but taken from
@@ -145,7 +145,7 @@ val from_bytes : bytes -> int -> 'a
    The byte sequence is not mutated.
    @since 4.02.0 *)
 
-val from_string : string -> int -> 'a
+val from_string : string ->> int -> 'a
 (** Same as [from_bytes] but take a string as argument instead of a
     byte sequence. *)
 
@@ -171,8 +171,8 @@ val header_size : int
    data, then read it, and finally call {!Marshal.from_bytes}
    to unmarshal the value. *)
 
-val data_size : bytes -> int -> int
+val data_size : bytes ->> int -> int
 (** See {!Marshal.header_size}.*)
 
-val total_size : bytes -> int -> int
+val total_size : bytes ->> int -> int
 (** See {!Marshal.header_size}.*)

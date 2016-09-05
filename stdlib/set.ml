@@ -24,37 +24,84 @@ module type S =
     type elt
     type t
     val empty: t
-    val is_empty: t -> bool
-    val mem: elt -> t -> bool
-    val add: elt -> t -> t
-    val singleton: elt -> t
-    val remove: elt -> t -> t
-    val union: t -> t -> t
-    val inter: t -> t -> t
-    val diff: t -> t -> t
-    val compare: t -> t -> int
-    val equal: t -> t -> bool
-    val subset: t -> t -> bool
-    val iter: (elt -> unit) -> t -> unit
-    val fold: (elt -> 'a -> 'a) -> t -> 'a -> 'a
-    val for_all: (elt -> bool) -> t -> bool
-    val exists: (elt -> bool) -> t -> bool
-    val filter: (elt -> bool) -> t -> t
-    val partition: (elt -> bool) -> t -> t * t
-    val cardinal: t -> int
-    val elements: t -> elt list
-    val min_elt: t -> elt
-    val max_elt: t -> elt
-    val choose: t -> elt
-    val split: elt -> t -> t * bool * t
-    val find: elt -> t -> elt
+    val is_empty: t ->> bool
+    val mem: elt ->> t -> bool
+    val add: elt ->> t -> t
+    val singleton: elt ->> t
+    val remove: elt ->> t -> t
+    val union: t ->> t -> t
+    val inter: t ->> t -> t
+    val diff: t ->> t -> t
+    val compare: t ->> t -> int
+    val equal: t ->> t -> bool
+    val subset: t ->> t -> bool
+    val iter: (elt ~> unit) ->> t ~> unit
+    val fold: (elt ~> 'a ~> 'a) ->> t ->> 'a ~> 'a
+    val for_all: (elt ~> bool) ->> t ~> bool
+    val exists: (elt ~> bool) ->> t ~> bool
+    val filter: (elt ~> bool) ->> t ~> t
+    val partition: (elt ~> bool) ->> t ~> t * t
+    val cardinal: t ->> int
+    val elements: t ->> elt list
+    val min_elt: t ->> elt
+    val max_elt: t ->> elt
+    val choose: t ->> elt
+    val split: elt ->> t -> t * bool * t
+    val find: elt ->> t -> elt
     val of_list: elt list -> t
   end
 
-module Make(Ord: OrderedType) =
+module type OrderedTypePure =
+  sig
+    type t
+    val compare: t ->> t ->> int
+  end
+
+module type SPure =
+  sig
+    type elt
+    type t
+    val empty: t
+    val is_empty: t ->> bool
+    val mem: elt ->> t ->> bool
+    val add: elt ->> t ->> t
+    val singleton: elt ->> t
+    val remove: elt ->> t ->> t
+    val union: t ->> t ->> t
+    val inter: t ->> t ->> t
+    val diff: t ->> t ->> t
+    val compare: t ->> t ->> int
+    val equal: t ->> t ->> bool
+    val subset: t ->> t ->> bool
+    val iter: (elt ~>> unit) ->> t ~>> unit
+    val fold: (elt ~>> 'a ~>> 'a) ->> t ->> 'a ~>> 'a
+    val for_all: (elt ~>> bool) ->> t ~>> bool
+    val exists: (elt ~>> bool) ->> t ~>> bool
+    val filter: (elt ~>> bool) ->> t ~>> t
+    val partition: (elt ~>> bool) ->> t ~>> t * t
+    val cardinal: t ->> int
+    val elements: t ->> elt list
+    val min_elt: t ->> elt
+    val max_elt: t ->> elt
+    val choose: t ->> elt
+    val split: elt ->> t ->> t * bool * t
+    val find: elt ->> t ->> elt
+    val of_list: elt list ->> t
+  end
+
+type 'elt tree = Empty | Node of 'elt tree * 'elt * 'elt tree * int
+
+module MakeGen
+    (E : sig
+       type + !r eff : effect
+     end)
+    (Ord : sig
+       type t
+       val compare: t -[.. as ![] E.eff]-> t -[.. as ![] E.eff]-> int
+     end) =
   struct
     type elt = Ord.t
-    type t = Empty | Node of t * elt * t * int
+    type t = elt tree
 
     (* Sets are represented by balanced binary trees (the heights of the
        children differ by at most 2 *)
@@ -69,6 +116,7 @@ module Make(Ord: OrderedType) =
        Inline expansion of height for better speed. *)
 
     let create l v r =
+      let open Int_compare in
       let hl = match l with Empty -> 0 | Node(_,_,_,h) -> h in
       let hr = match r with Empty -> 0 | Node(_,_,_,h) -> h in
       Node(l, v, r, (if hl >= hr then hl + 1 else hr + 1))
@@ -79,6 +127,7 @@ module Make(Ord: OrderedType) =
        where no rebalancing is required. *)
 
     let bal l v r =
+      let open Int_compare in
       let hl = match l with Empty -> 0 | Node(_,_,_,h) -> h in
       let hr = match r with Empty -> 0 | Node(_,_,_,h) -> h in
       if hl > hr + 2 then begin
@@ -113,14 +162,15 @@ module Make(Ord: OrderedType) =
     let rec add x = function
         Empty -> Node(Empty, x, Empty, 1)
       | Node(l, v, r, _) as t ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then t else
           if c < 0 then
             let ll = add x l in
-            if l == ll then t else bal ll v r
+            bal ll v r
           else
             let rr = add x r in
-            if r == rr then t else bal l v rr
+            bal l v rr
 
     let singleton x = Node(Empty, x, Empty, 1)
 
@@ -149,6 +199,7 @@ module Make(Ord: OrderedType) =
         (Empty, _) -> add_min_element v r
       | (_, Empty) -> add_max_element v l
       | (Node(ll, lv, lr, lh), Node(rl, rv, rr, rh)) ->
+          let open Int_compare in
           if lh > rh + 2 then bal ll lv (join lr v r) else
           if rh > lh + 2 then bal (join l v rl) rv rr else
           create l v r
@@ -202,6 +253,7 @@ module Make(Ord: OrderedType) =
         Empty ->
           (Empty, false, Empty)
       | Node(l, v, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then (l, true, r)
           else if c < 0 then
@@ -218,29 +270,30 @@ module Make(Ord: OrderedType) =
     let rec mem x = function
         Empty -> false
       | Node(l, v, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           c = 0 || mem x (if c < 0 then l else r)
 
     let rec remove x = function
         Empty -> Empty
-      | (Node(l, v, r, _) as t) ->
+      | Node(l, v, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then merge l r
           else
             if c < 0 then
               let ll = remove x l in
-              if l == ll then t
-              else bal ll v r
+              bal ll v r
             else
               let rr = remove x r in
-              if r == rr then t
-              else bal l v rr
+              bal l v rr
 
     let rec union s1 s2 =
       match (s1, s2) with
         (Empty, t2) -> t2
       | (t1, Empty) -> t1
       | (Node(l1, v1, r1, h1), Node(l2, v2, r2, h2)) ->
+          let open Int_compare in
           if h1 >= h2 then
             if h2 = 1 then add v2 s1 else begin
               let (l2, _, r2) = split v1 s2 in
@@ -287,6 +340,7 @@ module Make(Ord: OrderedType) =
       | (End, _)  -> -1
       | (_, End) -> 1
       | (More(v1, r1, e1), More(v2, r2, e2)) ->
+          let open Int_compare in
           let c = Ord.compare v1 v2 in
           if c <> 0
           then c
@@ -296,7 +350,7 @@ module Make(Ord: OrderedType) =
       compare_aux (cons_enum s1 End) (cons_enum s2 End)
 
     let equal s1 s2 =
-      compare s1 s2 = 0
+      Int_compare.(=) (compare s1 s2) 0
 
     let rec subset s1 s2 =
       match (s1, s2) with
@@ -305,6 +359,7 @@ module Make(Ord: OrderedType) =
       | _, Empty ->
           false
       | Node (l1, v1, r1, _), (Node (l2, v2, r2, _) as t2) ->
+          let open Int_compare in
           let c = Ord.compare v1 v2 in
           if c = 0 then
             subset l1 l2 && subset r1 r2
@@ -332,13 +387,12 @@ module Make(Ord: OrderedType) =
 
     let rec filter p = function
         Empty -> Empty
-      | (Node(l, v, r, _)) as t ->
+      | Node(l, v, r, _) ->
           (* call [p] in the expected left-to-right order *)
           let l' = filter p l in
           let pv = p v in
           let r' = filter p r in
-          if pv then
-            if l==l' && r==r' then t else join l' v r'
+          if pv then join l' v r'
           else concat l' r'
 
     let rec partition p = function
@@ -368,6 +422,7 @@ module Make(Ord: OrderedType) =
     let rec find x = function
         Empty -> raise Not_found
       | Node(l, v, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then v
           else find x (if c < 0 then l else r)
@@ -401,3 +456,14 @@ module Make(Ord: OrderedType) =
       | [x0; x1; x2; x3; x4] -> add x4 (add x3 (add x2 (add x1 (singleton x0))))
       | _ -> of_sorted_list (List.sort_uniq Ord.compare l)
   end
+
+module Pure = struct
+  type !r eff : effect = !r
+end
+
+module Impure = struct
+  type !r eff : effect = ![io | !r]
+end
+
+module Make = MakeGen(Impure)
+module MakePure = MakeGen(Pure)

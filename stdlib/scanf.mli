@@ -201,8 +201,9 @@ end
 
 (** {6 Type of formatted input functions} *)
 
-type ('a, 'b, 'c, 'd) scanner =
-     ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
+type ('a, 'b, 'c, 'd, !p) scanner =
+  ('a, Scanning.in_channel, 'b, 'c,
+   'a -[io | !p]-> 'd, 'd, ![io | !p]) format6e -[io | !p]-> 'c
 (** The type of formatted input scanners: [('a, 'b, 'c, 'd) scanner]
     is the type of a formatted input function that reads from some
     formatted input channel according to some format string; more
@@ -231,7 +232,7 @@ exception Scan_failure of string
 
 (** {6 The general formatted input function} *)
 
-val bscanf : Scanning.in_channel -> ('a, 'b, 'c, 'd) scanner
+val bscanf : Scanning.in_channel ->> ('a, 'b, 'c, 'd, !p) scanner
 (** [bscanf ic fmt r1 ... rN f] reads arguments for the function [f], from the
     formatted input channel [ic], according to the format string [fmt], and
     applies [f] to these values.
@@ -454,7 +455,7 @@ val bscanf : Scanning.in_channel -> ('a, 'b, 'c, 'd) scanner
 
 (** {6 Specialised formatted input functions} *)
 
-val fscanf : Pervasives.in_channel -> ('a, 'b, 'c, 'd) scanner
+val fscanf : Pervasives.in_channel ->> ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.bscanf}, but reads from the given regular input channel.
 
     Warning: since all formatted input functions operate from a {e formatted
@@ -468,17 +469,17 @@ val fscanf : Pervasives.in_channel -> ('a, 'b, 'c, 'd) scanner
     scanning from the same regular input channel.
 *)
 
-val sscanf : string -> ('a, 'b, 'c, 'd) scanner
+val sscanf : string ->> ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.bscanf}, but reads from the given string. *)
 
-val scanf : ('a, 'b, 'c, 'd) scanner
+val scanf : ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.bscanf}, but reads from the predefined formatted input
     channel {!Scanf.Scanning.stdin} that is connected to [Pervasives.stdin].
 *)
 
 val kscanf :
-  Scanning.in_channel -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  Scanning.in_channel ->> (Scanning.in_channel -[io | !p]-> exn -[io | !p]-> 'd) ->>
+    ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.bscanf}, but takes an additional function argument
     [ef] that is called in case of error: if the scanning process or
     some conversion fails, the scanning function aborts and calls the
@@ -487,22 +488,23 @@ val kscanf :
 *)
 
 val ksscanf :
-  string -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  string ->> (Scanning.in_channel -[io | !p]-> exn -[io | !p]-> 'd) ->>
+    ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.kscanf} but reads from the given string.
     @since 4.02.0 *)
 
 val kfscanf :
-  Pervasives.in_channel -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  Pervasives.in_channel ->>
+    (Scanning.in_channel -[io | !p]-> exn -[io | !p]-> 'd) ->>
+    ('a, 'b, 'c, 'd, !p) scanner
 (** Same as {!Scanf.kscanf}, but reads from the given regular input channel.
     @since 4.02.0 *)
 
 (** {6 Reading format strings from input} *)
 
 val bscanf_format :
-  Scanning.in_channel -> ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
-    (('a, 'b, 'c, 'd, 'e, 'f) format6 -> 'g) -> 'g
+  Scanning.in_channel ->> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+    (('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ~> 'g) ~> 'g
 (** [bscanf_format ic fmt f] reads a format string token from the formatted
     input channel [ic], according to the given format string [fmt], and
     applies [f] to the resulting format string value.
@@ -512,15 +514,15 @@ val bscanf_format :
 *)
 
 val sscanf_format :
-  string -> ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
-    (('a, 'b, 'c, 'd, 'e, 'f) format6 -> 'g) -> 'g
+  string ->> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+    (('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ~> 'g) ~> 'g
 (** Same as {!Scanf.bscanf_format}, but reads from the given string.
     @since 3.09.0
 *)
 
 val format_from_string :
-  string ->
-    ('a, 'b, 'c, 'd, 'e, 'f) format6 -> ('a, 'b, 'c, 'd, 'e, 'f) format6
+  string ->>
+    ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e -> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e
 (** [format_from_string s fmt] converts a string argument to a format string,
     according to the given format string [fmt].
     Raise [Scan_failure] if [s], considered as a format string, does not

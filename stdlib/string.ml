@@ -13,15 +13,15 @@
 
 (* String operations, based on byte sequence operations *)
 
-external length : string -> int = "%string_length"
-external get : string -> int -> char = "%string_safe_get"
-external set : bytes -> int -> char -> unit = "%string_safe_set"
+external length : string ->> int = "%string_length"
+external get : string ->> int -> char = "%string_safe_get"
+external set : bytes ->> int ->> char -> unit = "%string_safe_set"
 external create : int -> bytes = "caml_create_string"
-external unsafe_get : string -> int -> char = "%string_unsafe_get"
-external unsafe_set : bytes -> int -> char -> unit = "%string_unsafe_set"
-external unsafe_blit : string -> int ->  bytes -> int -> int -> unit
+external unsafe_get : string ->> int -> char = "%string_unsafe_get"
+external unsafe_set : bytes ->> int ->> char -> unit = "%string_unsafe_set"
+external unsafe_blit : string ->> int ->>  bytes ->> int ->> int -> unit
                      = "caml_blit_string" "noalloc"
-external unsafe_fill : bytes -> int -> int -> char -> unit
+external unsafe_fill : bytes ->> int ->> int ->> char -> unit
                      = "caml_fill_string" "noalloc"
 
 module B = Bytes
@@ -123,7 +123,7 @@ let uncapitalize_ascii s =
 type t = string
 
 let compare (x: t) (y: t) = Pervasives.compare x y
-external equal : string -> string -> bool = "caml_string_equal"
+external equal : string ->> string -> bool = "caml_string_equal"
 
 (* Deprecated functions implemented via other deprecated functions *)
 [@@@ocaml.warning "-3"]
