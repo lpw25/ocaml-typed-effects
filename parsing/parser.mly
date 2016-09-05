@@ -236,7 +236,8 @@ let varify_constructors newtypes t =
           check_variable newtypes t.ptyp_loc name sort;
           Ptyp_var (name, sort)
       | Ptyp_arrow (label,core_type,e,core_type') ->
-          Ptyp_arrow(label, loop core_type, e, loop core_type')
+          Ptyp_arrow(label, loop core_type,
+                     loop_effect_type e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
       | Ptyp_constr( { txt = Lident n }, []) as desc -> begin
           match List.find (fun (n', _) -> n = n') newtypes with
@@ -263,8 +264,8 @@ let varify_constructors newtypes t =
           Ptyp_poly(vars, loop core_type)
       | Ptyp_package(longident,lst) ->
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
-      | Ptyp_effect desc ->
-          Ptyp_effect (loop_effect_desc desc)
+      | Ptyp_effect row ->
+          Ptyp_effect (loop_effect_row row)
       | Ptyp_extension (s, arg) ->
           Ptyp_extension (s, arg)
     in
@@ -275,10 +276,14 @@ let varify_constructors newtypes t =
           Rtag(label,attrs,flag,List.map loop lst)
       | Rinherit t ->
           Rinherit (loop t)
-  and loop_effect_desc desc =
-    match desc.pefr_row with
-    | None -> desc
-    | Some t -> { desc with pefr_row = Some (loop t) }
+  and loop_effect_type eft =
+    match eft.peft_desc with
+    | Peft_io | Peft_pure | Peft_io_tilde | Peft_pure_tilde -> eft
+    | Peft_row row -> { eft with peft_desc = Peft_row (loop_effect_row row) }
+  and loop_effect_row row =
+    match row.pefr_row with
+    | None -> row
+    | Some t -> { row with pefr_row = Some (loop t) }
   in
   loop t
 
