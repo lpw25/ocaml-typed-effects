@@ -113,6 +113,8 @@ val generalize_global: type_expr -> unit
            to !global_level *)
 val generalize_structure: type_expr -> unit
         (* Same, but variables are only lowered to !current_level *)
+val generalize_structure_and_closed_effects: type_expr -> unit
+        (* Same, but also generalizes closed effects. *)
 val generalize_spine: type_expr -> unit
         (* Special function to generalize a method during inference *)
 val correct_levels: type_expr -> type_expr

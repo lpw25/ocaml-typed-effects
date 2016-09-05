@@ -1248,19 +1248,15 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_env = !env }
   | Ppat_constraint(sp, sty) ->
       (* Separate when not already separated by !principal *)
-      let separate = true in
-      if separate then begin_def();
+      begin_def();
       let cty, force =
         Typetexp.transl_simple_type_delayed !env (Some Stype) sty
       in
       let ty = cty.ctyp_type in
-      let ty, expected_ty' =
-        if separate then begin
-          end_def();
-          generalize_structure ty;
-          instance !env ty, instance !env ty
-        end else ty, ty
-      in
+      end_def();
+      generalize_structure_and_closed_effects ty;
+      let expected_ty' = instance !env ty in
+      let ty = instance !env ty in
       unify_pat_types loc !env ty expected_ty;
       let p = type_pat sp expected_ty' in
       (*Format.printf "%a@.%a@."
@@ -1268,7 +1264,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         Printtyp.raw_type_expr p.pat_type;*)
       pattern_force := force :: !pattern_force;
       let extra = (Tpat_constraint cty, loc, sp.ppat_attributes) in
-      if separate then
+      begin
         match p.pat_desc with
           Tpat_var (id,s) ->
             {p with pat_type = ty;
@@ -1278,7 +1274,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
             }
         | _ -> {p with pat_type = ty;
                 pat_extra = extra :: p.pat_extra}
-      else p
+      end
   | Ppat_type lid ->
       let (path, p,ty) = build_or_pat !env loc lid.txt in
       unify_pat_types loc !env ty expected_ty;

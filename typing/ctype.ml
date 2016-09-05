@@ -818,12 +818,12 @@ let iterative_generalization min_level tyl =
 
 (* Generalize the structure and lower the variables *)
 
-let rec generalize_structure var_level ty =
+let rec generalize_structure enils var_level ty =
   let ty = repr ty in
   if ty.level <> generic_level then begin
     if is_Tvar ty && ty.level > var_level then
       set_level ty var_level
-    else if is_Tenil ty && ty.level > var_level then
+    else if not enils && is_Tenil ty && ty.level > var_level then
       set_level ty var_level
     else if
       ty.level > !current_level &&
@@ -833,13 +833,13 @@ let rec generalize_structure var_level ty =
       | _ -> true
     then begin
       set_level ty generic_level;
-      iter_type_expr (generalize_structure var_level) ty
+      iter_type_expr (generalize_structure enils var_level) ty
     end
   end
 
-let generalize_structure var_level ty =
+let generalize_structure enils var_level ty =
   simple_abbrevs := Mnil;
-  generalize_structure var_level ty
+  generalize_structure enils var_level ty
 
 (* Generalize the spine of a function, if the level >= !current_level *)
 
@@ -966,7 +966,8 @@ let rec update_level env level ty =
 (* Generalize and lower levels of contravariant branches simultaneously *)
 
 let generalize_contravariant env =
-  if !Clflags.principal then generalize_structure else update_level env
+  if !Clflags.principal then generalize_structure true
+  else update_level env
 
 let rec generalize_expansive env var_level ty =
   let ty = repr ty in
@@ -1003,8 +1004,10 @@ let generalize_expansive env ty =
   with Unify ([_, ty'] as tr) ->
     raise (Unify ((ty, ty') :: tr))
 
-let generalize_global ty = generalize_structure !global_level ty
-let generalize_structure ty = generalize_structure !current_level ty
+let generalize_global ty = generalize_structure false !global_level ty
+let generalize_structure_and_closed_effects ty =
+  generalize_structure true !current_level ty
+let generalize_structure ty = generalize_structure false !current_level ty
 
 (* Correct the levels of type [ty]. *)
 let correct_levels ty =
