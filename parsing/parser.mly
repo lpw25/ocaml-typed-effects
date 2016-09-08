@@ -1815,8 +1815,8 @@ type_declaration:
     constraints post_item_attributes
       { let (kind, priv, manifest) = $6 in
         let ty =
-          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $7) ~kind
-            ~priv ?manifest ~attrs:$8
+          Type.mk (mkrhs $4 4) ~params:$3 ~cstrs:(List.rev $7) ~sort:$5
+            ~kind ~priv ?manifest ~attrs:$8
             ~loc:(symbol_rloc ()) ~docs:(symbol_docs ())
         in
           ($2, ty) }
