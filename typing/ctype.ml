@@ -268,6 +268,10 @@ let is_datatype decl=
     Type_record _ | Type_variant _ | Type_open -> true
   | Type_abstract -> false
 
+
+let forward_try_expand_once = (* Forward declaration *)
+  ref (fun env ty -> raise Cannot_expand)
+
                   (**********************************************)
                   (*  Miscellaneous operations on effect types  *)
                   (**********************************************)
@@ -296,6 +300,21 @@ let flatten_effects ty =
     | _ -> (acc, ty)
   in
   flatten [] ty
+
+let flatten_expanded_effects env ty =
+  let rec flatten acc ty =
+    let ty = repr ty in
+    match ty.desc with
+    | Teffect(p, ty) -> flatten (p :: acc) ty
+    | Tconstr _ -> begin
+        match !forward_try_expand_once env ty with
+        | ty -> flatten acc ty
+        | exception Cannot_expand -> (acc, ty)
+      end
+    | _ -> (acc, ty)
+  in
+  flatten [] ty
+
 
 let rec expand_effect env p =
   match Env.find_effect_expansion p env with
@@ -863,9 +882,6 @@ let rec generalize_spine ty =
       memo := Mnil;
       List.iter generalize_spine tyl
   | _ -> ()
-
-let forward_try_expand_once = (* Forward declaration *)
-  ref (fun env ty -> raise Cannot_expand)
 
 (*
    Lower the levels of a type (assume [level] is not
@@ -2348,8 +2364,8 @@ and mcomp_row type_pairs env row1 row2 =
 
 and mcomp_effects type_pairs env ty1 ty2 =
   if not (concrete_effect ty1 && concrete_effect ty2) then assert false;
-  let (effs2, rest2) = flatten_effects ty2 in
-  let (effs1, rest1) = flatten_effects ty1 in
+  let (effs2, rest2) = flatten_expanded_effects env ty2 in
+  let (effs1, rest1) = flatten_expanded_effects env ty1 in
   let (miss1, miss2) = diff_effects env effs1 effs2 in
   mcomp type_pairs env rest1 rest2;
   if miss1 <> []  && (effect_row ty2).desc = Tenil
@@ -3341,7 +3357,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
 
 and moregen_effects inst_nongen type_pairs env ty1 ty2 =
   let (effs1, rest1) = flatten_effects ty1 in
-  let (effs2, rest2) = flatten_effects ty2 in
+  let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (miss1, miss2) = diff_effects env effs1 effs2 in
   if miss1 <> [] then raise (Unify []);
   moregen inst_nongen type_pairs env rest1
@@ -3609,8 +3625,8 @@ and eqtype_row rename type_pairs subst env row1 row2 =
     pairs
 
 and eqtype_effects rename type_pairs subst env ty1 ty2 =
-  let (effs1, rest1) = flatten_effects ty1 in
-  let (effs2, rest2) = flatten_effects ty2 in
+  let (effs1, rest1) = flatten_expanded_effects env ty1 in
+  let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (miss1, miss2) = diff_effects env effs1 effs2 in
   eqtype rename type_pairs subst env rest1 rest2;
   if (miss1 <> []) || (miss2 <> []) then raise (Unify [])
@@ -4627,8 +4643,8 @@ and subtype_row env trace row1 row2 cstrs =
 
 and subtype_effects env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
-  let (effs1, rest1) = flatten_effects ty1 in
-  let (effs2, rest2) = flatten_effects ty2 in
+  let (effs1, rest1) = flatten_expanded_effects env ty1 in
+  let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (miss1, miss2) = diff_effects env effs1 effs2 in
   let cstrs =
     if rest1.desc = Tenil then cstrs else
