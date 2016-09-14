@@ -3940,6 +3940,13 @@ and type_cases ?in_function ?in_handler ~allow_exn
     if has_gadts && not !Clflags.principal then
       correct_levels ty_res, duplicate_ident_types loc caselist env
     else ty_res, env
+  and expected_eff =
+    match expected_eff with
+    | Toplevel _ -> expected_eff
+    | Expected eff ->
+        if has_gadts && not !Clflags.principal then
+          Expected (correct_levels eff)
+        else expected_eff
   in
   let lev, env =
     if has_gadts then begin
