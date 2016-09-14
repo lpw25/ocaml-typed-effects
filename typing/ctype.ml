@@ -981,10 +981,6 @@ let rec update_level env level ty =
 
 (* Generalize and lower levels of contravariant branches simultaneously *)
 
-let generalize_contravariant env =
-  if !Clflags.principal then generalize_structure true
-  else update_level env
-
 let rec generalize_expansive env var_level ty =
   let ty = repr ty in
   if ty.level <> generic_level then begin
@@ -999,13 +995,13 @@ let rec generalize_expansive env var_level ty =
           List.iter2
             (fun v t ->
               if Variance.(mem May_weak v)
-              then generalize_contravariant env var_level t
+              then generalize_structure true var_level t
               else generalize_expansive env var_level t)
             variance tyl
       | Tpackage (_, _, tyl) ->
-          List.iter (generalize_contravariant env var_level) tyl
+          List.iter (generalize_structure true var_level) tyl
       | Tarrow (_, t1, t2, t3, _) ->
-          generalize_contravariant env var_level t1;
+          generalize_structure true var_level t1;
           generalize_expansive env var_level t2;
           generalize_expansive env var_level t3
       | _ ->
