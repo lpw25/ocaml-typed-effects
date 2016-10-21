@@ -1531,8 +1531,8 @@ let transl_effect_decl env funct_body seff =
     | None -> None
     | Some handler ->
         Ctype.init_def(Ident.current_time());
-        Ctype.begin_def();
         let eff_expected = Ctype.new_toplevel_expectation () in
+        Ctype.begin_def();
         let handler =
           Typecore.type_default_handler env
             eff_expected (Path.Pident id) handler
