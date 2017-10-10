@@ -22,12 +22,12 @@ let scrape env ty =
 
 let has_base_type exp base_ty_path =
   match scrape exp.exp_env exp.exp_type with
-  | Tconstr(p, _, _) -> Path.same p base_ty_path
+  | Tconstr(p, _, _, _) -> Path.same p base_ty_path
   | _ -> false
 
 let maybe_pointer_type env ty =
   match scrape env ty with
-  | Tconstr(p, args, abbrev) ->
+  | Tconstr(p, args, _, abbrev) ->
       not (Path.same p Predef.path_int) &&
       not (Path.same p Predef.path_char) &&
       begin try
@@ -49,7 +49,7 @@ let array_element_kind env ty =
   match scrape env ty with
   | Tvar _ | Tunivar _ ->
       Pgenarray
-  | Tconstr(p, args, abbrev) ->
+  | Tconstr(p, args, _, _) ->
       if Path.same p Predef.path_int || Path.same p Predef.path_char then
         Pintarray
       else if Path.same p Predef.path_float then
@@ -81,7 +81,7 @@ let array_element_kind env ty =
 
 let array_kind_gen ty env =
   match scrape env ty with
-  | Tconstr(p, [elt_ty], _) | Tpoly({desc = Tconstr(p, [elt_ty], _)}, _)
+  | Tconstr(p, [elt_ty], _, _) | Tpoly({desc = Tconstr(p, [elt_ty], _, _)}, _)
     when Path.same p Predef.path_array ->
       array_element_kind env elt_ty
   | _ ->
@@ -94,7 +94,7 @@ let array_pattern_kind pat = array_kind_gen pat.pat_type pat.pat_env
 
 let bigarray_decode_type env ty tbl dfl =
   match scrape env ty with
-  | Tconstr(Pdot(Pident mod_id, type_name, _), [], _)
+  | Tconstr(Pdot(Pident mod_id, type_name, _), [], _, _)
     when Ident.name mod_id = "Bigarray" ->
       begin try List.assoc type_name tbl with Not_found -> dfl end
   | _ ->
@@ -120,7 +120,7 @@ let layout_table =
 
 let bigarray_kind_and_layout exp =
   match scrape exp.exp_env exp.exp_type with
-  | Tconstr(p, [caml_type; elt_type; layout_type], abbrev) ->
+  | Tconstr(p, [caml_type; elt_type; layout_type], _, _) ->
       (bigarray_decode_type exp.exp_env elt_type kind_table Pbigarray_unknown,
        bigarray_decode_type exp.exp_env layout_type layout_table
                             Pbigarray_unknown_layout)

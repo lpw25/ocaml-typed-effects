@@ -597,8 +597,8 @@ module MakeMap(Map : MapArgument) = struct
       match ct.ctyp_desc with
           Ttyp_any
         | Ttyp_var _ -> ct.ctyp_desc
-        | Ttyp_arrow (label, ct1, ct2) ->
-          Ttyp_arrow (label, map_core_type ct1, map_core_type ct2)
+        | Ttyp_arrow (label, ct1, eft, ct2) ->
+          Ttyp_arrow (label, map_core_type ct1, eft, map_core_type ct2)
         | Ttyp_tuple list -> Ttyp_tuple (List.map map_core_type list)
         | Ttyp_constr (path, lid, list) ->
           Ttyp_constr (path, lid, List.map map_core_type list)

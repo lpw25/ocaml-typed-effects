@@ -62,24 +62,24 @@ and path_int64 = Pident ident_int64
 and path_lazy_t = Pident ident_lazy_t
 and path_bytes = Pident ident_bytes
 
-let type_int = newgenty (Tconstr(path_int, [], ref Mnil))
-and type_char = newgenty (Tconstr(path_char, [], ref Mnil))
-and type_string = newgenty (Tconstr(path_string, [], ref Mnil))
-and type_float = newgenty (Tconstr(path_float, [], ref Mnil))
-and type_bool = newgenty (Tconstr(path_bool, [], ref Mnil))
-and type_unit = newgenty (Tconstr(path_unit, [], ref Mnil))
-and type_exn = newgenty (Tconstr(path_exn, [], ref Mnil))
-and type_eff t = newgenty (Tconstr(path_eff, [t], ref Mnil))
+let type_int = newgenty (Tconstr(path_int, [], Stype, ref Mnil))
+and type_char = newgenty (Tconstr(path_char, [], Stype, ref Mnil))
+and type_string = newgenty (Tconstr(path_string, [], Stype, ref Mnil))
+and type_float = newgenty (Tconstr(path_float, [], Stype, ref Mnil))
+and type_bool = newgenty (Tconstr(path_bool, [], Stype, ref Mnil))
+and type_unit = newgenty (Tconstr(path_unit, [], Stype, ref Mnil))
+and type_exn = newgenty (Tconstr(path_exn, [], Stype, ref Mnil))
+and type_eff t = newgenty (Tconstr(path_eff, [t], Stype, ref Mnil))
 and type_continuation t1 t2 =
-  newgenty (Tconstr(path_continuation, [t1; t2], ref Mnil))
-and type_array t = newgenty (Tconstr(path_array, [t], ref Mnil))
-and type_list t = newgenty (Tconstr(path_list, [t], ref Mnil))
-and type_option t = newgenty (Tconstr(path_option, [t], ref Mnil))
-and type_nativeint = newgenty (Tconstr(path_nativeint, [], ref Mnil))
-and type_int32 = newgenty (Tconstr(path_int32, [], ref Mnil))
-and type_int64 = newgenty (Tconstr(path_int64, [], ref Mnil))
-and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], ref Mnil))
-and type_bytes = newgenty (Tconstr(path_bytes, [], ref Mnil))
+  newgenty (Tconstr(path_continuation, [t1; t2], Stype, ref Mnil))
+and type_array t = newgenty (Tconstr(path_array, [t], Stype, ref Mnil))
+and type_list t = newgenty (Tconstr(path_list, [t], Stype, ref Mnil))
+and type_option t = newgenty (Tconstr(path_option, [t], Stype, ref Mnil))
+and type_nativeint = newgenty (Tconstr(path_nativeint, [], Stype, ref Mnil))
+and type_int32 = newgenty (Tconstr(path_int32, [], Stype, ref Mnil))
+and type_int64 = newgenty (Tconstr(path_int64, [], Stype, ref Mnil))
+and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], Stype, ref Mnil))
+and type_bytes = newgenty (Tconstr(path_bytes, [], Stype, ref Mnil))
 
 let ident_match_failure = ident_create_predef_exn "Match_failure"
 and ident_out_of_memory = ident_create_predef_exn "Out_of_memory"
@@ -103,6 +103,7 @@ and path_undefined_recursive_module = Pident ident_undefined_recursive_module
 let decl_abstr =
   {type_params = [];
    type_arity = 0;
+   type_sort = Stype;
    type_kind = Type_abstract;
    type_loc = Location.none;
    type_private = Asttypes.Public;
@@ -139,27 +140,27 @@ let common_initial_env add_type add_extension empty_env =
     {decl_abstr with
      type_kind = Type_open}
   and decl_eff =
-    let tvar = newgenvar() in
+    let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
      type_variance = [Variance.full];
      type_kind = Type_open}
   and decl_continuation =
-    let tvar1 = newgenvar() in
-    let tvar2 = newgenvar() in
+    let tvar1 = newgenvar Stype in
+    let tvar2 = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar1; tvar2];
      type_arity = 2;
      type_variance = [Variance.contravariant; Variance.covariant]}
   and decl_array =
-    let tvar = newgenvar() in
+    let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
      type_variance = [Variance.full]}
   and decl_list =
-    let tvar = newgenvar() in
+    let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
@@ -167,14 +168,14 @@ let common_initial_env add_type add_extension empty_env =
      Type_variant([cstr ident_nil []; cstr ident_cons [tvar; type_list tvar]]);
      type_variance = [Variance.covariant]}
   and decl_option =
-    let tvar = newgenvar() in
+    let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
      type_kind = Type_variant([cstr ident_none []; cstr ident_some [tvar]]);
      type_variance = [Variance.covariant]}
   and decl_lazy_t =
-    let tvar = newgenvar() in
+    let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;

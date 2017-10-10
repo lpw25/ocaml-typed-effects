@@ -96,12 +96,12 @@ let newpersty desc =
   decr new_id;
   { desc = desc; level = generic_level; id = !new_id }
 
-(* ensure that all occurrences of 'Tvar None' are physically shared *)
-let tvar_none = Tvar None
-let tunivar_none = Tunivar None
+(* Ensure that all occurrences of 'Tvar(None, _)' are
+   physically shared *)
 let norm = function
-  | Tvar None -> tvar_none
-  | Tunivar None -> tunivar_none
+  | Tvar(None, Stype) -> Btype.tvar_none
+  | Tvar(None, Seffect) -> Btype.evar_none
+  | Tunivar None -> Btype.tunivar_none
   | d -> d
 
 (* Similar to [Ctype.nondep_type_rec]. *)
@@ -123,15 +123,18 @@ let rec typexp s ty =
       ty
 *)
   | _ ->
+    let sort = Btype.type_sort ty in
     let desc = ty.desc in
     save_desc ty desc;
     (* Make a stub *)
-    let ty' = if s.for_saving then newpersty (Tvar None) else newgenvar () in
+    let ty' =
+      if s.for_saving then newpersty (Tvar(None, sort)) else newgenvar sort
+    in
     ty.desc <- Tsubst ty';
     ty'.desc <-
       begin match desc with
-      | Tconstr(p, tl, abbrev) ->
-          Tconstr(type_path s p, List.map (typexp s) tl, ref Mnil)
+      | Tconstr(p, tl, srt, abbrev) ->
+          Tconstr(type_path s p, List.map (typexp s) tl, srt, ref Mnil)
       | Tpackage(p, n, tl) ->
           Tpackage(modtype_path s p, n, List.map (typexp s) tl)
       | Tobject (t1, name) ->
@@ -199,6 +202,7 @@ let type_declaration s decl =
   let decl =
     { type_params = List.map (typexp s) decl.type_params;
       type_arity = decl.type_arity;
+      type_sort = decl.type_sort;
       type_kind =
         begin match decl.type_kind with
           Type_abstract -> Type_abstract

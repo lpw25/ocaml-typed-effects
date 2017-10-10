@@ -198,7 +198,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       | Pdot(p, s, pos) ->
           if try
                match (lookup_fun (Lident name) env).desc with
-               | Tconstr(ty_path', _, _) -> Path.same ty_path ty_path'
+               | Tconstr(ty_path', _, _, _) -> Path.same ty_path ty_path'
                | _ -> false
              with Not_found -> false
           then Oide_ident name
@@ -216,7 +216,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
     (* An abstract type *)
 
     let abstract_type =
-      Ctype.newty (Tconstr (Pident (Ident.create "abstract"), [], ref Mnil))
+      Ctype.newty (Tconstr (Pident (Ident.create "abstract"),
+                            [], Stype, ref Mnil))
 
     (* The main printing function *)
 
@@ -252,11 +253,11 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           match (Ctype.repr ty).desc with
           | Tvar _ | Tunivar _ ->
               Oval_stuff "<poly>"
-          | Tarrow(_, ty1, ty2, _) ->
+          | Tarrow(_, _, _, _, _) ->
               Oval_stuff "<fun>"
           | Ttuple(ty_list) ->
               Oval_tuple (tree_of_val_list 0 depth obj ty_list)
-          | Tconstr(path, [ty_arg], _)
+          | Tconstr(path, [ty_arg], _, _)
             when Path.same path Predef.path_list ->
               if O.is_block obj then
                 match check_depth depth obj ty with
@@ -278,7 +279,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                     Oval_list (List.rev (tree_of_conses [] depth obj ty_arg))
               else
                 Oval_list []
-          | Tconstr(path, [ty_arg], _)
+          | Tconstr(path, [ty_arg], _, _)
             when Path.same path Predef.path_array ->
               let length = O.size obj in
               if length > 0 then
@@ -298,7 +299,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                     Oval_array (List.rev (tree_of_items [] 0))
               else
                 Oval_array []
-          | Tconstr (path, [ty_arg], _)
+          | Tconstr (path, [ty_arg], _, _)
             when Path.same path Predef.path_lazy_t ->
              let obj_tag = O.tag obj in
              (* Lazy values are represented in three possible ways:
@@ -352,7 +353,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                  in
                  Oval_constr (Oide_ident "lazy", [v])
                end
-          | Tconstr(path, ty_list, _) -> begin
+          | Tconstr(path, ty_list, _, _) -> begin
               try
                 let decl = Env.find_type path env in
                 match decl with
@@ -373,7 +374,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                       match cd_res with
                         Some t ->
                           begin match (Ctype.repr t).desc with
-                            Tconstr (_,params,_) ->
+                            Tconstr (_,params,_,_) ->
                               params
                           | _ -> assert false end
                       | None -> decl.type_params
@@ -451,7 +452,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
               Oval_stuff "<obj>"
           | Tsubst ty ->
               tree_of_val (depth - 1) obj ty
-          | Tfield(_, _, _, _) | Tnil | Tlink _ ->
+          | Tfield(_, _, _, _) | Tnil | Tlink _ | Teffect _ | Tenil ->
               fatal_error "Printval.outval_of_value"
           | Tpoly (ty, _) ->
               tree_of_val (depth - 1) obj ty
@@ -513,7 +514,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           else find remainder
       | (name, Generic (path, fn)) :: remainder ->
           begin match (Ctype.expand_head env ty).desc with
-          | Tconstr (p, args, _) when Path.same p path ->
+          | Tconstr (p, args, _, _) when Path.same p path ->
               begin try apply_generic_printer path (fn depth) args
               with _ -> (fun obj -> out_exn path) end
           | _ -> find remainder end in

@@ -209,9 +209,9 @@ let init_shape modl =
     | Sig_value(id, vdesc) :: rem ->
         let init_v =
           match Ctype.expand_head env vdesc.val_type with
-            {desc = Tarrow(_,_,_,_)} ->
+            {desc = Tarrow(_,_,_,_,_)} ->
               Const_pointer 0 (* camlinternalMod.Function *)
-          | {desc = Tconstr(p, _, _)} when Path.same p Predef.path_lazy_t ->
+          | {desc = Tconstr(p, _, _, _)} when Path.same p Predef.path_lazy_t ->
               Const_pointer 1 (* camlinternalMod.Lazy *)
           | _ -> raise Not_found in
         init_v :: init_shape_struct env rem

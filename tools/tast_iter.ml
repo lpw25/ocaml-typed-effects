@@ -302,7 +302,7 @@ let core_type sub ct =
   match ct.ctyp_desc with
   | Ttyp_any -> ()
   | Ttyp_var _s -> ()
-  | Ttyp_arrow (_label, ct1, ct2) ->
+  | Ttyp_arrow (_label, ct1, _eft, ct2) ->
       sub # core_type ct1;
       sub # core_type ct2
   | Ttyp_tuple list -> List.iter (sub # core_type) list

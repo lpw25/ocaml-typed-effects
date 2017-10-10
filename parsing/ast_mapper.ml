@@ -42,6 +42,7 @@ type mapper = {
                            -> constructor_declaration;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
+  effect_type: mapper -> effect_type -> effect_type;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor
@@ -95,8 +96,9 @@ module T = struct
     match desc with
     | Ptyp_any -> any ~loc ~attrs ()
     | Ptyp_var s -> var ~loc ~attrs s
-    | Ptyp_arrow (lab, t1, t2) ->
-        arrow ~loc ~attrs lab (sub.typ sub t1) (sub.typ sub t2)
+    | Ptyp_arrow (lab, t1, e, t2) ->
+        arrow ~loc ~attrs lab (sub.typ sub t1)
+              (sub.effect_type sub e) (sub.typ sub t2)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
@@ -113,6 +115,12 @@ module T = struct
         package ~loc ~attrs (map_loc sub lid)
           (List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
+
+  let map_effect_type sub = function
+    | None -> None
+    | Some { pefd_constrs; pefd_var } ->
+        Some { pefd_constrs = List.map (map_loc sub) pefd_constrs;
+               pefd_var = Misc.may_map (map_loc sub) pefd_var; }
 
   let map_type_declaration sub
       {ptype_name; ptype_params; ptype_cstrs;
@@ -522,6 +530,7 @@ let default_mapper =
     type_extension = T.map_type_extension;
     extension_constructor = T.map_extension_constructor;
     effect_constructor = T.map_effect_constructor;
+    effect_type = T.map_effect_type;
     value_description =
       (fun this {pval_name; pval_type; pval_prim; pval_loc;
                  pval_attributes} ->

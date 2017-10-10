@@ -35,6 +35,12 @@ let lowest_level = 0
 let pivot_level = 2 * lowest_level - 1
     (* pivot_level - lowest_level < lowest_level *)
 
+(*** Unamed type descritions **)
+
+let tvar_none = Tvar(None, Stype)
+let tunivar_none = Tunivar None
+let evar_none = Tvar(None, Seffect)
+
 (**** Some type creators ****)
 
 let new_id = ref (-1)
@@ -42,7 +48,7 @@ let new_id = ref (-1)
 let newty2 level desc  =
   incr new_id; { desc; level; id = !new_id }
 let newgenty desc      = newty2 generic_level desc
-let newgenvar ?name () = newgenty (Tvar name)
+let newgenvar ?name sort = newgenty (Tvar(name, sort))
 (*
 let newmarkedvar level =
   incr new_id; { desc = Tvar; level = pivot_level - level; id = !new_id }
@@ -60,6 +66,24 @@ let dummy_method = "*dummy method*"
 let default_mty = function
     Some mty -> mty
   | None -> Mty_signature []
+
+let rec type_sort ty =
+  match ty.desc with
+  | Tvar(_, sort) -> sort
+  | Tconstr(_, _, sort, _) -> sort
+  | Tlink ty -> type_sort ty
+  | Tsubst ty -> type_sort ty
+  | Tarrow _
+  | Ttuple _
+  | Tobject _
+  | Tfield _
+  | Tnil
+  | Tvariant _
+  | Tunivar _
+  | Tpoly _
+  | Tpackage _ -> Stype
+  | Teffect _
+  | Tenil -> Seffect
 
 (**** Representative of a type ****)
 
@@ -190,8 +214,8 @@ let is_row_name s =
 
 let is_constr_row t =
   match t.desc with
-    Tconstr (Path.Pident id, _, _) -> is_row_name (Ident.name id)
-  | Tconstr (Path.Pdot (_, s, _), _, _) -> is_row_name s
+    Tconstr (Path.Pident id, _, _, _) -> is_row_name (Ident.name id)
+  | Tconstr (Path.Pdot (_, s, _), _, _, _) -> is_row_name s
   | _ -> false
 
 
@@ -213,12 +237,14 @@ let rec iter_row f row =
       Misc.may (fun (_,l) -> List.iter f l) row.row_name
   | _ -> assert false
 
+let iter_effect_type f eft = ()
+
 let iter_type_expr f ty =
   match ty.desc with
     Tvar _              -> ()
-  | Tarrow (_, ty1, ty2, _) -> f ty1; f ty2
+  | Tarrow (_, ty1, ty2, ty3, _) -> f ty1; f ty2; f ty3
   | Ttuple l            -> List.iter f l
-  | Tconstr (_, l, _)   -> List.iter f l
+  | Tconstr (_, l, _, _)   -> List.iter f l
   | Tobject(ty, {contents = Some (_, p)})
                         -> f ty; List.iter f p
   | Tobject (ty, _)     -> f ty
@@ -230,6 +256,8 @@ let iter_type_expr f ty =
   | Tunivar _           -> ()
   | Tpoly (ty, tyl)     -> f ty; List.iter f tyl
   | Tpackage (_, _, l)  -> List.iter f l
+  | Teffect(_, ty)      -> f ty
+  | Tenil               -> ()
 
 let rec iter_abbrev f = function
     Mnil                   -> ()
@@ -322,7 +350,7 @@ let type_iterators =
   and it_do_type_expr it ty =
     iter_type_expr (it.it_type_expr it) ty;
     match ty.desc with
-      Tconstr (p, _, _)
+      Tconstr (p, _, _, _)
     | Tobject (_, {contents=Some (p, _)})
     | Tpackage (p, _, _) ->
         it.it_path p
@@ -375,10 +403,14 @@ let rec norm_univar ty =
   | _                  -> assert false
 
 let rec copy_type_desc ?(keep_names=false) f = function
-    Tvar _ as ty        -> if keep_names then ty else Tvar None
-  | Tarrow (p, ty1, ty2, c)-> Tarrow (p, f ty1, f ty2, copy_commu c)
+  | Tvar(name, Stype) as ty ->
+     if keep_names then ty else tvar_none
+  | Tvar(name, Seffect) as ty ->
+     if keep_names then ty else evar_none
+  | Tarrow (p, ty1, ty2, ty3, c)->
+      Tarrow (p, f ty1, f ty2, f ty3, copy_commu c)
   | Ttuple l            -> Ttuple (List.map f l)
-  | Tconstr (p, l, _)   -> Tconstr (p, List.map f l, ref Mnil)
+  | Tconstr (p, l, s, _)   -> Tconstr (p, List.map f l, s, ref Mnil)
   | Tobject(ty, {contents = Some (p, tl)})
                         -> Tobject (f ty, ref (Some(p, List.map f tl)))
   | Tobject (ty, _)     -> Tobject (f ty, ref None)
@@ -393,6 +425,8 @@ let rec copy_type_desc ?(keep_names=false) f = function
       let tyl = List.map (fun x -> norm_univar (f x)) tyl in
       Tpoly (f ty, tyl)
   | Tpackage (p, n, l)  -> Tpackage (p, n, List.map f l)
+  | Teffect(ec, ty)    -> Teffect (ec, f ty)
+  | Tenil               -> Tenil
 
 (* Utilities for copying *)
 
@@ -615,12 +649,15 @@ let link_type ty ty' =
   (* Name is a user-supplied name for this unification variable (obtained
    * through a type annotation for instance). *)
   match desc, ty'.desc with
-    Tvar name, Tvar name' ->
+    Tvar(name, kind), Tvar(name', _) ->
       begin match name, name' with
-      | Some _, None ->  log_type ty'; ty'.desc <- Tvar name
+      | Some _, None ->  log_type ty'; ty'.desc <- Tvar(name, kind)
       | None, Some _ ->  ()
       | Some _, Some _ ->
-          if ty.level < ty'.level then (log_type ty'; ty'.desc <- Tvar name)
+          if ty.level < ty'.level then begin
+            log_type ty';
+            ty'.desc <- Tvar(name, kind)
+          end
       | None, None   ->  ()
       end
   | _ -> ()

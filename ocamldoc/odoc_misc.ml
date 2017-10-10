@@ -475,7 +475,7 @@ let label_name = Btype.label_name
 let remove_option typ =
   let rec iter t =
     match t with
-    | Types.Tconstr(path, [ty], _) when Path.same path Predef.path_option -> ty.Types.desc
+    | Types.Tconstr(path, [ty], _, _) when Path.same path Predef.path_option -> ty.Types.desc
     | Types.Tconstr _
     | Types.Tvar _
     | Types.Tunivar _
@@ -486,7 +486,9 @@ let remove_option typ =
     | Types.Tfield _
     | Types.Tnil
     | Types.Tvariant _
-    | Types.Tpackage _ -> t
+    | Types.Tpackage _
+    | Types.Teffect _
+    | Types.Tenil -> t
     | Types.Tlink t2
     | Types.Tsubst t2 -> iter t2.Types.desc
   in

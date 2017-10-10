@@ -895,11 +895,11 @@ and transl_exp0 e =
               Lprim(Pmakeblock(Obj.forward_tag, Immutable), [transl_exp e])
           (* the following cannot be represented as float/forward/lazy:
              optimize *)
-          | Tarrow(_,_,_,_) | Ttuple _ | Tpackage _ | Tobject(_,_) | Tnil
+          | Tarrow(_,_,_,_,_) | Ttuple _ | Tpackage _ | Tobject(_,_) | Tnil
           | Tvariant _
               -> transl_exp e
           (* optimize predefined types (excepted float) *)
-          | Tconstr(_,_,_) ->
+          | Tconstr(_,_,_,_) ->
               if has_base_type e Predef.path_int
                 || has_base_type e Predef.path_char
                 || has_base_type e Predef.path_string
@@ -915,6 +915,7 @@ and transl_exp0 e =
               then transl_exp e
               else
                 Lprim(Pmakeblock(Obj.forward_tag, Immutable), [transl_exp e])
+          | Teffect _ | Tenil -> assert false
           end
       (* other cases compile to a lazy block holding a function *)
       | _ ->

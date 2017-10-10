@@ -124,7 +124,7 @@ let clean_copy ty =
 let get_type_path ty tenv =
   let ty = Ctype.repr (Ctype.expand_head tenv (clean_copy ty)) in
   match ty.desc with
-  | Tconstr (path,_,_) -> path
+  | Tconstr (path,_,_,_) -> path
   | _ -> fatal_error "Parmatch.get_type_path"
 
 (*************************************)
@@ -592,7 +592,7 @@ let close_variant env row =
     (* this unification cannot fail *)
     Ctype.unify env row.row_more
       (Btype.newgenty
-         (Tvariant {row with row_fields = []; row_more = Btype.newgenvar();
+         (Tvariant {row with row_fields = []; row_more = Btype.newgenvar Stype;
                     row_closed = true; row_name = nm}))
   end
 
@@ -731,7 +731,7 @@ let rec pat_of_constrs ex_pat = function
 
 let rec get_variant_constructors env ty =
   match (Ctype.repr ty).desc with
-  | Tconstr (path,_,_) -> begin
+  | Tconstr (path,_,_,_) -> begin
       match Env.find_type path env with
       | {type_kind=Type_variant _} ->
           fst (Env.find_type_descrs path env)

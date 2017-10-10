@@ -188,7 +188,7 @@ let _ = Hashtbl.add directive_table "mod_use"
 let filter_arrow ty =
   let ty = Ctype.expand_head !toplevel_env ty in
   match ty.desc with
-  | Tarrow (lbl, l, r, _) when not (Btype.is_optional lbl) -> Some (l, r)
+  | Tarrow (lbl, l, _, r, _) when not (Btype.is_optional lbl) -> Some (l, r)
   | _ -> None
 
 let rec extract_last_arrow desc =
@@ -202,7 +202,7 @@ let extract_target_type ty = fst (extract_last_arrow ty)
 let extract_target_parameters ty =
   let ty = extract_target_type ty |> Ctype.expand_head !toplevel_env in
   match ty.desc with
-  | Tconstr (path, (_ :: _ as args), _)
+  | Tconstr (path, (_ :: _ as args), _, _)
       when Ctype.all_distinct_vars !toplevel_env args -> Some (path, args)
   | _ -> None
 
@@ -220,9 +220,9 @@ let printer_type ppf typename =
 
 let match_simple_printer_type ppf desc printer_type =
   Ctype.begin_def();
-  let ty_arg = Ctype.newvar() in
+  let ty_arg = Ctype.newvar Stype in
   Ctype.unify !toplevel_env
-    (Ctype.newconstr printer_type [ty_arg])
+    (Ctype.newconstr printer_type [ty_arg] Stype)
     (Ctype.instance_def desc.val_type);
   Ctype.end_def();
   Ctype.generalize ty_arg;
@@ -230,14 +230,16 @@ let match_simple_printer_type ppf desc printer_type =
 
 let match_generic_printer_type ppf desc path args printer_type =
   Ctype.begin_def();
-  let args = List.map (fun _ -> Ctype.newvar ()) args in
-  let ty_target = Ctype.newty (Tconstr (path, args, ref Mnil)) in
+  let args = List.map (fun _ -> Ctype.newvar Stype) args in
+  let ty_target = Ctype.newty (Tconstr (path, args, Stype, ref Mnil)) in
   let ty_args =
-    List.map (fun ty_var -> Ctype.newconstr printer_type [ty_var]) args in
+    List.map (fun ty_var -> Ctype.newconstr printer_type [ty_var] Stype) args
+  in
+  let ty_eff = Ctype.newvar Seffect in
   let ty_expected =
     List.fold_right
-      (fun ty_arg ty -> Ctype.newty (Tarrow ("", ty_arg, ty, Cunknown)))
-      ty_args (Ctype.newconstr printer_type [ty_target]) in
+      (fun ty_arg ty -> Ctype.newty (Tarrow ("", ty_arg, ty_eff, ty, Cunknown)))
+      ty_args (Ctype.newconstr printer_type [ty_target] Stype) in
   Ctype.unify !toplevel_env
     ty_expected
     (Ctype.instance_def desc.val_type);

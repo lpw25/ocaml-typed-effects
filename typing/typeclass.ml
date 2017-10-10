@@ -122,7 +122,8 @@ let rec constructor_type constr cty =
   | Cty_signature sign ->
       constr
   | Cty_arrow (l, ty, cty) ->
-      Ctype.newty (Tarrow (l, ty, constructor_type constr cty, Cok))
+      let eff = Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil)) in
+      Ctype.newty (Tarrow (l, ty, eff, constructor_type constr cty, Cok))
 
 let rec class_body cty =
   match cty with
@@ -427,7 +428,7 @@ and class_signature env {pcsig_self=sty; pcsig_fields=sign} =
 
   (* Check that the binder is a correct type, and introduce a dummy
      method preventing self type from being closed. *)
-  let dummy_obj = Ctype.newvar () in
+  let dummy_obj = Ctype.newvar Stype in
   Ctype.unify env (Ctype.filter_method env dummy_method Private dummy_obj)
     (Ctype.newty (Ttuple []));
   begin try
@@ -597,8 +598,9 @@ let rec class_field self_loc cl_num self_type meths vars
                       No_overriding ("instance variable", lab.txt)))
       end;
       if !Clflags.principal then Ctype.begin_def ();
+      let eff = Btype.newgenty (Teffect(Placeholder, Btype.newgenty Tenil)) in
       let exp =
-        try type_exp val_env sexp with Ctype.Unify [(ty, _)] ->
+        try type_exp val_env sexp eff with Ctype.Unify [(ty, _)] ->
           raise(Error(loc, val_env, Make_nongen_seltype ty))
       in
       if !Clflags.principal then begin
@@ -651,8 +653,8 @@ let rec class_field self_loc cl_num self_type meths vars
               Ctype.unify val_env ty' ty
           end;
           begin match (Ctype.repr ty).desc with
-            Tvar _ ->
-              let ty' = Ctype.newvar () in
+            Tvar(_, Stype) ->
+              let ty' = Ctype.newvar Stype in
               Ctype.unify val_env (Ctype.newty (Tpoly (ty', []))) ty;
               Ctype.unify val_env (type_approx val_env sbody) ty'
           | Tpoly (ty1, tl) ->
@@ -672,11 +674,16 @@ let rec class_field self_loc cl_num self_type meths vars
 
       let field =
         lazy begin
+          let eff =
+            Btype.newgenty (Teffect(Placeholder, Btype.newgenty Tenil))
+          in
           let meth_type =
-            Btype.newgenty (Tarrow("", self_type, ty, Cok)) in
+            Btype.newgenty (Tarrow("", self_type, eff, ty, Cok)) in
           Ctype.raise_nongen_level ();
           vars := vars_local;
-          let texp = type_expect met_env meth_expr meth_type in
+          let texp =
+            type_expect met_env meth_expr meth_type (Btype.newgenty Tenil)
+          in
           Ctype.end_def ();
           mkcf (Tcf_method (lab, priv, Tcfk_concrete (ovf, texp)))
         end in
@@ -696,12 +703,15 @@ let rec class_field self_loc cl_num self_type meths vars
       let field =
         lazy begin
           Ctype.raise_nongen_level ();
+          let eff = Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil)) in
           let meth_type =
             Ctype.newty
-              (Tarrow ("", self_type,
+              (Tarrow ("", self_type, eff,
                        Ctype.instance_def Predef.type_unit, Cok)) in
           vars := vars_local;
-          let texp = type_expect met_env expr meth_type in
+          let texp =
+            type_expect met_env expr meth_type (Btype.newgenty Tenil)
+          in
           Ctype.end_def ();
           mkcf (Tcf_initializer texp)
         end in
@@ -724,13 +734,13 @@ and class_structure cl_num final val_env met_env loc
   let self_loc = {spat.ppat_loc with Location.loc_ghost = true} in
 
   (* Self type, with a dummy method preventing it from being closed/escaped. *)
-  let self_type = Ctype.newvar () in
+  let self_type = Ctype.newvar Stype in
   Ctype.unify val_env
     (Ctype.filter_method val_env dummy_method Private self_type)
     (Ctype.newty (Ttuple []));
 
   (* Private self is used for private method calls *)
-  let private_self = if final then Ctype.newvar () else self_type in
+  let private_self = if final then Ctype.newvar Stype else self_type in
 
   (* Self binder *)
   let (pat, meths, vars, val_env, meth_env, par_env) =
@@ -740,7 +750,7 @@ and class_structure cl_num final val_env met_env loc
 
   (* Check that the binder has a correct type *)
   let ty =
-    if final then Ctype.newty (Tobject (Ctype.newvar(), ref None))
+    if final then Ctype.newty (Tobject (Ctype.newvar Stype, ref None))
     else self_type in
   begin try Ctype.unify val_env public_self ty with
     Ctype.Unify _ ->
@@ -770,7 +780,7 @@ and class_structure cl_num final val_env met_env loc
       str
   in
   Typetexp.warning_leave_scope ();
-  Ctype.unify val_env self_type (Ctype.newvar ());
+  Ctype.unify val_env self_type (Ctype.newvar Stype);
   let sign =
     {csig_self = public_self;
      csig_vars = Vars.map (fun (id, mut, vr, ty) -> (mut, vr, ty)) !vars;
@@ -815,7 +825,7 @@ and class_structure cl_num final val_env met_env loc
     List.iter (fun (_,_,ty) -> Ctype.generalize_spine ty) methods;
   let fields = List.map Lazy.force (List.rev fields) in
   if !Clflags.principal then
-    List.iter (fun (_,_,ty) -> Ctype.unify val_env ty (Ctype.newvar ()))
+    List.iter (fun (_,_,ty) -> Ctype.unify val_env ty (Ctype.newvar Stype))
       methods;
   let meths = Meths.map (function (id, ty) -> id) !meths in
 
@@ -1003,6 +1013,9 @@ and class_expr cl_num val_env met_env scl =
             let name = Btype.label_name l
             and optional =
               if Btype.is_optional l then Optional else Required in
+            let eff_expected =
+              Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+            in
             let sargs, more_sargs, arg =
               if ignore_labels && not (Btype.is_optional l) then begin
                 match sargs, more_sargs with
@@ -1013,7 +1026,8 @@ and class_expr cl_num val_env met_env scl =
                       raise(Error(sarg0.pexp_loc, val_env,
                                   Apply_wrong_label l'))
                     else ([], more_sargs,
-                          Some (type_argument val_env sarg0 ty ty0))
+                          Some (type_argument val_env sarg0
+                                  ty ty0 eff_expected))
                 | _ ->
                     assert false
               end else try
@@ -1032,11 +1046,13 @@ and class_expr cl_num val_env met_env scl =
                     (Warnings.Nonoptional_label l);
                 sargs, more_sargs,
                 if optional = Required || Btype.is_optional l' then
-                  Some (type_argument val_env sarg0 ty ty0)
+                  Some (type_argument val_env sarg0 ty ty0 eff_expected)
                 else
                   let ty' = extract_option_type val_env ty
                   and ty0' = extract_option_type val_env ty0 in
-                  let arg = type_argument val_env sarg0 ty' ty0' in
+                  let arg =
+                    type_argument val_env sarg0 ty' ty0' eff_expected
+                  in
                   Some (option_some arg)
               with Not_found ->
                 sargs, more_sargs,
@@ -1076,9 +1092,12 @@ and class_expr cl_num val_env met_env scl =
           cl_attributes = scl.pcl_attributes;
          }
   | Pcl_let (rec_flag, sdefs, scl') ->
+      let eff_expected =
+        Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+      in
       let (defs, val_env) =
         try
-          Typecore.type_let val_env rec_flag sdefs None
+          Typecore.type_let val_env rec_flag sdefs eff_expected None
         with Ctype.Unify [(ty, _)] ->
           raise(Error(scl.pcl_loc, val_env, Make_nongen_seltype ty))
       in
@@ -1157,42 +1176,45 @@ and class_expr cl_num val_env met_env scl =
 (* Approximate the type of the constructor to allow recursive use *)
 (* of optional parameters                                         *)
 
-let var_option = Predef.type_option (Btype.newgenvar ())
+let var_option = Predef.type_option (Btype.newgenvar Stype)
 
 let rec approx_declaration cl =
   match cl.pcl_desc with
     Pcl_fun (l, _, _, cl) ->
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
-        else Ctype.newvar () in
-      Ctype.newty (Tarrow (l, arg, approx_declaration cl, Cok))
+        else Ctype.newvar Stype in
+      let eff = Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil)) in
+      Ctype.newty (Tarrow (l, arg, eff, approx_declaration cl, Cok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
   | Pcl_constraint (cl, _) ->
       approx_declaration cl
-  | _ -> Ctype.newvar ()
+  | _ -> Ctype.newvar Stype
 
 let rec approx_description ct =
   match ct.pcty_desc with
     Pcty_arrow (l, _, ct) ->
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
-        else Ctype.newvar () in
-      Ctype.newty (Tarrow (l, arg, approx_description ct, Cok))
-  | _ -> Ctype.newvar ()
+        else Ctype.newvar Stype in
+      let eff = Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil)) in
+      Ctype.newty (Tarrow (l, arg, eff, approx_description ct, Cok))
+  | _ -> Ctype.newvar Stype
 
 (*******************************)
 
 let temp_abbrev loc env id arity =
   let params = ref [] in
   for _i = 1 to arity do
-    params := Ctype.newvar () :: !params
+    params := Ctype.newvar Stype :: !params
   done;
-  let ty = Ctype.newobj (Ctype.newvar ()) in
+  let ty = Ctype.newobj (Ctype.newvar Stype) in
   let env =
     Env.add_type ~check:true id
       {type_params = !params;
        type_arity = arity;
+       type_sort = Stype;
        type_kind = Type_abstract;
        type_private = Public;
        type_manifest = Some ty;
@@ -1217,7 +1239,7 @@ let initial_env define_class approx
   if !Clflags.principal then Ctype.generalize_spine constr_type;
   let dummy_cty =
     Cty_signature
-      { csig_self = Ctype.newvar ();
+      { csig_self = Ctype.newvar Stype;
         csig_vars = Vars.empty;
         csig_concr = Concr.empty;
         csig_inher = [] }
@@ -1310,7 +1332,7 @@ let class_infos define_class kind
 
   (* Check the abbreviation for the object type *)
   let (obj_params', obj_type) = Ctype.instance_class params typ in
-  let constr = Ctype.newconstr (Path.Pident obj_id) obj_params in
+  let constr = Ctype.newconstr (Path.Pident obj_id) obj_params Stype in
   begin
     let ty = Ctype.self_type obj_type in
     Ctype.hide_private_methods ty;
@@ -1321,7 +1343,7 @@ let class_infos define_class kind
       raise(Error(cl.pci_loc, env,
             Bad_parameters (obj_id, constr,
                             Ctype.newconstr (Path.Pident obj_id)
-                                            obj_params')))
+                                            obj_params' Stype)))
     end;
     begin try
       Ctype.unify env ty constr
@@ -1343,14 +1365,14 @@ let class_infos define_class kind
       raise(Error(cl.pci_loc, env,
             Bad_parameters (cl_id,
                             Ctype.newconstr (Path.Pident cl_id)
-                                            cl_params,
+                                            cl_params Stype,
                             Ctype.newconstr (Path.Pident cl_id)
-                                            cl_params')))
+                                            cl_params' Stype)))
     end;
     begin try
       Ctype.unify env ty cl_ty
     with Ctype.Unify _ ->
-      let constr = Ctype.newconstr (Path.Pident cl_id) params in
+      let constr = Ctype.newconstr (Path.Pident cl_id) params Stype in
       raise(Error(cl.pci_loc, env, Abbrev_type_clash (constr, ty, cl_ty)))
     end
   end;
@@ -1438,6 +1460,7 @@ let class_infos define_class kind
   let obj_abbr =
     {type_params = obj_params;
      type_arity = List.length obj_params;
+     type_sort = Stype;
      type_kind = Type_abstract;
      type_private = Public;
      type_manifest = Some obj_ty;
@@ -1455,6 +1478,7 @@ let class_infos define_class kind
   let cl_abbr =
     {type_params = cl_params;
      type_arity = List.length cl_params;
+     type_sort = Stype;
      type_kind = Type_abstract;
      type_private = Public;
      type_manifest = Some cl_ty;

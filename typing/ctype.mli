@@ -39,14 +39,16 @@ val restore_global_level: int -> unit
         (* This pair of functions is only used in Typetexp *)
 
 val newty: type_desc -> type_expr
-val newvar: ?name:string -> unit -> type_expr
-val newvar2: ?name:string -> int -> type_expr
+
+val newvar: ?name:string -> type_sort -> type_expr
+val newvar2: ?name:string -> type_sort -> int -> type_expr
         (* Return a fresh variable *)
-val new_global_var: ?name:string -> unit -> type_expr
+val new_global_var: ?name:string -> type_sort -> type_expr
         (* Return a fresh variable, bound at toplevel
            (as type variables ['a] in type constraints). *)
+
 val newobj: type_expr -> type_expr
-val newconstr: Path.t -> type_expr list -> type_expr
+val newconstr: Path.t -> type_expr list -> type_sort -> type_expr
 val none: type_expr
         (* A dummy type expression *)
 
@@ -82,6 +84,9 @@ val merge_row_fields:
         (label * row_field * row_field) list
 val filter_row_fields:
         bool -> (label * row_field) list -> (label * row_field) list
+
+val flatten_effects:
+        type_expr -> effect_constr list * type_expr
 
 val generalize: type_expr -> unit
         (* Generalize in-place the given type *)
@@ -164,7 +169,8 @@ val unify_gadt: newtype_level:int -> Env.t ref -> type_expr -> type_expr -> unit
 val unify_var: Env.t -> type_expr -> type_expr -> unit
         (* Same as [unify], but allow free univars when first type
            is a variable. *)
-val filter_arrow: Env.t -> type_expr -> label -> type_expr * type_expr
+val filter_arrow:
+        Env.t -> type_expr -> label -> type_expr * type_expr * type_expr
         (* A special case of unification (with l:'a -> 'b). *)
 val filter_method: Env.t -> string -> private_flag -> type_expr -> type_expr
         (* A special case of unification (with {m : 'a; 'b}). *)

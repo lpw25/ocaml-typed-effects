@@ -553,7 +553,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         match ct.ctyp_desc with
           Ttyp_any -> ()
         | Ttyp_var s -> ()
-        | Ttyp_arrow (label, ct1, ct2) ->
+        | Ttyp_arrow (label, ct1, eft, ct2) ->
             iter_core_type ct1;
             iter_core_type ct2
         | Ttyp_tuple list -> List.iter iter_core_type list

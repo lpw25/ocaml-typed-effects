@@ -91,7 +91,7 @@ let extension_descr path_ext ext =
     match ext.ext_ret_type with
         Some type_ret -> type_ret
       | None ->
-          newgenty (Tconstr(ext.ext_type_path, ext.ext_type_params, ref Mnil))
+          newgenty (Tconstr(ext.ext_type_path, ext.ext_type_params, Stype, ref Mnil))
   in
   let tag = Cstr_extension(path_ext, ext.ext_args = []) in
   let existentials =

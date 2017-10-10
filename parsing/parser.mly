@@ -232,8 +232,8 @@ let varify_constructors var_names t =
       | Ptyp_var x ->
           check_variable var_names t.ptyp_loc x;
           Ptyp_var x
-      | Ptyp_arrow (label,core_type,core_type') ->
-          Ptyp_arrow(label, loop core_type, loop core_type')
+      | Ptyp_arrow (label,core_type,e,core_type') ->
+          Ptyp_arrow(label, loop core_type, e, loop core_type')
       | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
       | Ptyp_constr( { txt = Lident s }, []) when List.mem s var_names ->
           Ptyp_var s
@@ -396,6 +396,15 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
+let mkeffect constrs varo =
+  { pefd_constrs = constrs;
+    pefd_var = varo; }
+
+let pure_effect = mkeffect [] None
+
+let tilde_effect pos =
+    mkeffect [] (Some (mkrhs "~" pos))
+
 %}
 
 /* Tokens */
@@ -407,6 +416,7 @@ let class_of_let_bindings lbs body =
 %token ASSERT
 %token BACKQUOTE
 %token BANG
+%token BANGTILDE
 %token BAR
 %token BARBAR
 %token BARRBRACKET
@@ -429,6 +439,7 @@ let class_of_let_bindings lbs body =
 %token END
 %token EOF
 %token EQUAL
+%token EQUALGREATER
 %token EXCEPTION
 %token EXTERNAL
 %token FALSE
@@ -476,6 +487,7 @@ let class_of_let_bindings lbs body =
 %token MINUS
 %token MINUSDOT
 %token MINUSGREATER
+%token MINUSLBRACKET
 %token MODULE
 %token MUTABLE
 %token <nativeint> NATIVEINT
@@ -497,6 +509,7 @@ let class_of_let_bindings lbs body =
 %token QUOTE
 %token RBRACE
 %token RBRACKET
+%token RBRACKETMINUSGREATER
 %token REC
 %token RPAREN
 %token SEMI
@@ -509,6 +522,7 @@ let class_of_let_bindings lbs body =
 %token STRUCT
 %token THEN
 %token TILDE
+%token TILDEGREATER
 %token TO
 %token TRUE
 %token TRY
@@ -563,7 +577,8 @@ The precedences must be listed from low to high.
 %left     BAR                           /* pattern (p|p|p) */
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/expr_comma_list (e,e,e) */
-%right    MINUSGREATER                  /* core_type2 (t -> t -> t) */
+%right    MINUSGREATER EQUALGREATER TILDEGREATER MINUSLBRACKET
+                                        /* core_type2 (t -> t -> t) */
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
 %nonassoc below_EQUAL
@@ -2019,14 +2034,51 @@ core_type_no_attr:
 core_type2:
     simple_core_type_or_tuple
       { $1 }
-  | QUESTION LIDENT COLON core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow("?" ^ $2 , mkoption $4, $6)) }
-  | OPTLABEL core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow("?" ^ $1 , mkoption $2, $4)) }
-  | LIDENT COLON core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow($1, $3, $5)) }
-  | core_type2 MINUSGREATER core_type2
-      { mktyp(Ptyp_arrow("", $1, $3)) }
+  | QUESTION LIDENT COLON core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow("?" ^ $2 , mkoption $4, $5, $6)) }
+  | OPTLABEL core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow("?" ^ $1 , mkoption $2, $3, $4)) }
+  | LIDENT COLON core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow($1, $3, $4, $5)) }
+  | core_type2 arrow core_type2 %prec MINUSGREATER
+      { mktyp(Ptyp_arrow("", $1, $2, $3)) }
+;
+
+arrow:
+  | MINUSGREATER
+      { None }
+  | EQUALGREATER
+      { Some pure_effect }
+  | TILDEGREATER
+      { Some (tilde_effect 1) }
+  | MINUSLBRACKET effect_desc RBRACKETMINUSGREATER
+      { Some $2 }
+;
+
+effect_desc_constructors:
+  | /* empty */
+      { [] }
+  | type_longident
+      { [mkrhs $1 1] }
+  | effect_desc_constructors BAR type_longident
+      { (mkrhs $3 3) :: $1 }
+;
+
+effect_desc:
+  | effect_desc_constructors
+      { mkeffect $1 None }
+  | effect_desc_constructors BAR BANG ident
+      { mkeffect $1 (Some (mkrhs $4 4)) }
+  | BANG ident
+      { mkeffect [] (Some (mkrhs $2 2)) }
+  | effect_desc_constructors BAR BANG TILDE
+      { mkeffect $1 (Some (mkrhs "~" 4)) }
+  | BANG TILDE
+      { mkeffect [] (Some (mkrhs "~" 2)) }
+  | effect_desc_constructors BAR BANGTILDE
+      { mkeffect $1 (Some (mkrhs "~" 3)) }
+  | BANGTILDE
+      { mkeffect [] (Some (mkrhs "~" 1)) }
 ;
 
 simple_core_type:

@@ -154,13 +154,21 @@ let rec print_list pr sep ppf =
 let pr_present =
   print_list (fun ppf s -> fprintf ppf "`%s" s) (fun ppf -> fprintf ppf "@ ")
 
+let pr_var ppf ng (s, sort) =
+  match sort with
+  | Osrt_type -> fprintf ppf "'%s%s" (if ng then "_" else "") s
+  | Osrt_effect -> fprintf ppf "!%s%s" (if ng then "_" else "") s
+
+let pr_gvar ppf v =
+  pr_var ppf false v
+
 let pr_vars =
-  print_list (fun ppf s -> fprintf ppf "'%s" s) (fun ppf -> fprintf ppf "@ ")
+  print_list pr_gvar (fun ppf -> fprintf ppf "@ ")
 
 let rec print_out_type ppf =
   function
-  | Otyp_alias (ty, s) ->
-      fprintf ppf "@[%a@ as '%s@]" print_out_type ty s
+  | Otyp_alias (ty, v) ->
+      fprintf ppf "@[%a@ as %a@]" print_out_type ty pr_gvar v
   | Otyp_poly (sl, ty) ->
       fprintf ppf "@[<hov 2>%a.@ %a@]"
         pr_vars sl
@@ -170,11 +178,12 @@ let rec print_out_type ppf =
 
 and print_out_type_1 ppf =
   function
-    Otyp_arrow (lab, ty1, ty2) ->
+    Otyp_arrow (lab, ty1, arr, ty2) ->
       pp_open_box ppf 0;
       if lab <> "" then (pp_print_string ppf lab; pp_print_char ppf ':');
       print_out_type_2 ppf ty1;
-      pp_print_string ppf " ->";
+      pp_print_space ppf ();
+      print_arrow ppf arr;
       pp_print_space ppf ();
       print_out_type_1 ppf ty2;
       pp_close_box ppf ()
@@ -197,7 +206,7 @@ and print_simple_out_type ppf =
   | Otyp_object (fields, rest) ->
       fprintf ppf "@[<2>< %a >@]" (print_fields rest) fields
   | Otyp_stuff s -> pp_print_string ppf s
-  | Otyp_var (ng, s) -> fprintf ppf "'%s%s" (if ng then "_" else "") s
+  | Otyp_var (ng, v) -> pr_var ppf ng v
   | Otyp_variant (non_gen, row_fields, closed, tags) ->
       let print_present ppf =
         function
@@ -235,6 +244,24 @@ and print_simple_out_type ppf =
         )
         n tyl;
       fprintf ppf ")@]"
+  | Otyp_effects(cstrs, row_opt) ->
+      pp_print_string ppf "[";
+      print_list
+        print_ident (fun ppf -> pp_print_string ppf " | ")
+        ppf cstrs;
+      begin match cstrs, row_opt with
+      | [], _ -> ()
+      | _, None -> ()
+      | _ :: _, Some _ ->
+          pp_print_string ppf " | ";
+      end;
+      begin match row_opt with
+      | None -> ()
+      | Some row ->
+          print_out_type ppf row
+      end;
+      pp_print_string ppf "]"
+
 and print_fields rest ppf =
   function
     [] ->
@@ -279,6 +306,28 @@ and print_typargs ppf =
       pp_print_char ppf ')';
       pp_close_box ppf ();
       pp_print_space ppf ()
+and print_arrow ppf =
+  function
+  | Oarr_simple -> pp_print_string ppf "->"
+  | Oarr_pure -> pp_print_string ppf "=>"
+  | Oarr_tilde -> pp_print_string ppf "~>"
+  | Oarr_effects(cstrs, row_opt) ->
+      pp_print_string ppf "-[";
+      print_list
+        print_ident (fun ppf -> pp_print_string ppf " | ")
+        ppf cstrs;
+      begin match cstrs, row_opt with
+      | [], _ -> ()
+      | _, None -> ()
+      | _ :: _, Some _ ->
+          pp_print_string ppf " | ";
+      end;
+      begin match row_opt with
+      | None -> ()
+      | Some row ->
+          print_out_type ppf row
+      end;
+      pp_print_string ppf "]->"
 
 let out_type = ref print_out_type
 

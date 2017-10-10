@@ -348,7 +348,7 @@ and core_type =
 and core_type_desc =
     Ttyp_any
   | Ttyp_var of string
-  | Ttyp_arrow of label * core_type * core_type
+  | Ttyp_arrow of label * core_type * effect_type * core_type
   | Ttyp_tuple of core_type list
   | Ttyp_constr of Path.t * Longident.t loc * core_type list
   | Ttyp_object of (string * attributes * core_type) list * closed_flag
@@ -368,6 +368,16 @@ and package_type = {
 and row_field =
     Ttag of label * attributes * bool * core_type list
   | Tinherit of core_type
+
+and effect_type = {
+  eft_desc: effect_desc option;
+  eft_type: Types.type_expr;
+}
+
+and effect_desc = {
+  efd_constrs : (Longident.t loc * Path.t) list;
+  efd_var : string loc option;
+}
 
 and value_description =
   { val_id: Ident.t;

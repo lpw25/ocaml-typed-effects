@@ -14,6 +14,10 @@
 
 open Asttypes
 
+type type_sort =
+  | Stype
+  | Seffect
+
 (* Type expressions for the core language *)
 
 type type_expr =
@@ -22,10 +26,10 @@ type type_expr =
     mutable id: int }
 
 and type_desc =
-    Tvar of string option
-  | Tarrow of label * type_expr * type_expr * commutable
+    Tvar of string option * type_sort
+  | Tarrow of label * type_expr * type_expr * type_expr * commutable
   | Ttuple of type_expr list
-  | Tconstr of Path.t * type_expr list * abbrev_memo ref
+  | Tconstr of Path.t * type_expr list * type_sort * abbrev_memo ref
   | Tobject of type_expr * (Path.t * type_expr list) option ref
   | Tfield of string * field_kind * type_expr * type_expr
   | Tnil
@@ -35,6 +39,8 @@ and type_desc =
   | Tunivar of string option
   | Tpoly of type_expr * type_expr list
   | Tpackage of Path.t * Longident.t list * type_expr list
+  | Teffect of effect_constr * type_expr
+  | Tenil
 
 and row_desc =
     { row_fields: (label * row_field) list;
@@ -66,6 +72,9 @@ and commutable =
     Cok
   | Cunknown
   | Clink of commutable ref
+
+and effect_constr =
+  | Placeholder
 
 module TypeOps = struct
   type t = type_expr
@@ -182,6 +191,7 @@ end
 type type_declaration =
   { type_params: type_expr list;
     type_arity: int;
+    type_sort: type_sort;
     type_kind: type_kind;
     type_private: private_flag;
     type_manifest: type_expr option;

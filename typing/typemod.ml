@@ -156,8 +156,9 @@ let merge_constraint initial_env loc sg constr =
       when Ident.name id = s && Typedecl.is_fixed_type sdecl ->
         let decl_row =
           { type_params =
-              List.map (fun _ -> Btype.newgenvar()) sdecl.ptype_params;
+              List.map (fun _ -> Btype.newgenvar Stype) sdecl.ptype_params;
             type_arity = List.length sdecl.ptype_params;
+            type_sort = Stype;
             type_kind = Type_abstract;
             type_private = Private;
             type_manifest = None;
@@ -1200,7 +1201,10 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
 
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
-      let exp = Typecore.type_exp env sexp in
+      let eff_expected =
+        Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+      in
+      let exp = Typecore.type_exp env sexp eff_expected in
       if !Clflags.principal then begin
         Ctype.end_def ();
         Ctype.generalize_structure exp.exp_type
@@ -1241,9 +1245,15 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
   let type_str_item env srem {pstr_loc = loc; pstr_desc = desc} =
     match desc with
     | Pstr_eval (sexpr, attrs) ->
-        let expr = Typecore.type_expression env sexpr in
+        let eff_expected =
+          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+        in
+        let expr = Typecore.type_expression env sexpr eff_expected in
         Tstr_eval (expr, attrs), [], env
     | Pstr_value(rec_flag, sdefs) ->
+        let eff_expected =
+          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+        in
         let scope =
           match rec_flag with
           | Recursive ->
@@ -1258,7 +1268,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
               Some (Annot.Idef {scope with Location.loc_start = start})
         in
         let (defs, newenv) =
-          Typecore.type_binding env rec_flag sdefs scope in
+          Typecore.type_binding env rec_flag sdefs eff_expected scope in
         (* Note: Env.find_value does not trigger the value_used event. Values
            will be marked as being used during the signature inclusion test. *)
         Tstr_value(rec_flag, defs),
@@ -1583,7 +1593,7 @@ let type_package env m p nl tl =
   in
   let tl' =
     List.map
-      (fun name -> Btype.newgenty (Tconstr (mkpath mp name,[],ref Mnil)))
+      (fun name -> Btype.newgenty (Tconstr (mkpath mp name,[],Stype,ref Mnil)))
       nl in
   (* go back to original level *)
   Ctype.end_def ();
@@ -1592,7 +1602,7 @@ let type_package env m p nl tl =
   else let mty = modtype_of_package env modl.mod_loc p nl tl' in
   List.iter2
     (fun n ty ->
-      try Ctype.unify env ty (Ctype.newvar ())
+      try Ctype.unify env ty (Ctype.newvar Stype)
       with Ctype.Unify _ ->
         raise (Error(m.pmod_loc, env, Scoping_pack (n,ty))))
     nl tl';

@@ -20,16 +20,16 @@ val is_nonexpansive: Typedtree.expression -> bool
 
 val type_binding:
         Env.t -> rec_flag ->
-          Parsetree.value_binding list ->
+          Parsetree.value_binding list -> type_expr ->
           Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_let:
         Env.t -> rec_flag ->
-          Parsetree.value_binding list ->
+          Parsetree.value_binding list -> type_expr ->
           Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_expression:
-        Env.t -> Parsetree.expression -> Typedtree.expression
+        Env.t -> Parsetree.expression -> type_expr -> Typedtree.expression
 val type_class_arg_pattern:
         string -> Env.t -> Env.t -> label -> Parsetree.pattern ->
         Typedtree.pattern * (Ident.t * string loc * Ident.t * type_expr) list *
@@ -46,13 +46,14 @@ val check_partial:
 	Location.t -> Typedtree.case list -> Typedtree.partial
 val type_expect:
         ?in_function:(Location.t * type_expr) ->
-        Env.t -> Parsetree.expression -> type_expr -> Typedtree.expression
+        Env.t -> Parsetree.expression -> type_expr -> type_expr ->
+        Typedtree.expression
 val type_exp:
-        Env.t -> Parsetree.expression -> Typedtree.expression
+        Env.t -> Parsetree.expression -> type_expr -> Typedtree.expression
 val type_approx:
         Env.t -> Parsetree.expression -> type_expr
 val type_argument:
-        Env.t -> Parsetree.expression ->
+        Env.t -> Parsetree.expression -> type_expr ->
         type_expr -> type_expr -> Typedtree.expression
 
 val option_some: Typedtree.expression -> Typedtree.expression
@@ -74,11 +75,13 @@ type error =
   | Multiply_bound_variable of string
   | Orpat_vars of Ident.t
   | Expr_type_clash of (type_expr * type_expr) list
+  | Expr_effect_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
   | Apply_wrong_label of label * type_expr
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
+  | Label_effect_clash of (type_expr * type_expr) list
   | Wrong_name of string * type_expr * string * Path.t * Longident.t
   | Name_type_mismatch of
       string * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list

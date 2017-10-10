@@ -601,7 +601,7 @@ let find_type_expansion path env =
       let path' = normalize_path None env path in
       if Path.same path path' then raise Not_found else
       (decl.type_params,
-       newgenty (Tconstr (path', decl.type_params, ref Mnil)),
+       newgenty (Tconstr (path', decl.type_params, decl.type_sort, ref Mnil)),
        may_map snd decl.type_newtype_level)
 
 (* Find the manifest type information associated to a type, i.e.
@@ -618,7 +618,7 @@ let find_type_expansion_opt path env =
       let path' = normalize_path None env path in
       if Path.same path path' then raise Not_found else
       (decl.type_params,
-       newgenty (Tconstr (path', decl.type_params, ref Mnil)),
+       newgenty (Tconstr (path', decl.type_params, decl.type_sort, ref Mnil)),
        may_map snd decl.type_newtype_level)
 
 let find_modtype_expansion path env =
@@ -867,7 +867,7 @@ let mark_type_path env path =
 
 let ty_path t =
   match repr t with
-  | {desc=Tconstr(path, _, _)} -> path
+  | {desc=Tconstr(path, _, _, _)} -> path
   | _ -> assert false
 
 let lookup_constructor lid env =
@@ -1079,7 +1079,7 @@ let add_gadt_instance_chain env lv t =
       (* Format.eprintf "@ %a" !Btype.print_raw t; *)
       set_typeset r (TypeSet.add t !r);
       match t.desc with
-        Tconstr (p, _, memo) ->
+        Tconstr (p, _, _, memo) ->
           may add_instance (find_expans Private p !memo)
       | _ -> ()
     end
@@ -1117,7 +1117,7 @@ let scrape_alias env mty = scrape_alias env mty
 let constructors_of_type ty_path decl =
   let handle_variants cstrs =
     Datarepr.constructor_descrs
-      (newgenty (Tconstr(ty_path, decl.type_params, ref Mnil)))
+      (newgenty (Tconstr(ty_path, decl.type_params, decl.type_sort, ref Mnil)))
       cstrs decl.type_private
   in
   match decl.type_kind with
@@ -1130,7 +1130,8 @@ let labels_of_type ty_path decl =
   match decl.type_kind with
     Type_record(labels, rep) ->
       Datarepr.label_descrs
-        (newgenty (Tconstr(ty_path, decl.type_params, ref Mnil)))
+        (newgenty
+           (Tconstr(ty_path, decl.type_params, decl.type_sort, ref Mnil)))
         labels rep decl.type_private
   | Type_variant _ | Type_abstract | Type_open -> []
 

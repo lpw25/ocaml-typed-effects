@@ -16,6 +16,8 @@ class printer :
   object ('b)
     val pipe : bool
     val semi : bool
+    method arrow :
+      Format.formatter -> Parsetree.effect_type -> unit
     method binding :
       Format.formatter -> Parsetree.value_binding -> unit
     method bindings:

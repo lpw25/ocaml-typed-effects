@@ -122,6 +122,10 @@ let print_name ppf = function
     None -> fprintf ppf "None"
   | Some name -> fprintf ppf "\"%s\"" name
 
+let raw_type_sort ppf = function
+  | Stype -> fprintf ppf "Stype"
+  | Seffect -> fprintf ppf "Seffect"
+
 let visited = ref []
 let rec raw_type ppf ty =
   let ty = safe_repr [] ty in
@@ -132,17 +136,19 @@ let rec raw_type ppf ty =
   end
 and raw_type_list tl = raw_list raw_type tl
 and raw_type_desc ppf = function
-    Tvar name -> fprintf ppf "Tvar %a" print_name name
-  | Tarrow(l,t1,t2,c) ->
-      fprintf ppf "@[<hov1>Tarrow(%s,@,%a,@,%a,@,%s)@]"
-        l raw_type t1 raw_type t2
+  | Tvar(name, sort) ->
+      fprintf ppf "Tvar(%a, %a)"
+        print_name name raw_type_sort sort
+  | Tarrow(l,t1,t2,t3,c) ->
+      fprintf ppf "@[<hov1>Tarrow(%s,@,%a,@,%a,@,%a,@,%s)@]"
+        l raw_type t1 raw_type t2 raw_type t2
         (safe_commu_repr [] c)
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
-  | Tconstr (p, tl, abbrev) ->
-      fprintf ppf "@[<hov1>Tconstr(@,%a,@,%a,@,%a)@]" path p
+  | Tconstr (p, tl, s, abbrev) ->
+      fprintf ppf "@[<hov1>Tconstr(@,%a,@,%a,@,%a,@,%a)@]" path p
         raw_type_list tl
-        (raw_list path) (list_of_memo !abbrev)
+        raw_type_sort s (raw_list path) (list_of_memo !abbrev)
   | Tobject (t, nm) ->
       fprintf ppf "@[<hov1>Tobject(@,%a,@,@[<1>ref%t@])@]" raw_type t
         (fun ppf ->
@@ -179,6 +185,10 @@ and raw_type_desc ppf = function
   | Tpackage (p, _, tl) ->
       fprintf ppf "@[<hov1>Tpackage(@,%a@,%a)@]" path p
         raw_type_list tl
+  | Teffect (ec, t) ->
+      fprintf ppf "@[<hov1>Teffect(%a,@;<0 -1>%a)@]"
+        raw_effect_constr ec raw_type t
+  | Tenil -> fprintf ppf "Tenil"
 
 and raw_field ppf = function
     Rpresent None -> fprintf ppf "Rpresent None"
@@ -190,6 +200,9 @@ and raw_field ppf = function
           match !e with None -> fprintf ppf " None"
           | Some f -> fprintf ppf "@,@[<1>(%a)@]" raw_field f)
   | Rabsent -> fprintf ppf "Rabsent"
+
+and raw_effect_constr ppf = function
+  | Placeholder -> fprintf ppf "Placeholder"
 
 let raw_type_expr ppf t =
   visited := [];
@@ -256,7 +269,7 @@ let rec normalize_type_path ?(cache=false) env p =
     let (params, ty, _) = Env.find_type_expansion p env in
     let params = List.map repr params in
     match repr ty with
-      {desc = Tconstr (p1, tyl, _)} ->
+      {desc = Tconstr (p1, tyl, _, _)} ->
         let tyl = List.map repr tyl in
         if List.length params = List.length tyl
         && List.for_all2 (==) params tyl
@@ -366,54 +379,102 @@ let best_type_path p =
 
 (* Print a type expression *)
 
-let names = ref ([] : (type_expr * string) list)
-let name_counter = ref 0
-let named_vars = ref ([] : string list)
+let names = ref ([] : (type_expr * (string * type_sort)) list)
+let type_name_counter = ref 0
+let effect_name_counter = ref 0
+let named_vars = ref ([] : (string * type_sort) list)
+let tilde_effect_var = ref (None : type_expr option)
+let single_effect_var = ref true
 
-let reset_names () = names := []; name_counter := 0; named_vars := []
+let reset_names () =
+  names := [];
+  type_name_counter := 0;
+  effect_name_counter := 0;
+  named_vars := [];
+  tilde_effect_var := None;
+  single_effect_var := true
+
+let tree_of_name = function
+  | (name, Stype) -> (name, Osrt_type)
+  | (name, Seffect) -> (name, Osrt_effect)
+
 let add_named_var ty =
   match ty.desc with
-    Tvar (Some name) | Tunivar (Some name) ->
-      if List.mem name !named_vars then () else
-      named_vars := name :: !named_vars
+  | Tvar (Some name, _) | Tunivar (Some name) ->
+      let sort = type_sort ty in
+      let key = (name, sort) in
+      if List.mem key !named_vars then () else
+      named_vars := key :: !named_vars
   | _ -> ()
 
-let rec new_name () =
-  let name =
-    if !name_counter < 26
-    then String.make 1 (Char.chr(97 + !name_counter))
-    else String.make 1 (Char.chr(97 + !name_counter mod 26)) ^
-           string_of_int(!name_counter / 26) in
-  incr name_counter;
-  if List.mem name !named_vars
-  || List.exists (fun (_, name') -> name = name') !names
-  then new_name ()
-  else name
+let count_effect_var ty =
+  match ty.desc with
+  | Tvar (Some _, _) ->
+      single_effect_var := false;
+      tilde_effect_var := None
+  | Tvar (None, Seffect) -> begin
+      match !single_effect_var, !tilde_effect_var with
+      | true, None -> tilde_effect_var := Some ty
+      | true, Some ty' when ty == ty' -> ()
+      | _, _ ->
+          single_effect_var := false;
+          tilde_effect_var := None
+    end
+  | _ -> ()
+
+let name_used key =
+  List.exists (fun (_, key') -> key = key') !names
+
+let rec new_name sort =
+  let key =
+    if !single_effect_var && sort = Seffect then begin
+      single_effect_var := false;
+      ("~", Seffect)
+    end else begin
+      let name_counter, offset =
+        match sort with
+        | Stype -> type_name_counter, 0
+        | Seffect -> effect_name_counter, 15
+      in
+      let num = (!name_counter + offset) mod 26 in
+      let base = String.make 1 (Char.chr(97 + num)) in
+      let name =
+        if !name_counter < 26 then base
+        else base ^ string_of_int(!name_counter / 26)
+      in
+      incr name_counter;
+      (name, sort)
+    end
+  in
+  if List.mem key !named_vars || name_used key
+  then new_name sort
+  else key
 
 let name_of_type t =
   (* We've already been through repr at this stage, so t is our representative
      of the union-find class. *)
   try List.assq t !names with Not_found ->
-    let name =
+    let sort = type_sort t in
+    let key =
       match t.desc with
-        Tvar (Some name) | Tunivar (Some name) ->
+        Tvar (Some name, _) | Tunivar (Some name) ->
           (* Some part of the type we've already printed has assigned another
            * unification variable to that name. We want to keep the name, so try
            * adding a number until we find a name that's not taken. *)
           let current_name = ref name in
           let i = ref 0 in
-          while List.exists (fun (_, name') -> !current_name = name') !names do
+          while name_used (!current_name, sort) do
             current_name := name ^ (string_of_int !i);
             i := !i + 1;
           done;
-          !current_name
+          !current_name, sort
       | _ ->
           (* No name available, create a new one *)
-          new_name ()
+          new_name sort
     in
     (* Exception for type declarations *)
-    if name <> "_" then names := (t, name) :: !names;
-    name
+    if fst key <> "_" then names := (t, key) :: !names;
+    key
 
 let check_name_of_type t = ignore(name_of_type t)
 
@@ -424,9 +485,6 @@ let remove_names tyl =
 
 let non_gen_mark sch ty =
   if sch && is_Tvar ty && ty.level <> generic_level then "_" else ""
-
-let print_name_of_type sch ppf t =
-  fprintf ppf "'%s%s" (non_gen_mark sch t) (name_of_type t)
 
 let visited_objects = ref ([] : type_expr list)
 let aliased = ref ([] : type_expr list)
@@ -446,7 +504,7 @@ let add_alias ty =
 let aliasable ty =
   match ty.desc with
     Tvar _ | Tunivar _ | Tpoly _ -> false
-  | Tconstr (p, _, _) ->
+  | Tconstr (p, _, _, _) ->
       not (is_nth (snd (best_type_path p)))
   | _ -> true
 
@@ -463,14 +521,19 @@ let namable_row row =
 let rec mark_loops_rec visited ty =
   let ty = repr ty in
   let px = proxy ty in
-  if List.memq px visited && aliasable ty then add_alias px else
+  let seen = List.memq px visited in
+  if seen && aliasable ty then add_alias px else
     let visited = px :: visited in
     match ty.desc with
-    | Tvar _ -> add_named_var ty
-    | Tarrow(_, ty1, ty2, _) ->
-        mark_loops_rec visited ty1; mark_loops_rec visited ty2
+    | Tvar _ ->
+        add_named_var ty;
+        count_effect_var ty
+    | Tarrow(_, ty1, ty2, ty3, _) ->
+        mark_loops_rec visited ty1;
+        mark_loops_rec visited ty2;
+        mark_loops_rec visited ty3
     | Ttuple tyl -> List.iter (mark_loops_rec visited) tyl
-    | Tconstr(p, tyl, _) ->
+    | Tconstr(p, tyl, _, _) ->
         let (p', s) = best_type_path p in
         List.iter (mark_loops_rec visited) (apply_subst s tyl)
     | Tpackage (_, _, tyl) ->
@@ -515,6 +578,9 @@ let rec mark_loops_rec visited ty =
         List.iter (fun t -> add_alias t) tyl;
         mark_loops_rec visited ty
     | Tunivar _ -> add_named_var ty
+    | Teffect(_, ty) ->
+        mark_loops_rec visited ty
+    | Tenil -> ()
 
 let mark_loops ty =
   normalize_type Env.empty ty;
@@ -542,30 +608,34 @@ let rec tree_of_typexp sch ty =
   let px = proxy ty in
   if List.mem_assq px !names && not (List.memq px !delayed) then
    let mark = is_non_gen sch ty in
-   Otyp_var (mark, name_of_type px) else
-
+   Otyp_var (mark, tree_of_name (name_of_type px))
+  else
   let pr_typ () =
     match ty.desc with
     | Tvar _ ->
-        Otyp_var (is_non_gen sch ty, name_of_type ty)
-    | Tarrow(l, ty1, ty2, _) ->
-        let pr_arrow l ty1 ty2 =
+        Otyp_var (is_non_gen sch ty, tree_of_name (name_of_type ty))
+    | Tarrow(l, ty1, ty2, ty3, _) ->
+        let pr_arrow l ty1 ty2 ty3 =
           let lab =
             if !print_labels && l <> "" || is_optional l then l else ""
           in
           let t1 =
             if is_optional l then
               match (repr ty1).desc with
-              | Tconstr(path, [ty], _)
+              | Tconstr(path, [ty], _, _)
                 when Path.same path Predef.path_option ->
                   tree_of_typexp sch ty
               | _ -> Otyp_stuff "<hidden>"
-            else tree_of_typexp sch ty1 in
-          Otyp_arrow (lab, t1, tree_of_typexp sch ty2) in
-        pr_arrow l ty1 ty2
+            else tree_of_typexp sch ty1
+          in
+          let t2 = tree_of_typeffect sch ty2 in
+          let t3 = tree_of_typexp sch ty3 in
+          Otyp_arrow (lab, t1, t2, t3)
+        in
+        pr_arrow l ty1 ty2 ty3
     | Ttuple tyl ->
         Otyp_tuple (tree_of_typlist sch tyl)
-    | Tconstr(p, tyl, abbrev) ->
+    | Tconstr(p, tyl, _, abbrev) ->
         let p', s = best_type_path p in
         let tyl' = apply_subst s tyl in
         if is_nth s then tree_of_typexp sch (List.hd tyl') else
@@ -632,23 +702,36 @@ let rec tree_of_typexp sch ty =
           (* Make the names delayed, so that the real type is
              printed once when used as proxy *)
           List.iter add_delayed tyl;
-          let tl = List.map name_of_type tyl in
+          let tl = List.map (fun ty -> tree_of_name (name_of_type ty)) tyl in
           let tr = Otyp_poly (tl, tree_of_typexp sch ty) in
           (* Forget names when we leave scope *)
           remove_names tyl;
           delayed := old_delayed; tr
         end
     | Tunivar _ ->
-        Otyp_var (false, name_of_type ty)
+        Otyp_var (false, tree_of_name (name_of_type ty))
     | Tpackage (p, n, tyl) ->
         let n =
           List.map (fun li -> String.concat "." (Longident.flatten li)) n in
         Otyp_module (Path.name p, n, tree_of_typlist sch tyl)
+    | Teffect _ ->
+        let (effects, row) = Ctype.flatten_effects ty in
+        let row = repr row in
+        let effects =
+          List.map (fun Placeholder -> Oide_ident "PLACEHOLDER") effects
+        in
+         let row =
+          match row.desc with
+          | Tenil -> None
+          | _ -> Some (tree_of_typexp sch row)
+        in
+        Otyp_effects(effects, row)
+    | Tenil -> Otyp_effects([], None)
   in
   if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
   if is_aliased px && aliasable ty then begin
     check_name_of_type px;
-    Otyp_alias (pr_typ (), name_of_type px) end
+    Otyp_alias (pr_typ (), tree_of_name (name_of_type px)) end
   else pr_typ ()
 
 and tree_of_row_field sch (l, f) =
@@ -709,6 +792,25 @@ and tree_of_typfields sch rest = function
       let (fields, rest) = tree_of_typfields sch rest l in
       (field :: fields, rest)
 
+and tree_of_typeffect sch ty =
+  let (effects, row) = Ctype.flatten_effects ty in
+  let row = repr row in
+  let row =
+    match row.desc with
+    | Tenil -> None
+    | _ -> Some (tree_of_typexp sch row)
+  in
+    match effects, row with
+    | [], None -> Oarr_pure
+    | [Placeholder], None -> Oarr_simple
+    | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_tilde
+    | _, _ ->
+        let effects =
+          List.map (fun Placeholder -> Oide_ident "PLACEHOLDER") effects
+        in
+        Oarr_effects(effects, row)
+
+
 let typexp sch prio ppf ty =
   !Oprint.out_type ppf (tree_of_typexp sch ty)
 
@@ -762,8 +864,8 @@ let rec tree_of_type_decl id decl =
   | Some ty ->
       let vars = free_variables ty in
       List.iter
-        (function {desc = Tvar (Some "_")} as ty ->
-            if List.memq ty vars then ty.desc <- Tvar None
+        (function {desc = Tvar (Some "_", sort)} as ty ->
+            if List.memq ty vars then ty.desc <- Tvar(None, sort)
           | _ -> ())
         params
   | None -> ()
@@ -805,7 +907,7 @@ let rec tree_of_type_decl id decl =
 
   let type_param =
     function
-    | Otyp_var (_, id) -> id
+    | Otyp_var (_, (id, Osrt_type)) -> id
     | _ -> "?"
   in
   let type_defined decl =
@@ -897,7 +999,7 @@ let tree_of_extension_constructor id ext es =
   may mark_loops ext.ext_ret_type;
   let type_param =
     function
-    | Otyp_var (_, id) -> id
+    | Otyp_var (_, (id, Osrt_type)) -> id
     | _ -> "?"
   in
   let ty_params =
@@ -1011,7 +1113,7 @@ let rec tree_of_class_type sch params =
       let sty = repr sign.csig_self in
       let self_ty =
         if is_aliased sty then
-          Some (Otyp_var (false, name_of_type (proxy sty)))
+          Some (Otyp_var (false, tree_of_name (name_of_type (proxy sty))))
         else None
       in
       let (fields, _) =
@@ -1044,8 +1146,8 @@ let rec tree_of_class_type sch params =
       let ty =
        if is_optional l then
          match (repr ty).desc with
-         | Tconstr(path, [ty], _) when Path.same path Predef.path_option -> ty
-         | _ -> newconstr (Path.Pident(Ident.create "<hidden>")) []
+         | Tconstr(path, [ty], _, _) when Path.same path Predef.path_option -> ty
+         | _ -> newconstr (Path.Pident(Ident.create "<hidden>")) [] Stype
        else ty in
       let tr = tree_of_typexp sch ty in
       Octy_arrow (lab, tr, tree_of_class_type sch params cty)
@@ -1057,13 +1159,13 @@ let class_type ppf cty =
 
 let tree_of_class_param param variance =
   (match tree_of_typexp true param with
-    Otyp_var (_, s) -> s
+    Otyp_var (_, (s, Osrt_type)) -> s
   | _ -> "?"),
   if is_Tvar (repr param) then (true, true) else variance
 
 let tree_of_class_params params =
   let tyl = tree_of_typlist true params in
-  List.map (function Otyp_var (_, s) -> s | _ -> "?") tyl
+  List.map (function Otyp_var (_, (s, Osrt_type)) -> s | _ -> "?") tyl
 
 let class_variance =
   List.map Variance.(fun v -> mem May_pos v, mem May_neg v)
@@ -1142,7 +1244,7 @@ let filter_rem_sig item rem =
       ([], rem)
 
 let dummy =
-  { type_params = []; type_arity = 0; type_kind = Type_abstract;
+  { type_params = []; type_arity = 0; type_sort = Stype; type_kind = Type_abstract;
     type_private = Public; type_manifest = None; type_variance = [];
     type_newtype_level = None; type_loc = Location.none;
     type_attributes = [];
@@ -1244,7 +1346,7 @@ let same_path t t' =
   let t = repr t and t' = repr t' in
   t == t' ||
   match t.desc, t'.desc with
-    Tconstr(p,tl,_), Tconstr(p',tl',_) ->
+    Tconstr(p,tl,_,_), Tconstr(p',tl',_,_) ->
       let (p1, s1) = best_type_path p and (p2, s2)  = best_type_path p' in
       begin match s1, s2 with
         Nth n1, Nth n2 when n1 = n2 -> true
@@ -1299,7 +1401,7 @@ let hide_variant_name t =
   | {desc = Tvariant row} as t when (row_repr row).row_name <> None ->
       newty2 t.level
         (Tvariant {(row_repr row) with row_name = None;
-                   row_more = newvar2 (row_more row).level})
+                   row_more = newvar2 Stype (row_more row).level})
   | _ -> t
 
 let prepare_expansion (t, t') =
@@ -1343,12 +1445,12 @@ let explanation unif t3 t4 ppf =
   match t3.desc, t4.desc with
   | Ttuple [], Tvar _ | Tvar _, Ttuple [] ->
       fprintf ppf "@,Self type cannot escape its class"
-  | Tconstr (p, tl, _), Tvar _
+  | Tconstr (p, tl, _, _), Tvar _
     when unif && t4.level < Path.binding_time p ->
       fprintf ppf
         "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
         path p
-  | Tvar _, Tconstr (p, tl, _)
+  | Tvar _, Tconstr (p, tl, _, _)
     when unif && t3.level < Path.binding_time p ->
       fprintf ppf
         "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
@@ -1421,7 +1523,7 @@ let rec path_same_name p1 p2 =
 
 let type_same_name t1 t2 =
   match (repr t1).desc, (repr t2).desc with
-    Tconstr (p1, _, _), Tconstr (p2, _, _) ->
+    Tconstr (p1, _, _, _), Tconstr (p2, _, _, _) ->
       path_same_name (fst (best_type_path p1)) (fst (best_type_path p2))
   | _ -> ()
 

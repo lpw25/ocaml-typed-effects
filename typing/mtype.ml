@@ -53,7 +53,9 @@ and strengthen_sig env sg p =
         | _ ->
             let manif =
               Some(Btype.newgenty(Tconstr(Pdot(p, Ident.name id, nopos),
-                                          decl.type_params, ref Mnil))) in
+                                          decl.type_params, decl.type_sort,
+                                          ref Mnil)))
+            in
             if decl.type_kind = Type_abstract then
               { decl with type_private = Public; type_manifest = manif }
             else
@@ -165,7 +167,9 @@ let enrich_typedecl env p decl =
         if orig_decl.type_arity <> decl.type_arity
         then decl
         else {decl with type_manifest =
-                Some(Btype.newgenty(Tconstr(p, decl.type_params, ref Mnil)))}
+                Some(Btype.newgenty
+                       (Tconstr(p, decl.type_params,
+                                decl.type_sort, ref Mnil)))}
       with Not_found ->
         decl
 

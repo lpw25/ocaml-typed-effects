@@ -451,6 +451,10 @@ rule token = parse
   | "*"  { STAR }
   | ","  { COMMA }
   | "->" { MINUSGREATER }
+  | "-[" { MINUSLBRACKET }
+  | "]->" { RBRACKETMINUSGREATER }
+  | "~>" { TILDEGREATER }
+  | "=>" { EQUALGREATER }
   | "."  { DOT }
   | ".." { DOTDOT }
   | ":"  { COLON }
@@ -488,7 +492,7 @@ rule token = parse
   | "+=" { PLUSEQ }
   | "-"  { MINUS }
   | "-." { MINUSDOT }
-
+  | "!~" { BANGTILDE }
   | "!" symbolchar +
             { PREFIXOP(Lexing.lexeme lexbuf) }
   | ['~' '?'] symbolchar +

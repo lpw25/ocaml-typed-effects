@@ -138,10 +138,11 @@ let rec core_type i ppf x =
   match x.ptyp_desc with
   | Ptyp_any -> line i ppf "Ptyp_any\n";
   | Ptyp_var (s) -> line i ppf "Ptyp_var %s\n" s;
-  | Ptyp_arrow (l, ct1, ct2) ->
+  | Ptyp_arrow (l, ct1, eft, ct2) ->
       line i ppf "Ptyp_arrow\n";
       string i ppf l;
       core_type i ppf ct1;
+      effect_type i ppf eft;
       core_type i ppf ct2;
   | Ptyp_tuple l ->
       line i ppf "Ptyp_tuple\n";
@@ -183,6 +184,17 @@ let rec core_type i ppf x =
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident_loc s;
   core_type i ppf t
+
+and effect_type i ppf x =
+  option i effect_desc ppf x
+
+and effect_desc i ppf x =
+  line i ppf "effect_desc\n";
+  let i = i+1 in
+  line i ppf "peft_constrs =\n";
+  list (i+1) longident_loc ppf x.pefd_constrs;
+  line i ppf "peft_var =\n";
+  option (i+1) string_loc ppf x.pefd_var
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.ppat_loc;

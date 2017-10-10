@@ -234,15 +234,34 @@ class printer  ()= object(self:'self)
               pp f "%s:%a" s (self#list self#core_type1) l
           | _ -> failwith "invalid input in print_type_with_label"
         else pp f "%s:%a" s self#core_type1 c
+
+  method arrow f x =
+    let constructors f x =
+      self#list ~sep:" | " self#longident_loc f x
+    in
+    match x with
+    | None -> pp f "->"
+    | Some e  ->
+        match e.pefd_constrs, e.pefd_var with
+        | [], None -> pp f "=>"
+        | constrs, None ->
+            pp f "-[%a]->" constructors constrs
+        | [], Some { txt = "~" } -> pp f "~>"
+        | constrs, Some { txt = "~" } ->
+            pp f "~[%a]~>" constructors constrs
+        | [], Some { txt = s } -> pp f "-[!%s]->" s
+        | constrs, Some { txt = s } ->
+            pp f "-[%a|!%s]->" constructors constrs s
+
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
       pp f "((%a)%a)" self#core_type {x with ptyp_attributes=[]}
         self#attributes x.ptyp_attributes
     end
     else match x.ptyp_desc with
-    | Ptyp_arrow (l, ct1, ct2) ->
-        pp f "@[<2>%a@;->@;%a@]" (* FIXME remove parens later *)
-          self#type_with_label (l,ct1) self#core_type ct2
+    | Ptyp_arrow (l, ct1, eft, ct2) ->
+        pp f "@[<2>%a@;%a@;%a@]" (* FIXME remove parens later *)
+          self#type_with_label (l,ct1) self#arrow eft self#core_type ct2
     | Ptyp_alias (ct, s) ->
         pp f "@[<2>%a@;as@;'%s@]" self#core_type1 ct s
     | Ptyp_poly (sl, ct) ->
@@ -267,7 +286,7 @@ class printer  ()= object(self:'self)
         pp f (* "%a%a@;" *) "%a%a"
           (fun f l -> match l with
           |[] -> ()
-          |[x]-> pp f "%a@;" self#core_type1  x
+          |[x] -> pp f "%a@;" self#core_type1  x
           | _ -> self#list ~first:"(" ~last:")@;" self#core_type ~sep:"," f l)
           l self#longident_loc li
     | Ptyp_variant (l, closed, low) ->
@@ -671,6 +690,7 @@ class printer  ()= object(self:'self)
           (self#option self#core_type ~first:" : " ~last:" ") cto1 (* no sep hint*)
           self#core_type ct
     | Pexp_variant (l, None) -> pp f "`%s" l
+
     | Pexp_record (l, eo) ->
         let longident_x_expression f ( li, e) =
           match e.pexp_desc with

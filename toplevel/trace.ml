@@ -58,7 +58,7 @@ let print_label ppf l = if l <> "" then fprintf ppf "%s:" l
 
 let rec instrument_result env name ppf clos_typ =
   match (Ctype.repr(Ctype.expand_head env clos_typ)).desc with
-  | Tarrow(l, t1, t2, _) ->
+  | Tarrow(l, t1, _, t2, _) ->
       let starred_name =
         match name with
         | Lident s -> Lident(s ^ "*")
@@ -101,7 +101,7 @@ let _ = Dummy
 
 let instrument_closure env name ppf clos_typ =
   match (Ctype.repr(Ctype.expand_head env clos_typ)).desc with
-  | Tarrow(l, t1, t2, _) ->
+  | Tarrow(l, t1, _, t2, _) ->
       let trace_res = instrument_result env name ppf t2 in
       (fun actual_code closure arg ->
         if not !may_trace then begin
