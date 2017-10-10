@@ -22,6 +22,7 @@ type env_element = Name.t * Name.t
 type env = {
     env_values : env_element list ;
     env_types : env_element list ;
+    env_effects : env_element list ;
     env_class_types : env_element list ;
     env_classes : env_element list ;
     env_modules : env_element list ;
@@ -32,6 +33,7 @@ type env = {
 let empty = {
   env_values = [] ;
   env_types = [] ;
+  env_effects = [];
   env_class_types = [] ;
   env_classes = [] ;
   env_modules = [] ;
@@ -52,6 +54,7 @@ let rec add_signature env root ?rel signat =
     match item with
       Types.Sig_value (ident, _) -> { env with env_values = (rel_name ident, qualify ident) :: env.env_values }
     | Types.Sig_type (ident,_,_) -> { env with env_types = (rel_name ident, qualify ident) :: env.env_types }
+    | Types.Sig_effect (ident,_) -> { env with env_effects = (rel_name ident, qualify ident) :: env.env_effects }
     | Types.Sig_typext (ident, _, _) -> { env with env_extensions = (rel_name ident, qualify ident) :: env.env_extensions }
     | Types.Sig_module (ident, md, _) ->
         let env2 =
@@ -84,6 +87,10 @@ let add_extension env full_name =
 let add_type env full_name =
   let simple_name = Name.simple full_name in
   { env with env_types = (simple_name, full_name) :: env.env_types }
+
+let add_effect env full_name =
+  let simple_name = Name.simple full_name in
+  { env with env_effects = (simple_name, full_name) :: env.env_effects }
 
 let add_value env full_name =
   let simple_name = Name.simple full_name in
@@ -141,6 +148,10 @@ let full_type_name env n =
 (**    print_string ("type "^n^" not found");
     print_newline ();*)
     n
+
+let full_effect_name env n =
+  try List.assoc n env.env_values
+  with Not_found -> n
 
 let full_value_name env n =
   try List.assoc n env.env_values

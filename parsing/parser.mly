@@ -396,8 +396,8 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
-let mkeffect constrs varo =
-  { pefd_constrs = constrs;
+let mkeffect effects varo =
+  { pefd_effects = effects;
     pefd_var = varo; }
 
 let pure_effect = mkeffect [] None
@@ -775,8 +775,8 @@ structure_item:
       { mkstr(Pstr_typext $1) }
   | str_exception_declaration
       { mkstr(Pstr_exception $1) }
-  | EFFECT effect_declaration
-      { mkstr(Pstr_effect $2) }
+  | effect_declaration
+      { mkstr(Pstr_effect $1) }
   | module_binding
       { mkstr(Pstr_module $1) }
   | rec_module_bindings
@@ -873,8 +873,8 @@ signature_item:
       { mksig(Psig_typext $1) }
   | sig_exception_declaration
       { mksig(Psig_exception $1) }
-  | EFFECT effect_constructor_declaration
-      { mksig(Psig_effect $2) }
+  | effect_declaration
+      { mksig(Psig_effect $1) }
   | module_declaration
       { mksig(Psig_module $1) }
   | module_alias
@@ -1545,9 +1545,9 @@ match_cases:
   | match_cases BAR match_case { $3 :: $1 }
 ;
 match_case:
-    pattern MINUSGREATER seq_expr
+    computation_pattern MINUSGREATER seq_expr
       { Exp.case $1 $3 }
-  | pattern WHEN seq_expr MINUSGREATER seq_expr
+  | computation_pattern WHEN seq_expr MINUSGREATER seq_expr
       { Exp.case $1 ~guard:$3 $5 }
 ;
 fun_def:
@@ -1600,6 +1600,14 @@ type_constraint:
 
 /* Patterns */
 
+computation_pattern:
+  | pattern
+      { $1 }
+  | EXCEPTION pattern %prec prec_constr_appl
+      { mkpat(Ppat_exception $2) }
+  | EFFECT pattern COMMA pattern
+      { mkpat(Ppat_effect($2, $4)) }
+
 pattern:
     simple_pattern
       { $1 }
@@ -1627,10 +1635,6 @@ pattern:
       { expecting 3 "pattern" }
   | LAZY simple_pattern
       { mkpat(Ppat_lazy $2) }
-  | EXCEPTION pattern %prec prec_constr_appl
-      { mkpat(Ppat_exception $2) }
-  | EFFECT simple_pattern simple_pattern
-      { mkpat(Ppat_effect($2, $3)) }
   | pattern attribute
       { Pat.attr $1 $2 }
 ;
@@ -1666,15 +1670,15 @@ simple_pattern_not_ident:
       { mkpat(Ppat_array []) }
   | LBRACKETBAR pattern_semi_list opt_semi error
       { unclosed "[|" 1 "|]" 4 }
-  | LPAREN pattern RPAREN
+  | LPAREN computation_pattern RPAREN
       { reloc_pat $2 }
-  | LPAREN pattern error
+  | LPAREN computation_pattern error
       { unclosed "(" 1 ")" 3 }
-  | LPAREN pattern COLON core_type RPAREN
+  | LPAREN computation_pattern COLON core_type RPAREN
       { mkpat(Ppat_constraint($2, $4)) }
-  | LPAREN pattern COLON core_type error
+  | LPAREN computation_pattern COLON core_type error
       { unclosed "(" 1 ")" 5 }
-  | LPAREN pattern COLON error
+  | LPAREN computation_pattern COLON error
       { expecting 4 "type" }
   | LPAREN MODULE UIDENT RPAREN
       { mkpat(Ppat_unpack (mkrhs $3 3)) }
@@ -1855,22 +1859,41 @@ sig_exception_declaration:
 ;
 
 effect_declaration:
-  | effect_constructor_declaration      { $1 }
-  | effect_constructor_rebind           { $1 }
+  | EFFECT LIDENT effect_kind post_item_attributes
+      { let (kind, manifest) = $3 in
+          Eff.mk (mkrhs $2 2) ~kind ?manifest ~attrs:$4
+            ~loc:(symbol_rloc ()) ~docs:(symbol_docs ()) }
 ;
-effect_constructor_declaration:
-  | constr_ident attributes COLON core_type_list MINUSGREATER simple_core_type
-      post_item_attributes
-      { Te.effect_decl (mkrhs $1 1) $6 ~args:(List.rev $4)
-          ~loc:(symbol_rloc()) ~attrs:($7 @ $2) }
-  | constr_ident attributes COLON simple_core_type post_item_attributes
-      { Te.effect_decl (mkrhs $1 1) $4
-          ~loc:(symbol_rloc()) ~attrs:($5 @ $2) }
+effect_kind:
+    /*empty*/
+      { (Peff_abstract, None) }
+  | EQUAL effect_longident
+      { (Peff_abstract, Some (mkrhs $2 2)) }
+  | EQUAL effect_constructors
+      { (Peff_variant(List.rev $2), None) }
+  | EQUAL effect_longident EQUAL effect_constructors
+      { (Peff_variant(List.rev $4), Some (mkrhs $2 2)) }
 ;
-effect_constructor_rebind:
-  | constr_ident attributes EQUAL constr_longident post_item_attributes
-      { Te.effect_rebind (mkrhs $1 1) (mkrhs $4 4)
-          ~loc:(symbol_rloc()) ~attrs:($5 @ $2) }
+effect_constructors:
+    effect_constructor                              { [$1] }
+  | bar_effect_constructor                          { [$1] }
+  | effect_constructors bar_effect_constructor      { $2 :: $1 }
+;
+effect_constructor:
+  | constr_ident generalized_constructor_arguments attributes
+      {
+       let args,res = $2 in
+       Eff.constructor (mkrhs $1 1) ~args ?res ~attrs:$3
+         ~loc:(symbol_rloc()) ~info:(symbol_info ())
+      }
+;
+bar_effect_constructor:
+  | BAR constr_ident generalized_constructor_arguments attributes
+      {
+       let args,res = $3 in
+       Eff.constructor (mkrhs $2 2) ~args ?res ~attrs:$4
+         ~loc:(symbol_rloc()) ~info:(symbol_info ())
+      }
 ;
 
 generalized_constructor_arguments:
@@ -2055,27 +2078,27 @@ arrow:
       { Some $2 }
 ;
 
-effect_desc_constructors:
+effect_desc_effects:
   | /* empty */
       { [] }
-  | type_longident
+  | effect_longident
       { [mkrhs $1 1] }
-  | effect_desc_constructors BAR type_longident
+  | effect_desc_effects BAR effect_longident
       { (mkrhs $3 3) :: $1 }
 ;
 
 effect_desc:
-  | effect_desc_constructors
+  | effect_desc_effects
       { mkeffect $1 None }
-  | effect_desc_constructors BAR BANG ident
+  | effect_desc_effects BAR BANG ident
       { mkeffect $1 (Some (mkrhs $4 4)) }
   | BANG ident
       { mkeffect [] (Some (mkrhs $2 2)) }
-  | effect_desc_constructors BAR BANG TILDE
+  | effect_desc_effects BAR BANG TILDE
       { mkeffect $1 (Some (mkrhs "~" 4)) }
   | BANG TILDE
       { mkeffect [] (Some (mkrhs "~" 2)) }
-  | effect_desc_constructors BAR BANGTILDE
+  | effect_desc_effects BAR BANGTILDE
       { mkeffect $1 (Some (mkrhs "~" 3)) }
   | BANGTILDE
       { mkeffect [] (Some (mkrhs "~" 1)) }
@@ -2300,6 +2323,10 @@ label_longident:
   | mod_longident DOT LIDENT                    { Ldot($1, $3) }
 ;
 type_longident:
+    LIDENT                                      { Lident $1 }
+  | mod_ext_longident DOT LIDENT                { Ldot($1, $3) }
+;
+effect_longident:
     LIDENT                                      { Lident $1 }
   | mod_ext_longident DOT LIDENT                { Ldot($1, $3) }
 ;

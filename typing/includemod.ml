@@ -24,6 +24,8 @@ type symptom =
         * type_declaration * Includecore.type_mismatch list
   | Extension_constructors of
       Ident.t * extension_constructor * extension_constructor
+  | Effect_declarations of Ident.t * effect_declaration
+        * effect_declaration * Includecore.effect_mismatch list
   | Module_types of module_type * module_type
   | Modtype_infos of Ident.t * modtype_declaration * modtype_declaration
   | Modtype_permutation
@@ -76,6 +78,14 @@ let extension_constructors env cxt subst id ext1 ext2 =
   then ()
   else raise(Error[cxt, env, Extension_constructors(id, ext1, ext2)])
 
+(* Inclusion between type declarations *)
+
+let effect_declarations env cxt subst id eff1 eff2 =
+  let eff2 = Subst.effect_declaration subst eff2 in
+  let err = Includecore.effect_declarations env (Ident.name id) eff1 id eff2 in
+  if err <> [] then
+    raise(Error[cxt, env, Effect_declarations(id, eff1, eff2, err)])
+
 (* Inclusion between class declarations *)
 
 let class_type_declarations ~old_env env cxt subst id decl1 decl2 =
@@ -125,6 +135,7 @@ type field_desc =
     Field_value of string
   | Field_type of string
   | Field_typext of string
+  | Field_effect of string
   | Field_module of string
   | Field_modtype of string
   | Field_class of string
@@ -134,6 +145,7 @@ let kind_of_field_desc = function
   | Field_value _ -> "value"
   | Field_type _ -> "type"
   | Field_typext _ -> "extension constructor"
+  | Field_effect _ -> "effect"
   | Field_module _ -> "module"
   | Field_modtype _ -> "module type"
   | Field_class _ -> "class"
@@ -143,6 +155,7 @@ let item_ident_name = function
     Sig_value(id, d) -> (id, d.val_loc, Field_value(Ident.name id))
   | Sig_type(id, d, _) -> (id, d.type_loc, Field_type(Ident.name id))
   | Sig_typext(id, d, _) -> (id, d.ext_loc, Field_typext(Ident.name id))
+  | Sig_effect(id, d) -> (id, d.eff_loc, Field_effect(Ident.name id))
   | Sig_module(id, d, _) -> (id, d.md_loc, Field_module(Ident.name id))
   | Sig_modtype(id, d) -> (id, d.mtd_loc, Field_modtype(Ident.name id))
   | Sig_class(id, d, _) -> (id, d.cty_loc, Field_class(Ident.name id))
@@ -154,6 +167,7 @@ let is_runtime_component = function
   | Sig_modtype(_,_)
   | Sig_class_type(_,_,_) -> false
   | Sig_value(_,_)
+  | Sig_effect(_,_)
   | Sig_typext(_,_,_)
   | Sig_module(_,_,_)
   | Sig_class(_, _,_) -> true
@@ -341,6 +355,8 @@ and signatures env cxt subst sig1 sig2 =
             match item2 with
               Sig_type _ ->
                 Subst.add_type id2 (Pident id1) subst
+            | Sig_effect _ ->
+                Subst.add_effect id2 (Pident id1) subst
             | Sig_module _ ->
                 Subst.add_module id2 (Pident id1) subst
             | Sig_modtype _ ->
@@ -380,6 +396,9 @@ and signature_components old_env env cxt subst paired =
   | (Sig_typext(id1, ext1, _), Sig_typext(id2, ext2, _), pos)
     :: rem ->
       extension_constructors env cxt subst id1 ext1 ext2;
+      (pos, Tcoerce_none) :: comps_rec rem
+  | (Sig_effect(id1, eff1), Sig_effect(id2, eff2), pos) :: rem ->
+      effect_declarations env cxt subst id1 eff1 eff2;
       (pos, Tcoerce_none) :: comps_rec rem
   | (Sig_module(id1, mty1, _), Sig_module(id2, mty2, _), pos) :: rem ->
       let cc =
@@ -450,6 +469,8 @@ let modtypes env mty1 mty2 = modtypes env [] Subst.identity mty1 mty2
 let signatures env sig1 sig2 = signatures env [] Subst.identity sig1 sig2
 let type_declarations env id decl1 decl2 =
   type_declarations env [] Subst.identity id decl1 decl2
+let effect_declarations env id eff1 eff2 =
+  effect_declarations env [] Subst.identity id eff1 eff2
 
 (*
 let modtypes env m1 m2 =
@@ -499,6 +520,15 @@ let include_err ppf = function
       (extension_constructor id) x1
       (extension_constructor id) x2;
       show_locs ppf (x1.ext_loc, x2.ext_loc)
+  | Effect_declarations(id, e1, e2, errs) ->
+      fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
+        "Effect declarations do not match"
+        (effect_declaration id) e1
+        "is not included in"
+        (effect_declaration id) e2
+        show_locs (e1.eff_loc, e2.eff_loc)
+        (Includecore.report_effect_mismatch
+           "the first" "the second" "declaration") errs
   | Module_types(mty1, mty2)->
       fprintf ppf
        "@[<hv 2>Modules do not match:@ \

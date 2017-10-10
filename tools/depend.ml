@@ -64,7 +64,7 @@ and add_package_type bv (lid, l) =
 and add_effect_type bv eft =
   match eft with
   | None -> ()
-  | Some desc -> List.iter (add bv) desc.pefd_constrs
+  | Some desc -> List.iter (add bv) desc.pefd_effects
 
 let add_opt add_fn bv = function
     None -> ()
@@ -93,11 +93,16 @@ let add_extension_constructor bv ext =
         List.iter (add_type bv) args; Misc.may (add_type bv) rty
     | Pext_rebind lid -> add bv lid
 
-let add_effect_constructor bv eff =
+let add_effect_constructor bv ec =
+  List.iter (add_type bv) ec.pec_args;
+  Misc.may (add_type bv) ec.pec_res
+
+let add_effect_declaration bv eff =
+  add_opt add bv eff.peff_manifest;
   match eff.peff_kind with
-      Peff_decl(args, rty) ->
-        List.iter (add_type bv) args; add_type bv rty
-    | Peff_rebind lid -> add bv lid
+  | Peff_abstract -> ()
+  | Peff_variant ecs ->
+      List.iter (add_effect_constructor bv) ecs
 
 let add_type_extension bv te =
   add bv te.ptyext_path;
@@ -259,7 +264,7 @@ and add_sig_item bv item =
   | Psig_exception pext ->
       add_extension_constructor bv pext; bv
   | Psig_effect peff ->
-      add_effect_constructor bv peff; bv
+      add_effect_declaration bv peff; bv
   | Psig_module pmd ->
       add_modtype bv pmd.pmd_type; StringSet.add pmd.pmd_name.txt bv
   | Psig_recmodule decls ->
@@ -321,7 +326,7 @@ and add_struct_item bv item =
   | Pstr_exception pext ->
       add_extension_constructor bv pext; bv
   | Pstr_effect peff ->
-      add_effect_constructor bv peff; bv
+      add_effect_declaration bv peff; bv
   | Pstr_module x ->
       add_module bv x.pmb_expr; StringSet.add x.pmb_name.txt bv
   | Pstr_recmodule bindings ->

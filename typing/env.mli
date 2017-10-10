@@ -19,6 +19,7 @@ type summary =
   | Env_value of summary * Ident.t * value_description
   | Env_type of summary * Ident.t * type_declaration
   | Env_extension of summary * Ident.t * extension_constructor
+  | Env_effect of summary * Ident.t * effect_declaration
   | Env_module of summary * Ident.t * module_declaration
   | Env_modtype of summary * Ident.t * modtype_declaration
   | Env_class of summary * Ident.t * class_declaration
@@ -36,6 +37,9 @@ val diff: t -> t -> Ident.t list
 type type_descriptions =
     constructor_description list * label_description list
 
+type effect_description =
+    effect_constructor_description list
+
 (* For short-paths *)
 type iter_cont
 val iter_types:
@@ -51,6 +55,8 @@ val find_shadowed_types: Path.t -> t -> Path.t list
 val find_value: Path.t -> t -> value_description
 val find_type: Path.t -> t -> type_declaration
 val find_type_descrs: Path.t -> t -> type_descriptions
+val find_effect: Path.t -> t -> effect_declaration
+val find_effect_descrs: Path.t -> t -> effect_description
 val find_module: Path.t -> t -> module_declaration
 val find_modtype: Path.t -> t -> modtype_declaration
 val find_class: Path.t -> t -> class_declaration
@@ -62,6 +68,8 @@ val find_type_expansion_opt:
     Path.t -> t -> type_expr list * type_expr * int option
 (* Find the manifest type information associated to a type for the sake
    of the compiler's type-based optimisations. *)
+val find_effect_expansion:
+    Path.t -> t -> Path.t
 val find_modtype_expansion: Path.t -> t -> module_type
 val is_functor_arg: Path.t -> t -> bool
 val normalize_path: Location.t option -> t -> Path.t -> Path.t
@@ -89,6 +97,7 @@ val lookup_label: Longident.t -> t -> label_description
 val lookup_all_labels:
   Longident.t -> t -> (label_description * (unit -> unit)) list
 val lookup_type: Longident.t -> t -> Path.t * type_declaration
+val lookup_effect: Longident.t -> t -> Path.t * effect_declaration
 val lookup_module: load:bool -> Longident.t -> t -> Path.t
 val lookup_modtype: Longident.t -> t -> Path.t * modtype_declaration
 val lookup_class: Longident.t -> t -> Path.t * class_declaration
@@ -105,6 +114,7 @@ val add_value:
     ?check:(string -> Warnings.t) -> Ident.t -> value_description -> t -> t
 val add_type: check:bool -> Ident.t -> type_declaration -> t -> t
 val add_extension: check:bool -> Ident.t -> extension_constructor -> t -> t
+val add_effect: Ident.t -> effect_declaration -> t -> t
 val add_module: ?arg:bool -> Ident.t -> module_type -> t -> t
 val add_module_declaration: ?arg:bool -> Ident.t -> module_declaration -> t -> t
 val add_modtype: Ident.t -> modtype_declaration -> t -> t
@@ -132,6 +142,7 @@ val enter_value:
     string -> value_description -> t -> Ident.t * t
 val enter_type: string -> type_declaration -> t -> Ident.t * t
 val enter_extension: string -> extension_constructor -> t -> Ident.t * t
+val enter_effect: string -> effect_declaration -> t -> Ident.t * t
 val enter_module: ?arg:bool -> string -> module_type -> t -> Ident.t * t
 val enter_module_declaration:
     ?arg:bool -> string -> module_declaration -> t -> Ident.t * t
@@ -241,6 +252,10 @@ val fold_constructors:
   Longident.t option -> t -> 'a -> 'a
 val fold_labels:
   (label_description -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
+val fold_effects:
+  (string -> Path.t -> effect_declaration * effect_description -> 'a -> 'a) ->
   Longident.t option -> t -> 'a -> 'a
 
 (** Persistent structures are only traversed if they are already loaded. *)

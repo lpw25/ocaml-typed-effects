@@ -292,34 +292,43 @@ let flatten_effects ty =
   let rec flatten acc ty =
     let ty = repr ty in
     match ty.desc with
-      Teffect(ec, ty) -> flatten (ec :: acc) ty
+      Teffect(p, ty) -> flatten (p :: acc) ty
     | _ -> (acc, ty)
   in
   flatten [] ty
 
-let equal_effect env ec1 ec2 =
-  match ec1, ec2 with
-  | Placeholder, Placeholder -> true
+let rec expand_effect env p =
+  match Env.find_effect_expansion p env with
+  | p -> expand_effect env p
+  | exception Not_found -> p
+
+let equal_effect env p1 p2 =
+  if Path.same p1 p2 then true
+  else begin
+    let p1 = expand_effect env p1 in
+    let p2 = expand_effect env p2 in
+    Path.same p1 p2
+  end
 
 let diff_effects env effs1 effs2  =
-  let rec remove_one ec = function
+  let rec remove_one p = function
     | [] -> assert false
-    | ec' :: rest ->
-        if equal_effect env ec ec' then rest
-        else ec' :: remove_one ec rest
+    | p' :: rest ->
+        if equal_effect env p p' then rest
+        else p' :: remove_one p rest
   in
   let rec remove_common effs diff = function
     | [] -> effs, List.rev diff
-    | ec :: rest ->
-       if List.exists (equal_effect env ec) effs then
-         remove_common (remove_one ec effs) diff rest
-       else remove_common effs (ec :: diff) rest
+    | p :: rest ->
+       if List.exists (equal_effect env p) effs then
+         remove_common (remove_one p effs) diff rest
+       else remove_common effs (p :: diff) rest
   in
   remove_common effs1 [] effs2
 
 let build_effects level effs rest =
   List.fold_right
-    (fun ec ty -> newty2 level (Teffect(ec, ty)))
+    (fun p ty -> newty2 level (Teffect(p, ty)))
     effs rest
 
                   (**********************************************)
@@ -523,7 +532,7 @@ let rec closed_schema_rec ty =
     | Tvar(_, Seffect) when level <> generic_level ->
         (* TODO: Remove this hack (or at least give a warning) *)
         let eff =
-          newty2 ty.level (Teffect(Placeholder, newty2 ty.level Tenil))
+          newty2 ty.level (Teffect(Predef.path_io, newty2 ty.level Tenil))
         in
         link_type ty eff
     | Tfield(_, kind, t1, t2) ->
@@ -652,6 +661,24 @@ let closed_extension_constructor ext =
     unmark_extension_constructor ext;
     Some ty
 
+let closed_effect_decl eff =
+  try
+    begin match eff.eff_kind with
+    | Eff_abstract -> ()
+    | Eff_variant ecs ->
+        List.iter
+          (fun {ec_args; ec_res; _} ->
+            match ec_res with
+            | Some _ -> ()
+            | None -> List.iter closed_type ec_args)
+          ecs
+    end;
+    unmark_effect_decl eff;
+    None
+  with Non_closed (ty, _) ->
+    unmark_effect_decl eff;
+    Some ty
+
 let is_evar ty =
   let ty = repr ty in
   match ty.desc with
@@ -674,8 +701,8 @@ let rec close_pure_evars env visited evars pure ty =
         if pure && List.memq ty evars then begin
           link_type ty (newty2 ty.level Tenil)
         end
-    | Teffect(ec, ty) ->
-        if equal_effect env Placeholder ec then
+    | Teffect(p, ty) ->
+        if equal_effect env Predef.path_io p then
           close_pure_evars env visited evars true ty
         else
           close_pure_evars env visited evars pure ty
@@ -693,7 +720,7 @@ let close_type env ty =
     (fun (v, _) ->
       if is_evar v then begin
         let eff =
-          newty2 v.level (Teffect(Placeholder, newty2 v.level Tenil))
+          newty2 v.level (Teffect(Predef.path_io, newty2 v.level Tenil))
         in
           link_type v eff
       end)
@@ -913,6 +940,12 @@ let rec update_level env level ty =
     | Tfield(lab, _, ty1, _)
       when lab = dummy_method && (repr ty1).level > level ->
         raise (Unify [(ty1, newvar2 (type_sort ty) level)])
+    | Teffect(p, ty1) when level < get_level env p ->
+        let p' = expand_effect env p in
+        if Path.same p p' then
+          raise (Unify [(ty, newvar2 (type_sort ty) level)]);
+        log_type ty; ty.desc <- Teffect(p', ty1);
+        update_level env level ty
     | _ ->
         set_level ty level;
         (* XXX what about abbreviations in Tconstr ? *)
@@ -2770,7 +2803,7 @@ and unify_kind k1 k2 =
 and unify_effects env ty1 ty2 =          (* Optimization *)
   let (effs1, rest1) = flatten_effects ty1 in
   let (effs2, rest2) = flatten_effects ty2 in
-  let (miss1, miss2) = diff_effects env effs1 effs2 in
+  let (miss1, miss2) = diff_effects !env effs1 effs2 in
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
   let va = make_rowvar (min l1 l2) (miss2=[]) rest1 (miss1=[]) rest2 in
   let d1 = rest1.desc and d2 = rest2.desc in
@@ -4048,9 +4081,9 @@ let rec build_subtype env visited loops posi level t =
         warn := true;
         (t, Unchanged)
       end
-  | Teffect(ec, t1) ->
+  | Teffect(p, t1) ->
       let (t1', c) = build_subtype env visited loops posi level t1 in
-      if c > Unchanged then (newty (Teffect(ec, t1')), c)
+      if c > Unchanged then (newty (Teffect(p, t1')), c)
       else (t, Unchanged)
   | Tenil ->
       if posi then begin
@@ -4221,10 +4254,10 @@ let rec open_effects env depth visited vari ty =
         let t', change = open_effects env depth visited vari t in
         if change = Unchanged then (ty, Unchanged)
         else (newgenty (Tpoly(t', tl)), change)
-    | Teffect(ec, t) ->
+    | Teffect(p, t) ->
         let t', change = open_effects env depth visited vari t in
         if change = Unchanged then (ty, Unchanged)
-        else (newgenty (Teffect(ec, t')), change)
+        else (newgenty (Teffect(p, t')), change)
     | Tlink _ | Tsubst _ -> assert false
 
 let open_effects_covariant env ty =
@@ -4740,6 +4773,10 @@ let rec nondep_type_rec env id ty =
                 Tvariant {row with row_name = None}
             | _ -> Tvariant row
           end
+      | Teffect(p, ty1) when Path.isfree id p ->
+          let p' = expand_effect env p in
+          if Path.isfree id p' then raise Not_found;
+          Teffect (p', nondep_type_rec env id ty1)
       | _ -> copy_type_desc (nondep_type_rec env id) ty.desc
       end;
     ty'
@@ -4861,6 +4898,42 @@ let nondep_extension_constructor env mid ext =
     clear_hash ();
     raise Not_found
 
+let nondep_effect_decl env mid is_covariant eff =
+  try
+    let ek =
+      try match eff.eff_kind with
+      | Eff_abstract -> Eff_abstract
+      | Eff_variant ecs ->
+          Eff_variant
+            (List.map
+               (fun ec ->
+                 {ec with
+                  ec_args = List.map (nondep_type_rec env mid) ec.ec_args;
+                  ec_res = may_map (nondep_type_rec env mid) ec.ec_res;
+                 }
+               )
+               ecs)
+      with Not_found when is_covariant -> Eff_abstract
+    and em =
+      try match eff.eff_manifest with
+      | None -> None
+      | Some p ->
+          if Path.isfree mid p then
+            let p' = expand_effect env p in
+            if Path.isfree mid p' then raise Not_found
+            else Some p'
+          else Some p
+      with Not_found when is_covariant -> None
+    in
+    clear_hash ();
+    { eff_kind = ek;
+      eff_manifest = em;
+      eff_loc = eff.eff_loc;
+      eff_attributes = eff.eff_attributes;
+    }
+  with Not_found ->
+    clear_hash ();
+    raise Not_found
 
 (* Preserve sharing inside class types. *)
 let nondep_class_signature env id sign =

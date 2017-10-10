@@ -201,6 +201,9 @@ let rec pr_item env items =
   | Sig_typext(id, ext, es) :: rem ->
       let tree = Printtyp.tree_of_extension_constructor id ext es in
       Some (tree, None, rem)
+  | Sig_effect(id, eff) :: rem ->
+      let tree = Printtyp.tree_of_effect_declaration id eff in
+      Some (tree, None, rem)
   | Sig_module(id, md, rs) :: rem ->
       let tree = Printtyp.tree_of_module id md.md_type rs in
       Some (tree, None, rem)

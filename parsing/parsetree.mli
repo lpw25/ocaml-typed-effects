@@ -138,7 +138,7 @@ and effect_type = effect_desc option
 
 and effect_desc =
   {
-    pefd_constrs : Longident.t loc list;
+    pefd_effects : Longident.t loc list;
     pefd_var : string loc option;
   }
 
@@ -451,25 +451,28 @@ and extension_constructor_kind =
          | C = D
        *)
 
-and effect_constructor =
+and effect_declaration =
     {
      peff_name: string loc;
-     peff_kind : effect_constructor_kind;
+     peff_kind : effect_kind;
+     peff_manifest: Longident.t loc option;
      peff_loc : Location.t;
-     peff_attributes: attributes; (* C [@id1] [@id2] of ... *)
+     peff_attributes: attributes;
     }
 
-and effect_constructor_kind =
-    Peff_decl of core_type list * core_type
-      (*
-         | C of T1 * ... * Tn     ([T1; ...; Tn], None)
-         | C: T0                  ([], Some T0)
-         | C: T1 * ... * Tn -> T0 ([T1; ...; Tn], Some T0)
-       *)
-  | Peff_rebind of Longident.t loc
-      (*
-         | C = D
-       *)
+and effect_kind =
+  | Peff_abstract
+  | Peff_variant of effect_constructor list
+
+and effect_constructor =
+    {
+     pec_name: string loc;
+     pec_args: core_type list;
+     pec_res: core_type option;
+     pec_loc: Location.t;
+     pec_attributes: attributes;
+    }
+
 
 (** {2 Class language} *)
 
@@ -679,8 +682,8 @@ and signature_item_desc =
         (* type t1 += ... *)
   | Psig_exception of extension_constructor
         (* exception C of T *)
-  | Psig_effect of effect_constructor
-        (* effect C : T -> T *)
+  | Psig_effect of effect_declaration
+        (* effect e = ... *)
   | Psig_module of module_declaration
         (* module X : MT *)
   | Psig_recmodule of module_declaration list
@@ -808,9 +811,8 @@ and structure_item_desc =
   | Pstr_exception of extension_constructor
         (* exception C of T
            exception C = M.X *)
-  | Pstr_effect of effect_constructor
-        (* effect C : T -> T
-           effect C = M.X *)
+  | Pstr_effect of effect_declaration
+        (* effect e = ... *)
   | Pstr_module of module_binding
         (* module X = ME *)
   | Pstr_recmodule of module_binding list

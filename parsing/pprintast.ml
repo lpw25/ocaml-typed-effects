@@ -236,22 +236,22 @@ class printer  ()= object(self:'self)
         else pp f "%s:%a" s self#core_type1 c
 
   method arrow f x =
-    let constructors f x =
+    let effects f x =
       self#list ~sep:" | " self#longident_loc f x
     in
     match x with
     | None -> pp f "->"
     | Some e  ->
-        match e.pefd_constrs, e.pefd_var with
+        match e.pefd_effects, e.pefd_var with
         | [], None -> pp f "=>"
-        | constrs, None ->
-            pp f "-[%a]->" constructors constrs
+        | effs, None ->
+            pp f "-[%a]->" effects effs
         | [], Some { txt = "~" } -> pp f "~>"
-        | constrs, Some { txt = "~" } ->
-            pp f "~[%a]~>" constructors constrs
+        | effs, Some { txt = "~" } ->
+            pp f "~[%a]~>" effects effs
         | [], Some { txt = s } -> pp f "-[!%s]->" s
-        | constrs, Some { txt = s } ->
-            pp f "-[%a|!%s]->" constructors constrs s
+        | effs, Some { txt = s } ->
+            pp f "-[%a|!%s]->" effects effs s
 
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
@@ -745,9 +745,6 @@ class printer  ()= object(self:'self)
 
   method exception_declaration f ext =
     pp f "@[<hov2>exception@ %a@]" self#extension_constructor ext
-
-  method effect_declaration f ext =
-    pp f "@[<hov2>effect@ %a@]" self#effect_constructor ext
 
   method class_signature f { pcsig_self = ct; pcsig_fields = l ;_} =
     let class_type_field f x =
@@ -1383,21 +1380,39 @@ class printer  ()= object(self:'self)
           self#attributes x.pext_attributes
           self#longident_loc li
 
-  method effect_constructor f x =
-    match x.peff_kind with
-    | Peff_decl(l, r) ->
-        pp f "%s%a:@;%a" x.peff_name.txt
-          self#attributes x.peff_attributes
-          (fun f -> function
-                 | [] -> self#core_type1 f r
-                 | l -> pp f "%a@;->@;%a"
-                           (self#list self#core_type1 ~sep:"*@;") l
-                           self#core_type1 r)
-          l
-    | Peff_rebind li ->
-        pp f "%s%a@;=@;%a" x.peff_name.txt
-          self#attributes x.peff_attributes
-          self#longident_loc li
+  method effect_declaration f x =
+    let manifest f = function
+      | None -> ()
+      | Some lid ->
+          pp f " =@ %a" self#longident_loc lid
+    in
+    let constructor f x =
+      match x.pec_res with
+      | Some res ->
+          pp f "%s%a:@;%a" x.pec_name.txt
+             self#attributes x.pec_attributes
+             (fun f -> function
+               | [] -> self#core_type1 f res
+               | l -> pp f "%a@;->@;%a"
+                         (self#list self#core_type1 ~sep:"*@;") l
+                         self#core_type1 res) x.pec_args
+      | None ->
+          pp f "|@;%s%a%a" x.pec_name.txt
+             (fun f -> function
+              | [] -> ()
+              | l -> pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l)
+             x.pec_args
+             self#attributes x.pec_attributes
+    in
+    let kind f = function
+      | Peff_abstract -> ()
+      | Peff_variant xs ->
+          pp f "=@\n%a" (self#list ~sep:"@\n" constructor) xs
+    in
+      pp f "effect %s%a%a"
+         x.peff_name.txt
+         manifest x.peff_manifest
+         kind x.peff_kind
 
   method case_list f l : unit =
     let aux f {pc_lhs; pc_guard; pc_rhs} =

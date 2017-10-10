@@ -25,6 +25,9 @@ val label_descrs:
   type_expr -> label_declaration list ->
     record_representation -> private_flag ->
     (Ident.t * label_description) list
+val effect_constructor_descrs:
+  Path.t -> effect_constructor list ->
+  (Ident.t * effect_constructor_description) list
 
 exception Constr_not_found
 

@@ -481,6 +481,13 @@ let () =
     )
 
 let () =
+  reg_show_prim "show_effect"
+    (fun env loc id lid ->
+       let path, eff = Typetexp.find_effect env loc lid in
+       [ Sig_effect (id, eff) ]
+    )
+
+let () =
   reg_show_prim "show_module"
     (fun env loc id lid ->
        let path, md = Typetexp.find_module env loc lid in

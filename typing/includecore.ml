@@ -299,6 +299,87 @@ let extension_constructors env id ext1 ext2 =
     else false
   else false
 
+(* Inclusion between effect declarations *)
+type effect_mismatch =
+  | Effect_kind
+  | Effect_manifest
+  | Effect_constructor_arg_type of Ident.t
+  | Effect_constructor_ret_type of Ident.t
+  | Effect_constructor_arity of Ident.t
+  | Effect_constructor_names of int * Ident.t * Ident.t
+  | Effect_constructor_missing of bool * Ident.t
+
+let report_effect_mismatch0 first second eff ppf err =
+  let pr fmt = Format.fprintf ppf fmt in
+  match err with
+  | Effect_kind -> pr "Their kinds differ"
+  | Effect_manifest -> ()
+  | Effect_constructor_arg_type s ->
+      pr "The argument types for constructor %s are not equal" (Ident.name s)
+  | Effect_constructor_ret_type s ->
+      pr "The return types for constructor %s are not equal" (Ident.name s)
+  | Effect_constructor_arity s ->
+      pr "The arities for constructor %s differ" (Ident.name s)
+  | Effect_constructor_names (n, name1, name2) ->
+      pr "Constructor number %i have different names, %s and %s"
+        n (Ident.name name1) (Ident.name name2)
+  | Effect_constructor_missing (b, s) ->
+      pr "The constructor %s is only present in %s %s"
+        (Ident.name s) (if b then second else first) eff
+
+let report_effect_mismatch first second decl ppf =
+  List.iter
+    (fun err ->
+      if err = Effect_manifest then () else
+      Format.fprintf ppf "@ %a." (report_effect_mismatch0 first second decl) err)
+
+let effect_manifest env p1 p2 =
+  Ctype.equal_effect env p1 p2
+
+let rec compare_effect_constructors env n ecs1 ecs2 =
+  match ecs1, ecs2 with
+  | [], []           -> []
+  | [], ec::_ -> [Effect_constructor_missing (true, ec.Types.ec_id)]
+  | ec::_, [] -> [Effect_constructor_missing (false, ec.Types.ec_id)]
+  | {Types.ec_id=ec1; ec_args=arg1; ec_res=ret1}::rem1,
+    {Types.ec_id=ec2; ec_args=arg2; ec_res=ret2}::rem2 ->
+      if Ident.name ec1 <> Ident.name ec2 then
+        [Effect_constructor_names (n, ec1, ec2)]
+      else if List.length arg1 <> List.length arg2 then
+        [Effect_constructor_arity ec1]
+      else
+        let mismatch =
+          match ret1, ret2 with
+          | Some r1, Some r2 ->
+              if (Ctype.equal env true [r1] [r2]) then []
+              else [Effect_constructor_ret_type ec1]
+          | Some _, None | None, Some _ ->
+              [Effect_constructor_arity ec1]
+          | None, None -> []
+        in
+        if mismatch <> [] then mismatch
+        else
+          if Ctype.equal env true arg1 arg2 then
+            compare_effect_constructors env (n+1) rem1 rem2
+          else [Effect_constructor_arg_type ec1]
+
+let effect_declarations env name eff1 id eff2 =
+  let err =
+    match eff1.Types.eff_kind, eff2.Types.eff_kind with
+    | _, Eff_abstract -> []
+    | Eff_variant ecs1, Eff_variant ecs2 ->
+        compare_effect_constructors env 1 ecs1 ecs2
+    | _, _ -> [Effect_kind]
+  in
+  if err <> [] then err else
+  match eff1.eff_manifest, eff2.eff_manifest with
+  | _, None -> []
+  | Some p1, Some p2 ->
+      if effect_manifest env p1 p2 then [] else [Effect_manifest]
+  | None, Some p2 ->
+      let p1 = Pident id in
+      if effect_manifest env p1 p2 then [] else [Effect_manifest]
+
 (* Inclusion between class types *)
 let encode_val (mut, ty) rem =
   begin match mut with

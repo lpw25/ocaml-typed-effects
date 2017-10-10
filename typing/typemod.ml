@@ -415,6 +415,10 @@ and approx_sig env ssg =
                  Sig_type(i2, d2, rs);
                  Sig_type(i3, d3, rs)])
               decls [rem])
+      | Psig_effect seff ->
+          let eff = Typedecl.approx_effect_decl in
+          let (id, newenv) = Env.enter_effect seff.peff_name.txt eff env in
+          Sig_effect(id, eff) :: approx_sig newenv srem
       | _ ->
           approx_sig env srem
 
@@ -453,9 +457,12 @@ let check cl loc set_ref name =
 let check_name cl set_ref name =
   check cl name.loc set_ref name.txt
 
-let check_sig_item type_names module_names modtype_names loc = function
-    Sig_type(id, _, _) ->
+let check_sig_item type_names effect_names module_names modtype_names loc =
+  function
+  | Sig_type(id, _, _) ->
       check "type" loc type_names (Ident.name id)
+  | Sig_effect(id, _) ->
+      check "effect" loc effect_names (Ident.name id)
   | Sig_module(id, _, _) ->
       check "module" loc module_names (Ident.name id)
   | Sig_modtype(id, _) ->
@@ -562,6 +569,7 @@ let rec transl_modtype env smty =
 
 and transl_signature env sg =
   let type_names = ref StringSet.empty
+  and effect_names = ref StringSet.empty
   and module_names = ref StringSet.empty
   and modtype_names = ref StringSet.empty in
   let rec transl_sig env sg =
@@ -620,16 +628,11 @@ and transl_signature env sg =
                Sig_typext(ext.ext_id, ext.ext_type, Text_exception) :: rem),
             final_env
         | Psig_effect seff ->
-            let (ext, newenv) = Typedecl.transl_effect env seff in
+            check_name "effect" effect_names seff.peff_name;
+            let (teff, newenv) = Typedecl.transl_effect_decl env false seff in
             let (trem, rem, final_env) = transl_sig newenv srem in
-            let shadowed =
-              List.exists
-                (Ident.equal ext.ext_id)
-                (get_extension_constructors rem)
-            in
-            mksig (Tsig_effect ext) env loc :: trem,
-            (if shadowed then rem else
-               Sig_typext(ext.ext_id, ext.ext_type, Text_effect) :: rem),
+            mksig (Tsig_effect teff) env loc :: trem,
+            Sig_effect(teff.eff_id, teff.eff_type) :: rem,
             final_env
         | Psig_module pmd ->
             check_name "module" module_names pmd.pmd_name;
@@ -685,8 +688,8 @@ and transl_signature env sg =
             let sg = Subst.signature Subst.identity
                        (extract_sig env smty.pmty_loc mty) in
             List.iter
-              (check_sig_item type_names module_names modtype_names
-                              item.psig_loc)
+              (check_sig_item type_names effect_names module_names
+                              modtype_names item.psig_loc)
               sg;
             let newenv = Env.add_signature sg env in
             let incl =
@@ -1202,7 +1205,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
       let eff_expected =
-        Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+        Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
       in
       let exp = Typecore.type_exp env sexp eff_expected in
       if !Clflags.principal then begin
@@ -1239,6 +1242,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env smod =
 
 and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
   let type_names = ref StringSet.empty
+  and effect_names = ref StringSet.empty
   and module_names = ref StringSet.empty
   and modtype_names = ref StringSet.empty in
 
@@ -1246,13 +1250,13 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
     match desc with
     | Pstr_eval (sexpr, attrs) ->
         let eff_expected =
-          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
         in
         let expr = Typecore.type_expression env sexpr eff_expected in
         Tstr_eval (expr, attrs), [], env
     | Pstr_value(rec_flag, sdefs) ->
         let eff_expected =
-          Ctype.newty (Teffect(Placeholder, Ctype.newty Tenil))
+          Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
         in
         let scope =
           match rec_flag with
@@ -1304,9 +1308,10 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         [Sig_typext(ext.ext_id, ext.ext_type, Text_exception)],
         newenv
     | Pstr_effect seff ->
-        let (ext, newenv) = Typedecl.transl_effect env seff in
-        Tstr_effect ext,
-        [Sig_typext(ext.ext_id, ext.ext_type, Text_effect)],
+        check_name "effect" effect_names seff.peff_name;
+        let (teff, newenv) = Typedecl.transl_effect_decl env funct_body seff in
+        Tstr_effect teff,
+        [Sig_effect(teff.eff_id, teff.eff_type)],
         newenv
     | Pstr_module {pmb_name = name; pmb_expr = smodl; pmb_attributes = attrs;
                    pmb_loc;
@@ -1468,7 +1473,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
                                        Mty_alias (Pdot(p,Ident.name id,n))},
                                   rs)
                   | Sig_value (_, {val_kind=Val_reg})
-                  | Sig_typext _ | Sig_class _ as it ->
+                  | Sig_typext _ | Sig_class _ | Sig_effect _ as it ->
                       incr pos; it
                   | Sig_value _ | Sig_type _ | Sig_modtype _
                   | Sig_class_type _ as it ->
@@ -1477,7 +1482,9 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
           | _ -> sg
         in
         List.iter
-          (check_sig_item type_names module_names modtype_names loc) sg;
+          (check_sig_item type_names effect_names
+                          module_names modtype_names loc)
+          sg;
         let new_env = Env.add_signature sg env in
         let incl =
           { incl_mod = modl;

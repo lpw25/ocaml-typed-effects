@@ -85,8 +85,10 @@ val merge_row_fields:
 val filter_row_fields:
         bool -> (label * row_field) list -> (label * row_field) list
 
+val equal_effect: Env.t -> Path.t -> Path.t -> bool
+
 val flatten_effects:
-        type_expr -> effect_constr list * type_expr
+        type_expr -> Path.t list * type_expr
 
 val generalize: type_expr -> unit
         (* Generalize in-place the given type *)
@@ -247,6 +249,9 @@ val nondep_extension_constructor:
         Env.t -> Ident.t -> extension_constructor ->
         extension_constructor
           (* Same for extension constructor *)
+val nondep_effect_decl:
+        Env.t -> Ident.t -> bool -> effect_declaration -> effect_declaration
+        (* Same for effect declarations. *)
 val nondep_class_declaration:
         Env.t -> Ident.t -> class_declaration -> class_declaration
         (* Same for class declarations. *)
@@ -265,6 +270,7 @@ val closed_schema: type_expr -> bool
 val free_variables: ?env:Env.t -> type_expr -> type_expr list
         (* If env present, then check for incomplete definitions too *)
 val closed_type_decl: type_declaration -> type_expr option
+val closed_effect_decl: effect_declaration -> type_expr option
 val closed_extension_constructor: extension_constructor -> type_expr option
 type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr

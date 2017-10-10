@@ -31,6 +31,8 @@ type symptom =
         * type_declaration * Includecore.type_mismatch list
   | Extension_constructors of
       Ident.t * extension_constructor * extension_constructor
+  | Effect_declarations of Ident.t * effect_declaration
+        * effect_declaration * Includecore.effect_mismatch list
   | Module_types of module_type * module_type
   | Modtype_infos of Ident.t * modtype_declaration * modtype_declaration
   | Modtype_permutation

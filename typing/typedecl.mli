@@ -23,9 +23,9 @@ val transl_exception:
     Env.t ->
     Parsetree.extension_constructor -> Typedtree.extension_constructor * Env.t
 
-val transl_effect:
-    Env.t ->
-    Parsetree.effect_constructor -> Typedtree.extension_constructor * Env.t
+val transl_effect_decl:
+    Env.t -> bool ->
+    Parsetree.effect_declaration -> Typedtree.effect_declaration * Env.t
 
 val transl_type_extension:
     bool -> Env.t -> Location.t -> Parsetree.type_extension ->
@@ -42,6 +42,8 @@ val transl_with_constraint:
 val approx_type_decl:
     Env.t -> Parsetree.type_declaration list ->
                                   (Ident.t * type_declaration) list
+val approx_effect_decl: effect_declaration
+
 val check_recmod_typedecl:
     Env.t -> Location.t -> Ident.t list -> Path.t -> type_declaration -> unit
 val check_coherence:
@@ -67,6 +69,7 @@ type error =
   | Recursive_abbrev of string
   | Cycle_in_def of string * type_expr
   | Definition_mismatch of type_expr * Includecore.type_mismatch list
+  | Effect_definition_mismatch of Path.t * Includecore.effect_mismatch list
   | Constraint_failed of type_expr * type_expr
   | Inconsistent_constraint of Env.t * (type_expr * type_expr) list
   | Type_clash of Env.t * (type_expr * type_expr) list
@@ -82,9 +85,12 @@ type error =
   | Rebind_private of Longident.t
   | Bad_variance of int * (bool*bool*bool) * (bool*bool*bool)
   | Unavailable_type_constructor of Path.t
+  | Unavailable_effect of Path.t
   | Bad_fixed_type of string
   | Unbound_type_var_ext of type_expr * extension_constructor
+  | Unbound_type_var_eff of type_expr * effect_declaration
   | Varying_anonymous
+  | Not_allowed_in_functor_body
 
 exception Error of Location.t * error
 

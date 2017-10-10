@@ -466,28 +466,31 @@ module Te = struct
      pext_attributes = add_docs_attrs docs (add_info_attrs info attrs);
     }
 
-  let effect_constructor ?(loc = !default_loc) ?(attrs = []) name kind =
+end
+
+module Eff = struct
+  let mk ?(loc = !default_loc) ?(attrs = [])
+        ?(docs = empty_docs) ?(text = [])
+      ?(kind = Peff_abstract)
+      ?manifest
+      name =
     {
      peff_name = name;
      peff_kind = kind;
+     peff_manifest = manifest;
+     peff_attributes =
+       add_text_attrs text (add_docs_attrs docs attrs);
      peff_loc = loc;
-     peff_attributes = attrs;
     }
 
-  let effect_decl ?(loc = !default_loc) ?(attrs = []) ?(args = []) name res =
+  let constructor ?(loc = !default_loc) ?(attrs = []) ?(info = empty_info)
+        ?(args = []) ?res name =
     {
-     peff_name = name;
-     peff_kind = Peff_decl(args, res);
-     peff_loc = loc;
-     peff_attributes = attrs;
-    }
-
-  let effect_rebind ?(loc = !default_loc) ?(attrs = []) name lid =
-    {
-     peff_name = name;
-     peff_kind = Peff_rebind lid;
-     peff_loc = loc;
-     peff_attributes = attrs;
+     pec_name = name;
+     pec_args = args;
+     pec_res = res;
+     pec_loc = loc;
+     pec_attributes = add_info_attrs info attrs;
     }
 
 end

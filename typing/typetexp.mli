@@ -38,6 +38,7 @@ type error =
     Unbound_type_variable of string
   | Unbound_type_constructor of Longident.t
   | Unbound_type_constructor_2 of Path.t
+  | Unbound_effect of Longident.t
   | Type_arity_mismatch of Longident.t * int * int
   | Bound_type_variable of string
   | Recursive_type
@@ -90,6 +91,8 @@ val find_label:
 val find_all_labels:
     Env.t -> Location.t -> Longident.t ->
     (label_description * (unit -> unit)) list
+val find_effect:
+    Env.t -> Location.t -> Longident.t -> Path.t * effect_declaration
 val find_value:
     Env.t -> Location.t -> Longident.t -> Path.t * value_description
 val find_class:

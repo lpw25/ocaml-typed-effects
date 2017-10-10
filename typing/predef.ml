@@ -43,6 +43,7 @@ and ident_int32 = ident_create "int32"
 and ident_int64 = ident_create "int64"
 and ident_lazy_t = ident_create "lazy_t"
 and ident_bytes = ident_create "bytes"
+and ident_io = ident_create "io"
 
 let path_int = Pident ident_int
 and path_char = Pident ident_char
@@ -61,6 +62,7 @@ and path_int32 = Pident ident_int32
 and path_int64 = Pident ident_int64
 and path_lazy_t = Pident ident_lazy_t
 and path_bytes = Pident ident_bytes
+and path_io = Pident ident_io
 
 let type_int = newgenty (Tconstr(path_int, [], Stype, ref Mnil))
 and type_char = newgenty (Tconstr(path_char, [], Stype, ref Mnil))
@@ -80,6 +82,8 @@ and type_int32 = newgenty (Tconstr(path_int32, [], Stype, ref Mnil))
 and type_int64 = newgenty (Tconstr(path_int64, [], Stype, ref Mnil))
 and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], Stype, ref Mnil))
 and type_bytes = newgenty (Tconstr(path_bytes, [], Stype, ref Mnil))
+
+let effect_io t = newgenty (Teffect(path_io, t))
 
 let ident_match_failure = ident_create_predef_exn "Match_failure"
 and ident_out_of_memory = ident_create_predef_exn "Out_of_memory"
@@ -129,7 +133,7 @@ and ident_nil = ident_create "[]"
 and ident_cons = ident_create "::"
 and ident_none = ident_create "None"
 and ident_some = ident_create "Some"
-let common_initial_env add_type add_extension empty_env =
+let common_initial_env add_type add_extension add_effect empty_env =
   let decl_bool =
     {decl_abstr with
      type_kind = Type_variant([cstr ident_false []; cstr ident_true []])}
@@ -180,6 +184,11 @@ let common_initial_env add_type add_extension empty_env =
      type_params = [tvar];
      type_arity = 1;
      type_variance = [Variance.covariant]}
+  and effect_io =
+    { eff_kind = Eff_abstract;
+      eff_manifest = None;
+      eff_loc = Location.none;
+      eff_attributes = []; }
   in
 
   let add_extension id l =
@@ -224,10 +233,13 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_string decl_abstr (
   add_type ident_char decl_abstr (
   add_type ident_int decl_abstr (
-    empty_env)))))))))))))))))))))))))))))
+  add_effect ident_io effect_io (
+    empty_env))))))))))))))))))))))))))))))
 
-let build_initial_env add_type add_exception empty_env =
-  let common = common_initial_env add_type add_exception empty_env in
+let build_initial_env add_type add_exception add_effect empty_env =
+  let common =
+    common_initial_env add_type add_exception add_effect empty_env
+  in
   let safe_string = add_type ident_bytes decl_abstr common in
   let decl_bytes_unsafe = {decl_abstr with type_manifest = Some type_string} in
   let unsafe_string = add_type ident_bytes decl_bytes_unsafe common in

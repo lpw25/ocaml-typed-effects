@@ -185,9 +185,9 @@ and raw_type_desc ppf = function
   | Tpackage (p, _, tl) ->
       fprintf ppf "@[<hov1>Tpackage(@,%a@,%a)@]" path p
         raw_type_list tl
-  | Teffect (ec, t) ->
+  | Teffect (p, t) ->
       fprintf ppf "@[<hov1>Teffect(%a,@;<0 -1>%a)@]"
-        raw_effect_constr ec raw_type t
+        path p raw_type t
   | Tenil -> fprintf ppf "Tenil"
 
 and raw_field ppf = function
@@ -200,9 +200,6 @@ and raw_field ppf = function
           match !e with None -> fprintf ppf " None"
           | Some f -> fprintf ppf "@,@[<1>(%a)@]" raw_field f)
   | Rabsent -> fprintf ppf "Rabsent"
-
-and raw_effect_constr ppf = function
-  | Placeholder -> fprintf ppf "Placeholder"
 
 let raw_type_expr ppf t =
   visited := [];
@@ -717,9 +714,7 @@ let rec tree_of_typexp sch ty =
     | Teffect _ ->
         let (effects, row) = Ctype.flatten_effects ty in
         let row = repr row in
-        let effects =
-          List.map (fun Placeholder -> Oide_ident "PLACEHOLDER") effects
-        in
+        let effects = List.map tree_of_path effects in
          let row =
           match row.desc with
           | Tenil -> None
@@ -802,12 +797,10 @@ and tree_of_typeffect sch ty =
   in
     match effects, row with
     | [], None -> Oarr_pure
-    | [Placeholder], None -> Oarr_simple
+    | [p], None when Path.same p Predef.path_io -> Oarr_simple
     | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_tilde
     | _, _ ->
-        let effects =
-          List.map (fun Placeholder -> Oide_ident "PLACEHOLDER") effects
-        in
+        let effects = List.map tree_of_path effects in
         Oarr_effects(effects, row)
 
 
@@ -1030,12 +1023,53 @@ let tree_of_extension_constructor id ext es =
         Text_first -> Oext_first
       | Text_next -> Oext_next
       | Text_exception -> Oext_exception
-      | Text_effect -> Oext_effect
   in
     Osig_typext (ext, es)
 
 let extension_constructor id ppf ext =
   !Oprint.out_sig_item ppf (tree_of_extension_constructor id ext Text_first)
+
+(* Print an effect declaration *)
+
+let rec tree_of_effect_declaration id eff =
+  reset();
+  let oeff_manifest =
+    match eff.eff_manifest with
+    | None -> None
+    | Some p -> Some (tree_of_path p)
+  in
+  begin match eff.eff_kind with
+  | Eff_abstract -> ()
+  | Eff_variant ecs ->
+      List.iter
+        (fun ec ->
+          List.iter mark_loops ec.ec_args;
+          may mark_loops ec.ec_res)
+        ecs
+  end;
+  let oeff_kind =
+    match eff.eff_kind with
+    | Eff_abstract -> Oeff_abstract
+    | Eff_variant ecs ->
+        Oeff_variant (List.map tree_of_effect_constructor ecs)
+  in
+  let eff = { oeff_manifest; oeff_kind; } in
+  Osig_effect (Ident.name id, eff)
+
+and tree_of_effect_constructor ec =
+  let name = Ident.name ec.ec_id in
+  match ec.ec_res with
+  | None -> (name, tree_of_typlist false ec.ec_args, None)
+  | Some res ->
+      let nm = !names in
+      names := [];
+      let ret = tree_of_typexp false res in
+      let args = tree_of_typlist false ec.ec_args in
+      names := nm;
+      (name, args, Some ret)
+
+let effect_declaration id ppf eff =
+  !Oprint.out_sig_item ppf (tree_of_effect_declaration id eff)
 
 (* Print a value declaration *)
 
@@ -1304,6 +1338,8 @@ and tree_of_signature_rec env' in_type_group = function
             [Osig_type(tree_of_type_decl id decl, tree_of_rec rs)]
         | Sig_typext(id, ext, es) ->
             [tree_of_extension_constructor id ext es]
+        | Sig_effect(id, eff) ->
+            [tree_of_effect_declaration id eff]
         | Sig_module(id, md, rs) ->
             [Osig_module (Ident.name id, tree_of_modtype md.md_type,
                           tree_of_rec rs)]

@@ -19,15 +19,18 @@ open Btype
 
 type t =
   { types: (Ident.t, Path.t) Tbl.t;
+    effects: (Ident.t, Path.t) Tbl.t;
     modules: (Ident.t, Path.t) Tbl.t;
     modtypes: (Ident.t, module_type) Tbl.t;
     for_saving: bool }
 
 let identity =
-  { types = Tbl.empty; modules = Tbl.empty; modtypes = Tbl.empty;
-    for_saving = false }
+  { types = Tbl.empty; modules = Tbl.empty; effects = Tbl.empty;
+    modtypes = Tbl.empty; for_saving = false }
 
 let add_type id p s = { s with types = Tbl.add id p s.types }
+
+let add_effect id p s = { s with effects = Tbl.add id p s.effects }
 
 let add_module id p s = { s with modules = Tbl.add id p s.modules }
 
@@ -86,6 +89,14 @@ let type_path s = function
       Pdot(module_path s p, n, pos)
   | Papply(p1, p2) ->
       fatal_error "Subst.type_path"
+
+let effect_path s = function
+  | Pident id as p ->
+      begin try Tbl.find id s.effects with Not_found -> p end
+  | Pdot(p, n, pos) ->
+      Pdot(module_path s p, n, pos)
+  | Papply(p1, p2) ->
+      fatal_error "Subst.effect_path"
 
 (* Special type ids for saved signatures *)
 
@@ -250,6 +261,38 @@ let type_declaration s decl =
   cleanup_types ();
   decl
 
+let effect_declaration s eff =
+  let eff =
+    { eff_kind =
+        begin match eff.eff_kind with
+        | Eff_abstract -> Eff_abstract
+        | Eff_variant ecs ->
+            Eff_variant
+              (List.map
+                 (fun ec ->
+                    {
+                      ec_id = ec.ec_id;
+                      ec_args = List.map (typexp s) ec.ec_args;
+                      ec_res = may_map (typexp s) ec.ec_res;
+                      ec_loc = loc s ec.ec_loc;
+                      ec_attributes = attrs s ec.ec_attributes;
+                    }
+                 )
+                 ecs)
+        end;
+      eff_manifest =
+        begin
+          match eff.eff_manifest with
+            None -> None
+          | Some p -> Some(effect_path s p)
+        end;
+      eff_loc = loc s eff.eff_loc;
+      eff_attributes = attrs s eff.eff_attributes;
+    }
+  in
+  cleanup_types ();
+  eff
+
 let class_signature s sign =
   { csig_self = typexp s sign.csig_self;
     csig_vars =
@@ -332,6 +375,9 @@ let rec rename_bound_idents s idents = function
   | Sig_type(id, d, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_type id (Pident id') s) (id' :: idents) sg
+  | Sig_effect(id, e) :: sg ->
+      let id' = Ident.rename id in
+      rename_bound_idents (add_effect id (Pident id') s) (id' :: idents) sg
   | Sig_module(id, mty, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_module id (Pident id') s) (id' :: idents) sg
@@ -377,6 +423,8 @@ and signature_component s comp newid =
       Sig_value(newid, value_description s d)
   | Sig_type(id, d, rs) ->
       Sig_type(newid, type_declaration s d, rs)
+  | Sig_effect(id, e) ->
+      Sig_effect(newid, effect_declaration s e)
   | Sig_typext(id, ext, es) ->
       Sig_typext(newid, extension_constructor s ext, es)
   | Sig_module(id, d, rs) ->
@@ -413,6 +461,7 @@ let merge_tbls f m1 m2 =
 
 let compose s1 s2 =
   { types = merge_tbls (type_path s2) s1.types s2.types;
+    effects = merge_tbls (effect_path s2) s1.effects s2.effects;
     modules = merge_tbls (module_path s2) s1.modules s2.modules;
     modtypes = merge_tbls (modtype s2) s1.modtypes s2.modtypes;
     for_saving = false }

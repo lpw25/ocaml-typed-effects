@@ -452,10 +452,6 @@ and print_out_sig_item ppf =
   | Osig_typext (ext, Oext_exception) ->
       fprintf ppf "@[<2>exception %a@]"
         print_out_constr (ext.oext_name, ext.oext_args, ext.oext_ret_type)
-  | Osig_typext ({ oext_ret_type = Some (Otyp_constr(_, [ret]))} as ext,
-                 Oext_effect) ->
-      fprintf ppf "@[<2>effect %a@]"
-        print_out_constr (ext.oext_name, ext.oext_args, Some ret)
   | Osig_typext (ext, es) ->
       print_out_extension_constructor ppf ext
   | Osig_modtype (name, Omty_abstract) ->
@@ -470,6 +466,8 @@ and print_out_sig_item ppf =
                      | Orec_first -> "module rec"
                      | Orec_next -> "and")
         name !out_module_type mty
+  | Osig_effect (name, eff) ->
+      fprintf ppf "@[<2>effect %s%a@]" name print_out_effect_decl eff
   | Osig_type(td, rs) ->
         print_out_type_decl
           (match rs with
@@ -618,6 +616,21 @@ and print_out_type_extension ppf te =
     (if te.otyext_private = Asttypes.Private then " private" else "")
     (print_list print_out_constr (fun ppf -> fprintf ppf "@ | "))
     te.otyext_constructors
+
+and print_out_effect_decl ppf eff =
+  let print_out_manifest ppf = function
+    | None -> ()
+    | Some id -> fprintf ppf " =@ %a" print_ident id
+  in
+  let print_out_ekind ppf = function
+  | Oeff_abstract -> ()
+  | Oeff_variant ecs ->
+      fprintf ppf " =@;<1 2>%a"
+        (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) ecs
+  in
+  fprintf ppf "@[<hv 2>%a%a@]"
+    print_out_manifest eff.oeff_manifest
+    print_out_ekind eff.oeff_kind
 
 let _ = out_module_type := print_out_module_type
 let _ = out_signature := print_out_signature

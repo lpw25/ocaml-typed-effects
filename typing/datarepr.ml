@@ -148,6 +148,34 @@ let label_descrs ty_res lbls repres priv =
         (l.ld_id, lbl) :: describe_labels (num+1) rest in
   describe_labels 0 lbls
 
+let effect_constructor_descrs eff_path ecs =
+  let rec describe_constructors pos = function
+    | [] -> []
+    | {ec_id; ec_args; ec_res; ec_loc; ec_attributes} :: rem ->
+        let existentials =
+          match ec_res with
+          | None -> []
+          | Some res ->
+              let res_vars = free_vars res in
+              let arg_vars = free_vars (newgenty (Ttuple ec_args)) in
+              TypeSet.elements (TypeSet.diff arg_vars res_vars)
+        in
+        let ecstr =
+          { ecstr_name = Ident.name ec_id;
+            ecstr_eff_path = eff_path;
+            ecstr_res = ec_res;
+            ecstr_existentials = existentials;
+            ecstr_args = ec_args;
+            ecstr_pos = pos;
+            ecstr_loc = ec_loc;
+            ecstr_attributes = ec_attributes;
+          }
+        in
+        let rem = describe_constructors (pos + 1) rem in
+        (ec_id, ecstr) :: rem
+  in
+    describe_constructors 0 ecs
+
 exception Constr_not_found
 
 let rec find_constr tag num_const num_nonconst = function

@@ -27,6 +27,7 @@ type error =
   | Recursive_abbrev of string
   | Cycle_in_def of string * type_expr
   | Definition_mismatch of type_expr * Includecore.type_mismatch list
+  | Effect_definition_mismatch of Path.t * Includecore.effect_mismatch list
   | Constraint_failed of type_expr * type_expr
   | Inconsistent_constraint of Env.t * (type_expr * type_expr) list
   | Type_clash of Env.t * (type_expr * type_expr) list
@@ -42,9 +43,12 @@ type error =
   | Rebind_private of Longident.t
   | Bad_variance of int * (bool * bool * bool) * (bool * bool * bool)
   | Unavailable_type_constructor of Path.t
+  | Unavailable_effect of Path.t
   | Bad_fixed_type of string
   | Unbound_type_var_ext of type_expr * extension_constructor
+  | Unbound_type_var_eff of type_expr * effect_declaration
   | Varying_anonymous
+  | Not_allowed_in_functor_body
 
 open Typedtree
 
@@ -149,7 +153,7 @@ let make_params env params =
   in
     List.map make_param params
 
-let make_constructor env type_path type_params sargs sret_type =
+let make_constructor env typ sargs sret_type =
   match sret_type with
   | None ->
       let targs = List.map (transl_simple_type env true) sargs in
@@ -165,34 +169,18 @@ let make_constructor env type_path type_params sargs sret_type =
       let tret_type = transl_simple_type env false sret_type in
       let ret_type = tret_type.ctyp_type in
       begin
-        match (Ctype.repr ret_type).desc with
-          Tconstr (p', _, _, _) when Path.same type_path p' -> ()
-        | _ ->
-            let constr = Ctype.newconstr type_path type_params Stype in
-            raise (Error (sret_type.ptyp_loc,
-                          Constraint_failed (ret_type, constr)))
+        match typ with
+        | None -> ()
+        | Some(type_path, type_params) ->
+            match (Ctype.repr ret_type).desc with
+            | Tconstr (p', _, _, _) when Path.same type_path p' -> ()
+            | _ ->
+                let constr = Ctype.newconstr type_path type_params Stype in
+                  raise (Error (sret_type.ptyp_loc,
+                                Constraint_failed (ret_type, constr)))
       end;
       widen z;
       targs, Some tret_type, args, Some ret_type
-
-let make_effect_constructor env type_param sargs sret =
-  let type_path = Predef.path_eff in
-  let type_lid = Location.mknoloc (Longident.Lident "eff") in
-  let z = narrow () in
-  reset_type_variables ();
-  let targs = List.map (transl_simple_type env false) sargs in
-  let args = List.map (fun cty -> cty.ctyp_type) targs in
-  let tret = transl_simple_type env false sret in
-  Ctype.unify_var env (Ctype.instance env type_param) tret.ctyp_type;
-  let ret_type = Ctype.newconstr type_path [tret.ctyp_type] Stype in
-  let tret_type =
-    { ctyp_desc = Ttyp_constr (type_path, type_lid, targs);
-      ctyp_type = ret_type; ctyp_env = env;
-      ctyp_loc = {sret.ptyp_loc with Location.loc_ghost = true};
-      ctyp_attributes = [] }
-  in
-  widen z;
-  targs, Some tret_type, args, Some ret_type
 
 let transl_declaration env sdecl id =
   (* Bind type parameters *)
@@ -227,7 +215,7 @@ let transl_declaration env sdecl id =
         let make_cstr scstr =
           let name = Ident.create scstr.pcd_name.txt in
           let targs, tret_type, args, ret_type =
-            make_constructor env (Path.Pident id) params
+            make_constructor env (Some(Path.Pident id, params))
                              scstr.pcd_args scstr.pcd_res
           in
           let tcstr =
@@ -366,6 +354,16 @@ let generalize_decl decl =
   | None    -> ()
   | Some ty -> Ctype.generalize ty
   end
+
+let generalize_effect_decl eff =
+  match eff.Types.eff_kind with
+  | Eff_abstract -> ()
+  | Eff_variant ecs ->
+      List.iter
+        (fun ec ->
+          List.iter Ctype.generalize ec.Types.ec_args;
+          may Ctype.generalize ec.Types.ec_res)
+        ecs
 
 (* Check that all constraints are enforced *)
 
@@ -1220,7 +1218,7 @@ let transl_extension_constructor env type_path type_sort type_params
     match sext.pext_kind with
       Pext_decl(sargs, sret_type) ->
         let targs, tret_type, args, ret_type =
-          make_constructor env type_path typext_params sargs sret_type
+          make_constructor env (Some(type_path, typext_params)) sargs sret_type
         in
           args, ret_type, Text_decl(targs, tret_type)
     | Pext_rebind lid ->
@@ -1353,58 +1351,102 @@ let transl_exception env sext =
   let newenv = Env.add_extension ~check:true ext.ext_id ext.ext_type env in
     ext, newenv
 
-(* Translate an effect declaration *)
-let transl_effect env seff =
-  reset_type_variables();
-  Ctype.begin_def();
-  let type_decl = Env.find_type Predef.path_eff env in
-  let type_param =
-    match type_decl.type_params with
-    | [type_param] -> type_param
-    | _ -> assert false
-  in
-  let typext_param = Ctype.new_global_var (Btype.type_sort type_param) in
-  let id = Ident.create seff.peff_name.txt in
-  let args, ret_type, kind =
-    match seff.peff_kind with
-    | Peff_decl(sargs, sret) ->
-        let targs, tret_type, args, ret_type =
-          make_effect_constructor env type_param sargs sret
+let check_effect_coherence env loc id eff =
+  match eff with
+  | { Types.eff_kind = Eff_variant _; eff_manifest = Some path } -> begin
+      try
+        let eff' = Env.find_effect path env in
+        let err =
+          Includecore.effect_declarations env
+            (Path.last path) eff' id
+            (Subst.effect_declaration
+               (Subst.add_effect id path Subst.identity) eff)
         in
-          args, ret_type, Text_decl(targs, tret_type)
-    | Peff_rebind lid ->
-        transl_extension_rebind env Predef.path_eff type_decl.type_sort
-          type_decl.type_params [typext_param] Asttypes.Public lid
+        if err <> [] then
+          raise(Error(loc, Effect_definition_mismatch (path, err)))
+      with Not_found ->
+        raise(Error(loc, Unavailable_effect path))
+    end
+  | _ -> ()
+
+(* Translate an effect declaration *)
+let transl_effect_decl env funct_body seff =
+  reset_type_variables();
+  Ctype.begin_def ();
+  let (tkind, kind) =
+    match seff.peff_kind with
+      | Peff_abstract -> Teff_abstract, Eff_abstract
+      | Peff_variant secs ->
+        if funct_body && seff.peff_manifest = None then
+          raise (Error (seff.peff_loc, Not_allowed_in_functor_body));
+        if secs = [] then
+          Syntaxerr.ill_formed_ast seff.peff_loc
+            "Variant types cannot be empty.";
+        let all_constrs = ref StringSet.empty in
+        List.iter
+          (fun {pec_name = {txt = name}} ->
+            if StringSet.mem name !all_constrs then
+              raise(Error(seff.peff_loc, Duplicate_constructor name));
+            all_constrs := StringSet.add name !all_constrs)
+          secs;
+        let make_cstr sec =
+          let name = Ident.create sec.pec_name.txt in
+          let targs, tret_type, args, ret_type =
+            make_constructor env None sec.pec_args sec.pec_res
+          in
+          let tec =
+            { ec_id = name;
+              ec_name = sec.pec_name;
+              ec_args = targs;
+              ec_res = tret_type;
+              ec_loc = sec.pec_loc;
+              ec_attributes = sec.pec_attributes }
+          in
+          let ec =
+            { Types.ec_id = name;
+              ec_args = args;
+              ec_res = ret_type;
+              ec_loc = sec.pec_loc;
+              ec_attributes = sec.pec_attributes }
+          in
+            tec, ec
+        in
+        let tecs, ecs = List.split (List.map make_cstr secs) in
+          Teff_variant tecs, Eff_variant ecs
   in
-  let ext =
-    { ext_type_path = Predef.path_eff;
-      ext_type_params = [typext_param];
-      ext_args = args;
-      ext_ret_type = ret_type;
-      ext_private = Asttypes.Public;
-      Types.ext_loc = seff.peff_loc;
-      Types.ext_attributes = seff.peff_attributes; }
+  let (tman, man) =
+    match seff.peff_manifest with
+    | None -> None, None
+    | Some lid ->
+        let p, _ = find_effect env lid.loc lid.txt in
+        Some(lid, p), Some p
   in
-  let text =
-    { ext_id = id;
-      ext_name = seff.peff_name;
-      ext_type = ext;
-      ext_kind = kind;
-      Typedtree.ext_loc = seff.peff_loc;
-      Typedtree.ext_attributes = seff.peff_attributes; }
+  let eff =
+    { Types.eff_kind = kind;
+      eff_manifest = man;
+      eff_loc = seff.peff_loc;
+      eff_attributes = seff.peff_attributes; }
+  in
+  let id, newenv = Env.enter_effect seff.peff_name.txt eff env in
+  let teff =
+    { Typedtree.eff_id = id;
+      eff_name = seff.peff_name;
+      eff_type = eff;
+      eff_loc = seff.peff_loc;
+      eff_manifest = tman;
+      eff_kind = tkind;
+      eff_attributes = seff.peff_attributes; }
   in
   Ctype.end_def();
-  (* Generalize types *)
-  List.iter Ctype.generalize ext.ext_args;
-  may Ctype.generalize ext.ext_ret_type;
+  generalize_effect_decl eff;
   (* Check that all type variable are closed *)
-  begin match Ctype.closed_extension_constructor ext with
-    Some ty ->
-      raise (Error(ext.ext_loc, Unbound_type_var_ext(ty, ext)))
-  | None -> ()
+  begin match Ctype.closed_effect_decl eff with
+  | Some ty -> raise(Error(seff.peff_loc, Unbound_type_var_eff(ty, eff)))
+  | None   -> ()
   end;
-  let newenv = Env.add_extension ~check:true text.ext_id ext env in
-    text, newenv
+  (* Check re-exportation *)
+  check_effect_coherence newenv seff.peff_loc id eff;
+  (teff, newenv)
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
@@ -1553,6 +1595,22 @@ let approx_type_decl env sdecl_list =
        abstract_type_decl (List.length sdecl.ptype_params)))
     sdecl_list
 
+(* Approximate a type declaration: just make all types abstract *)
+
+let approx_effect_decl =
+  { eff_kind = Eff_abstract;
+    eff_manifest = None;
+    eff_loc = Location.none;
+    eff_attributes = []; }
+
+let approx_type_decl env sdecl_list =
+  List.map
+    (fun sdecl ->
+      (Ident.create sdecl.ptype_name.txt,
+       abstract_type_decl (List.length sdecl.ptype_params)))
+    sdecl_list
+
+
 (* Variant of check_abbrev_recursion to check the well-formedness
    conditions on type abbreviations defined within recursive modules. *)
 
@@ -1625,6 +1683,12 @@ let report_error ppf = function
         Printtyp.type_expr ty
         (Includecore.report_type_mismatch "the original" "this" "definition")
         errs
+  | Effect_definition_mismatch (p, errs) ->
+      fprintf ppf "@[<v>@[<hov>%s@ %s@;<1 2>%a@]%a@]"
+        "This effect definition" "does not match that of effect"
+        Printtyp.path p
+        (Includecore.report_effect_mismatch "the original" "this" "definition")
+        errs
   | Constraint_failed (ty, ty') ->
       Printtyp.reset_and_mark_loops ty;
       Printtyp.mark_loops ty';
@@ -1672,6 +1736,16 @@ let report_error ppf = function
   | Unbound_type_var_ext (ty, ext) ->
       fprintf ppf "A type variable is unbound in this extension constructor";
       explain_unbound ppf ty ext.ext_args (fun c -> c) "type" (fun _ -> "")
+  | Unbound_type_var_eff (ty, eff) ->
+      fprintf ppf "A type variable is unbound in this effect declaration";
+      let ty = Ctype.repr ty in
+      begin match eff.eff_kind with
+      | Eff_variant ecs ->
+          explain_unbound ppf ty ecs (fun ec ->
+            Btype.newgenty (Ttuple ec.Types.ec_args))
+            "case" (fun ec -> Ident.name ec.Types.ec_id ^ " of ")
+      | _ -> ()
+      end
   | Not_open_type path ->
       fprintf ppf "@[%s@ %a@]"
         "Cannot extend type definition"
@@ -1746,13 +1820,18 @@ let report_error ppf = function
           (variance v2) (variance v1)
   | Unavailable_type_constructor p ->
       fprintf ppf "The definition of type %a@ is unavailable" Printtyp.path p
+  | Unavailable_effect p ->
+      fprintf ppf "The definition of effect %a@ is unavailable" Printtyp.path p
   | Bad_fixed_type r ->
       fprintf ppf "This fixed type %s" r
   | Varying_anonymous ->
       fprintf ppf "@[%s@ %s@ %s@]"
         "In this GADT definition," "the variance of some parameter"
         "cannot be checked"
-
+  | Not_allowed_in_functor_body ->
+      fprintf ppf
+        "@[This definition creates fresh effect constructors.@ %s@]"
+        "It is not allowed inside applicative functors."
 let () =
   Location.register_error_of_exn
     (function

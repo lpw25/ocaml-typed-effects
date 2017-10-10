@@ -75,6 +75,22 @@ let transl_type_extension env rootpath tyext body =
     tyext.tyext_constructors
     body
 
+let transl_effect_constructor _ec =
+  Lprim(prim_set_oo_id,
+        [Lprim(Pmakeblock(Obj.object_tag, Mutable),
+               [lambda_unit;
+                Lconst(Const_base(Const_int 0))])])
+
+let transl_effect_declaration env eff =
+  match eff.eff_manifest with
+  | Some (_, path) -> transl_path ~loc:eff.eff_loc env path
+  | None ->
+      match eff.eff_kind with
+      | Teff_abstract -> lambda_unit
+      | Teff_variant ecs ->
+          Lprim(Pmakeblock(0, Immutable),
+                List.map transl_effect_constructor ecs)
+
 (* Compile a coercion *)
 
 let rec apply_coercion strict restr arg =
@@ -219,6 +235,8 @@ let init_shape modl =
         init_shape_struct (Env.add_type ~check:false id tdecl env) rem
     | Sig_typext(id, ext, _) :: rem ->
         raise Not_found
+    | Sig_effect _ :: rem ->
+        raise Not_found
     | Sig_module(id, md, _) :: rem ->
         init_shape_mod env md.md_type ::
         init_shape_struct (Env.add_module_declaration id md env) rem
@@ -319,6 +337,7 @@ let rec bound_value_identifiers = function
   | Sig_value(id, {val_kind = Val_reg}) :: rem ->
       id :: bound_value_identifiers rem
   | Sig_typext(id, ext, _) :: rem -> id :: bound_value_identifiers rem
+  | Sig_effect(id, eff) :: rem -> id :: bound_value_identifiers rem
   | Sig_module(id, mty, _) :: rem -> id :: bound_value_identifiers rem
   | Sig_class(id, decl, _) :: rem -> id :: bound_value_identifiers rem
   | _ :: rem -> bound_value_identifiers rem
@@ -416,10 +435,9 @@ and transl_structure fields cc rootpath = function
       let path = field_path rootpath id in
       Llet(Strict, id, transl_extension_constructor item.str_env path ext,
            transl_structure (id :: fields) cc rootpath rem)
-  | Tstr_effect ext ->
-      let id = ext.ext_id in
-      let path = field_path rootpath id in
-      Llet(Strict, id, transl_extension_constructor item.str_env path ext,
+  | Tstr_effect eff ->
+      let id = eff.eff_id in
+      Llet(Strict, id, transl_effect_declaration item.str_env eff,
            transl_structure (id :: fields) cc rootpath rem)
   | Tstr_module mb ->
       let id = mb.mb_id in
@@ -500,7 +518,7 @@ let rec defined_idents = function
       List.map (fun ext -> ext.ext_id) tyext.tyext_constructors
       @ defined_idents rem
     | Tstr_exception ext -> ext.ext_id :: defined_idents rem
-    | Tstr_effect ext -> ext.ext_id :: defined_idents rem
+    | Tstr_effect eff -> eff.eff_id :: defined_idents rem
     | Tstr_module mb -> mb.mb_id :: defined_idents rem
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ defined_idents rem
@@ -512,6 +530,9 @@ let rec defined_idents = function
     | Tstr_include incl ->
       bound_value_identifiers incl.incl_type @ defined_idents rem
     | Tstr_attribute _ -> defined_idents rem
+
+let effect_constructor_idents ecs =
+  List.map (fun ec -> ec.ec_id) ecs
 
 (* second level idents (module M = struct ... let id = ... end),
    and all sub-levels idents *)
@@ -525,6 +546,8 @@ let rec more_idents = function
     | Tstr_type decls -> more_idents rem
     | Tstr_typext tyext -> more_idents rem
     | Tstr_exception _ -> more_idents rem
+    | Tstr_effect {eff_kind = Teff_variant ecs; eff_manifest = None} ->
+        effect_constructor_idents ecs @ more_idents rem
     | Tstr_effect _ -> more_idents rem
     | Tstr_recmodule decls -> more_idents rem
     | Tstr_modtype _ -> more_idents rem
@@ -550,7 +573,9 @@ and all_idents = function
       List.map (fun ext -> ext.ext_id) tyext.tyext_constructors
       @ all_idents rem
     | Tstr_exception ext -> ext.ext_id :: all_idents rem
-    | Tstr_effect ext -> ext.ext_id :: all_idents rem
+    | Tstr_effect {eff_id; eff_kind = Teff_variant ecs; eff_manifest = None} ->
+        eff_id :: effect_constructor_idents ecs @ more_idents rem
+    | Tstr_effect eff -> eff.eff_id :: all_idents rem
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ all_idents rem
     | Tstr_modtype _ -> all_idents rem
@@ -619,10 +644,20 @@ let transl_store_structure glob map prims str =
       let lam = transl_extension_constructor item.str_env path ext in
       Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                 transl_store rootpath (add_ident false id subst) rem)
-  | Tstr_effect ext ->
-      let id = ext.ext_id in
-      let path = field_path rootpath id in
-      let lam = transl_extension_constructor item.str_env path ext in
+  | Tstr_effect {eff_id; eff_kind = Teff_variant ecs; eff_manifest = None} ->
+      let lam = transl_effect_declaration_store subst ecs in
+      let subst = !transl_store_subst in
+        Lsequence(lam,
+         Lsequence(Llet(Strict, eff_id,
+                        subst_lambda subst
+                        (Lprim(Pmakeblock(0, Immutable),
+                               List.map (fun id -> Lvar id)
+                                        (effect_constructor_idents ecs))),
+                        store_ident eff_id),
+                   transl_store rootpath (add_ident false eff_id subst) rem))
+  | Tstr_effect eff ->
+      let id = eff.eff_id in
+      let lam = transl_effect_declaration item.str_env eff in
       Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
                 transl_store rootpath (add_ident false id subst) rem)
   | Tstr_module{mb_id=id; mb_expr={mod_desc = Tmod_structure str}} ->
@@ -688,6 +723,17 @@ let transl_store_structure glob map prims str =
   | Tstr_class_type _
   | Tstr_attribute _ ->
       transl_store rootpath subst rem
+
+  and transl_effect_declaration_store subst ecs =
+    match ecs with
+    | [] ->
+        transl_store_subst := subst;
+        lambda_unit
+    | ec :: rem ->
+        let id = ec.ec_id in
+        let lam = transl_effect_constructor ec in
+          Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
+                    transl_effect_declaration_store (add_ident false id subst) ecs)
 
   and store_ident id =
     try
@@ -842,9 +888,9 @@ let transl_toplevel_item item =
   | Tstr_exception ext ->
       toploop_setvalue ext.ext_id
         (transl_extension_constructor item.str_env None ext)
-  | Tstr_effect ext ->
-      toploop_setvalue ext.ext_id
-        (transl_extension_constructor item.str_env None ext)
+  | Tstr_effect eff ->
+      toploop_setvalue eff.eff_id
+        (transl_effect_declaration item.str_env eff)
   | Tstr_module {mb_id=id; mb_expr=modl} ->
       (* we need to use the unique name for the module because of issues
          with "open" (PR#1672) *)
