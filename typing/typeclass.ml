@@ -1513,7 +1513,7 @@ let final_decl env define_class
     raise(Error(cl.pci_loc, env, Non_generalizable_class (id, clty)));
 
   begin match
-    Ctype.closed_class clty.cty_params
+    Ctype.closed_class env clty.cty_params
       (Ctype.signature_of_class_type clty.cty_type)
   with
     None        -> ()

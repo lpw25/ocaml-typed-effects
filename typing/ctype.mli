@@ -143,6 +143,12 @@ val apply:
         the parameters [pi] and returns the corresponding instance of
         [t]. Exception [Cannot_apply] is raised in case of failure. *)
 
+val open_effects_covariant : Env.t -> type_expr -> type_expr
+val open_effects_contravariant : Env.t -> type_expr -> type_expr
+
+val close_effects_covariant : Env.t -> type_expr -> unit
+val close_effects_contravariant : Env.t -> type_expr -> unit
+
 val expand_head_once: Env.t -> type_expr -> type_expr
 val expand_head: Env.t -> type_expr -> type_expr
 val try_expand_once_opt: Env.t -> type_expr -> type_expr
@@ -264,7 +270,8 @@ type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr
   | CC_Value of type_expr * bool * string * type_expr
 val closed_class:
-        type_expr list -> class_signature -> closed_class_failure option
+        Env.t -> type_expr list -> class_signature ->
+        closed_class_failure option
         (* Check whether all type variables are bound *)
 
 val unalias: type_expr -> type_expr

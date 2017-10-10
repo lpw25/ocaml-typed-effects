@@ -317,10 +317,10 @@ let diff_effects env effs1 effs2  =
   in
   remove_common effs1 [] effs2
 
-let build_effects level =
+let build_effects level effs rest =
   List.fold_right
     (fun ec ty -> newty2 level (Teffect(ec, ty)))
-
+    effs rest
 
                   (**********************************************)
                   (*  Miscellaneous operations on object types  *)
@@ -652,18 +652,53 @@ let closed_extension_constructor ext =
     unmark_extension_constructor ext;
     Some ty
 
-(* TODO: remove this hack once leijnization is implemented *)
-let close_type ty =
+let is_evar ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tvar(_, Seffect) -> true
+  | _ -> false
+
+let rec mem_close_pure_visited ty pure = function
+  | [] -> false
+  | (ty', pure') :: rest ->
+      if ty == ty' && pure = pure' then true
+      else mem_close_pure_visited ty pure rest
+
+let rec close_pure_evars env visited evars pure ty =
+  let ty = repr ty in
+  if mem_close_pure_visited ty pure !visited then ()
+  else begin
+    visited := (ty, pure) :: !visited;
+    match ty.desc with
+    | Tvar(_, Seffect) ->
+        if pure && List.memq ty evars then begin
+          link_type ty (newty2 ty.level Tenil)
+        end
+    | Teffect(ec, ty) ->
+        if equal_effect env Placeholder ec then
+          close_pure_evars env visited evars true ty
+        else
+          close_pure_evars env visited evars pure ty
+    | _    ->
+        iter_type_expr (close_pure_evars env visited evars pure) ty
+  end
+
+(* TODO: Can we do better than this hack? *)
+let close_type env ty =
+  let vars = free_vars ty in
+  let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
+  if List.length evars > 0 then
+    close_pure_evars env (ref []) (List.map fst evars) false ty;
   List.iter
-    (fun (v, real) ->
-      match v.desc with
-      | Tvar(_, Seffect) ->
-          let eff =
-            newty2 v.level (Teffect(Placeholder, newty2 v.level Tenil))
-          in
-            link_type v eff
-      | _ -> raise (Non_closed (v, real)))
-    (free_vars ty)
+    (fun (v, _) ->
+      if is_evar v then begin
+        let eff =
+          newty2 v.level (Teffect(Placeholder, newty2 v.level Tenil))
+        in
+          link_type v eff
+      end)
+    evars;
+  List.iter (fun (v, real) -> raise (Non_closed (v, real))) others
 
 type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr
@@ -671,7 +706,7 @@ type closed_class_failure =
 
 exception Failure of closed_class_failure
 
-let closed_class params sign =
+let closed_class env params sign =
   let ty = object_fields (repr sign.csig_self) in
   let (fields, rest) = flatten_fields ty in
   List.iter mark_type params;
@@ -684,7 +719,7 @@ let closed_class params sign =
     List.iter
       (fun (lab, kind, ty) ->
         if field_kind_repr kind = Fpresent then
-        try close_type ty with Non_closed (ty0, real) ->
+        try close_type env ty with Non_closed (ty0, real) ->
           raise (Failure (CC_Method (ty0, real, lab, ty))))
       fields;
     mark_type_params (repr sign.csig_self);
@@ -756,6 +791,8 @@ let rec generalize_structure var_level ty =
   let ty = repr ty in
   if ty.level <> generic_level then begin
     if is_Tvar ty && ty.level > var_level then
+      set_level ty var_level
+    else if is_Tenil ty && ty.level > var_level then
       set_level ty var_level
     else if
       ty.level > !current_level &&
@@ -4037,6 +4074,222 @@ let enlarge_type env ty =
   (* [level = 4] allows 2 expansions involving objects/variants *)
   let (ty', _) = build_subtype env [] [] true 4 ty in
   (ty', !warn)
+
+type effect_change =
+  | Unchanged
+  | Equiv of int
+  | Changed
+
+let max_effect_change res1 res2 =
+  match res1, res2 with
+  | Unchanged, Unchanged -> Unchanged
+  | (Equiv _ | Changed), Unchanged -> res1
+  | Unchanged, (Equiv _ | Changed) -> res2
+  | Equiv depth1, Equiv depth2 ->
+      if depth1 <= depth2 then res1
+      else res2
+  | Changed, Equiv _ -> Changed
+  | Equiv _, Changed -> Changed
+  | Changed, Changed -> Changed
+
+let unchanged depth change =
+  match change with
+  | Unchanged -> true
+  | Equiv depth' when depth' >= depth -> true
+  | Equiv _ | Changed -> false
+
+let collect_effect_change l =
+  List.fold_left (fun c1 (_, c2) -> max_effect_change c1 c2) Unchanged l
+
+let rec find_open_visited ty ((co, cn) as vari) = function
+  | [] -> raise Not_found
+  | (ty', (co', cn'), stub, depth) :: rest ->
+      if ty == ty' && co = co' && cn = cn' then (stub, Equiv depth)
+      else find_open_visited ty vari rest
+
+let rec open_effects env depth visited vari ty =
+  let (co, cn) = vari in
+  let ty = repr ty in
+  if ty.level <> generic_level then ty, Unchanged
+  else if ((not co) && (not cn)) then ty, Unchanged
+  else try
+    find_open_visited ty vari visited
+  with Not_found ->
+    match ty.desc with
+    | Tenil ->
+        if co && not cn then (newgenvar Seffect, Changed)
+        else (ty, Unchanged)
+    | Tvar _ | Tnil | Tunivar _ | Tpackage _ -> (ty, Unchanged)
+    | Tconstr(p, _, _, _)
+          when generic_abbrev env p && safe_abbrev env ty ->
+        let t = expand_abbrev env ty in
+        let (t', change) = open_effects env (depth + 1) visited vari t in
+        if change = Unchanged then (ty, Unchanged)
+        else (t', change)
+    | Tconstr (path, tl, sort, abbrev) ->
+        let stub = newgenvar sort in
+        let visited = (ty, vari, stub, depth) :: visited in
+        let variance =
+          try (Env.find_type path env).type_variance
+          with Not_found -> List.map (fun _ -> Variance.may_inv) tl
+        in
+        let changes =
+          List.map2
+            (fun v t ->
+              let cco, ccn = Variance.get_upper v in
+              let co = (cco && co) || (ccn && cn)
+              and cn = (cco && cn) || (ccn && co) in
+              open_effects env (depth + 1) visited (co, cn) t)
+            variance tl
+        in
+        let change = collect_effect_change changes in
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          stub.desc <- Tconstr(path, List.map fst changes, sort, ref Mnil);
+          (stub, change)
+        end
+    | Tarrow (l, t1, t2, t3, com) ->
+        let stub = newgenvar Stype in
+        let visited = (ty, vari, stub, depth) :: visited in
+        let t1', c1 = open_effects env (depth + 1) visited (cn, co) t1 in
+        let t2', c2 = open_effects env (depth + 1) visited vari t2 in
+        let t3', c3 = open_effects env (depth + 1) visited vari t3 in
+        let change = max_effect_change c1 (max_effect_change c2 c3) in
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          stub.desc <- Tarrow(l, t1', t2', t3', com);
+          (stub, change)
+        end
+    | Ttuple tl ->
+        let stub = newgenvar Stype in
+        let visited = (ty, vari, stub, depth) :: visited in
+        let changes =
+          List.map
+            (open_effects env (depth + 1) visited vari)
+            tl
+        in
+        let change = collect_effect_change changes in
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          stub.desc <- Ttuple (List.map fst changes);
+          (stub, change)
+        end
+    | Tobject(t, _) ->
+        let stub = newgenvar Stype in
+        let visited = (ty, vari, stub, depth) :: visited in
+        let t', change = open_effects env (depth + 1) visited vari t in
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          stub.desc <- Tobject(t', ref None);
+          (stub, change)
+        end
+    | Tvariant row ->
+        let stub = newgenvar Stype in
+        let visited = (ty, vari, stub, depth) :: visited in
+        let row = row_repr row in
+        let fields = filter_row_fields false row.row_fields in
+        let fields =
+          List.map
+            (fun (l,f as orig) ->
+              match row_field_repr f with
+              | Rpresent None -> orig, Unchanged
+              | Rpresent (Some t) ->
+                let (t', c) = open_effects env (depth + 1) visited vari t in
+                  (l, Rpresent(Some t')), c
+              | Reither _ ->
+                  (* Cannot change types underneath a presence variable.*)
+                  orig, Unchanged
+              | Rabsent -> assert false)
+            fields
+        in
+        let change = collect_effect_change fields in
+        if unchanged depth change then (ty, Unchanged)
+        else begin
+          let row' =
+            { row with row_fields = List.map fst fields; row_name = None }
+          in
+          stub.desc <- Tvariant row';
+          (stub, change)
+        end
+    | Tfield(p, k, t1, t2) ->
+        let t1', c1 = open_effects env depth visited vari t1 in
+        let t2', c2 = open_effects env depth visited vari t2 in
+        let change = max_effect_change c1 c2 in
+        if change = Unchanged then (ty, Unchanged)
+        else (newgenty (Tfield(p, k, t1', t2')), change)
+    | Tpoly(t, tl) ->
+        let t', change = open_effects env depth visited vari t in
+        if change = Unchanged then (ty, Unchanged)
+        else (newgenty (Tpoly(t', tl)), change)
+    | Teffect(ec, t) ->
+        let t', change = open_effects env depth visited vari t in
+        if change = Unchanged then (ty, Unchanged)
+        else (newgenty (Teffect(ec, t')), change)
+    | Tlink _ | Tsubst _ -> assert false
+
+let open_effects_covariant env ty =
+  fst (open_effects env 0 [] (true, false) ty)
+
+let open_effects_contravariant env ty =
+  fst (open_effects env 0 [] (false, true) ty)
+
+let rec mem_close_visited ty ((co, cn) as vari) = function
+  | [] -> false
+  | (ty', (co', cn')) :: rest ->
+      if ty == ty' && co = co' && cn = cn' then true
+      else mem_close_visited ty vari rest
+
+let rec iter_close_effects env evars visited vari ty =
+  let (co, cn) = vari in
+  let ty = repr ty in
+  if ty.level = generic_level then begin
+    if mem_close_visited ty vari !visited then ()
+    else begin
+      visited := (ty, vari) :: !visited;
+      match ty.desc with
+      | Tvar(_, Seffect) ->
+          if cn then mark_type ty;
+          evars := ty :: !evars
+      | Tconstr (path, tl, _, _) ->
+           let variance =
+             try (Env.find_type path env).type_variance
+             with Not_found -> List.map (fun _ -> Variance.may_inv) tl
+           in
+           List.iter2
+             (fun v t ->
+               let cco, ccn = Variance.get_upper v in
+               let co = (cco && co) || (ccn && cn)
+               and cn = (cco && cn) || (ccn && co) in
+                 iter_close_effects env evars visited (co, cn) t)
+             variance tl
+      | Tpackage _ -> ()
+      | Tarrow (_, t1, t2, t3, _) ->
+          iter_close_effects env evars visited (cn, co) t1;
+          iter_close_effects env evars visited vari t2;
+          iter_close_effects env evars visited vari t3
+      | _ ->
+          iter_type_expr (iter_close_effects env evars visited vari) ty
+    end
+  end
+
+let close_effects env vari ty =
+  let evars = ref [] in
+  let visited = ref [] in
+  iter_close_effects env evars visited vari ty;
+  List.iter
+    (fun ty ->
+      if ty.level >= lowest_level then begin
+        link_type ty (newgenty Tenil)
+      end)
+    !evars;
+  List.iter unmark_type !evars;
+  ()
+
+let close_effects_covariant env ty =
+  close_effects env (true, false) ty
+
+let close_effects_contravariant env ty =
+  close_effects env (false, true) ty
 
 (**** Check whether a type is a subtype of another type. ****)
 

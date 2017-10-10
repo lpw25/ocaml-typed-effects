@@ -61,6 +61,7 @@ let newmarkedgenvar () =
 
 let is_Tvar = function {desc=Tvar _} -> true | _ -> false
 let is_Tunivar = function {desc=Tunivar _} -> true | _ -> false
+let is_Tenil = function {desc=Tenil} -> true | _ -> false
 
 let dummy_method = "*dummy method*"
 let default_mty = function
@@ -236,8 +237,6 @@ let rec iter_row f row =
   | Tvar _ | Tunivar _ | Tsubst _ | Tconstr _ | Tnil ->
       Misc.may (fun (_,l) -> List.iter f l) row.row_name
   | _ -> assert false
-
-let iter_effect_type f eft = ()
 
 let iter_type_expr f ty =
   match ty.desc with

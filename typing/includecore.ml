@@ -22,7 +22,8 @@ open Typedtree
 exception Dont_match
 
 let value_descriptions env vd1 vd2 =
-  if Ctype.moregeneral env true vd1.val_type vd2.val_type then begin
+  let ty1 = Ctype.open_effects_covariant env vd1.val_type in
+  if Ctype.moregeneral env true ty1 vd2.val_type then begin
     match (vd1.val_kind, vd2.val_kind) with
         (Val_prim p1, Val_prim p2) ->
           if p1 = p2 then Tcoerce_none else raise Dont_match
