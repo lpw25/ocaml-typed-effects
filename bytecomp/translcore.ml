@@ -335,7 +335,7 @@ let find_primitive loc prim_name =
     | "%loc_LINE" -> Ploc Loc_LINE
     | "%loc_POS" -> Ploc Loc_POS
     | "%loc_MODULE" -> Ploc Loc_MODULE
-    | "%perform" -> Pperform loc 
+    | "%perform" -> Pperform loc
     | "%resume"-> Presume loc
     | name -> Hashtbl.find primitives_table name
 
@@ -869,7 +869,7 @@ and transl_exp0 e =
       if is_raise then
         Lprim(Praise Raise_notrace, [event_after e arg])
       else
-        Lprim(Pperform, [event_after e arg])
+        Lprim(Pperform e.exp_loc, [event_after e arg])
   | Texp_send(_, _, Some exp) -> transl_exp exp
   | Texp_send(expr, met, None) ->
       let obj = transl_exp expr in
@@ -1257,19 +1257,13 @@ and transl_handler e body val_caselist exn_caselist eff_caselist cont_caselist =
     | Lfunction _ -> true
     | _ -> false
   in
-  let is_pure = function
-    | Lconst _ -> true
-    | Lvar _ -> true
-    | Lfunction _ -> true
-    | _ -> false
-  in
   let (body_fun, arg) =
     match transl_exp body with
     | Lapply (fn, [arg], _) when is_pure fn && is_pure arg ->
        (fn, arg)
     | body ->
        let param = Ident.create "param" in
-       (Lfunction (Curried, [param], body), 
+       (Lfunction (Curried, [param], body),
         Lconst(Const_base(Const_int 0)))
   in
     Lprim(Presume e.exp_loc, [Lprim(prim_alloc_stack, [val_fun; exn_fun; eff_fun]);
