@@ -730,7 +730,7 @@ let transl_store_structure glob map prims str =
         let id = ec.ec_id in
         let lam = transl_effect_constructor ec in
           Lsequence(Llet(Strict, id, subst_lambda subst lam, store_ident id),
-                    transl_effect_declaration_store (add_ident false id subst) ecs)
+                    transl_effect_declaration_store (add_ident false id subst) rem)
 
   and store_ident id =
     try
