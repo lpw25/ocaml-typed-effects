@@ -45,7 +45,7 @@ type mapper = {
   effect_kind: mapper -> effect_kind -> effect_kind;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
-  effect_desc: mapper -> effect_desc -> effect_desc;
+  effect_row: mapper -> effect_row -> effect_row;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor
@@ -101,7 +101,7 @@ module T = struct
     | Ptyp_var(n, s) -> var ~loc ~attrs n s
     | Ptyp_arrow (lab, t1, e, t2) ->
         arrow ~loc ~attrs lab (sub.typ sub t1)
-              (map_opt (sub.effect_desc sub) e) (sub.typ sub t2)
+              (map_opt (sub.effect_row sub) e) (sub.typ sub t2)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
@@ -117,12 +117,12 @@ module T = struct
     | Ptyp_package (lid, l) ->
         package ~loc ~attrs (map_loc sub lid)
           (List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
-    | Ptyp_effect d -> effect_ (sub.effect_desc sub d)
+    | Ptyp_effect d -> effect_ (sub.effect_row sub d)
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
-  let map_effect_desc sub { pefd_effects; pefd_row } =
-    { pefd_effects = List.map (map_loc sub) pefd_effects;
-      pefd_row = Misc.may_map (sub.typ sub) pefd_row; }
+  let map_effect_row sub { pefr_effects; pefr_row } =
+    { pefr_effects = List.map (map_loc sub) pefr_effects;
+      pefr_row = Misc.may_map (sub.typ sub) pefr_row; }
 
   let map_type_declaration sub
       {ptype_name; ptype_params; ptype_cstrs;
@@ -556,7 +556,7 @@ let default_mapper =
     effect_declaration = Eff.map_declaration;
     effect_constructor = Eff.map_constructor;
     effect_kind = Eff.map_kind;
-    effect_desc = T.map_effect_desc;
+    effect_row = T.map_effect_row;
     value_description =
       (fun this {pval_name; pval_type; pval_prim; pval_loc;
                  pval_attributes} ->

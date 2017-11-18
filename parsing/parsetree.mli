@@ -108,7 +108,7 @@ and core_type_desc =
 
   | Ptyp_package of package_type
         (* (module S) *)
-  | Ptyp_effect of effect_desc
+  | Ptyp_effect of effect_row
   | Ptyp_extension of extension
         (* [%id] *)
 
@@ -135,12 +135,12 @@ and row_field =
   | Rinherit of core_type
         (* [ T ] *)
 
-and effect_type = effect_desc option
+and effect_type = effect_row option
 
-and effect_desc =
+and effect_row =
   {
-    pefd_effects : Longident.t loc list;
-    pefd_row : core_type option;
+    pefr_effects : Longident.t loc list;
+    pefr_row : core_type option;
   }
 
 (* Patterns *)

@@ -362,7 +362,7 @@ and core_type_desc =
   | Ttyp_variant of row_field list * closed_flag * label list option
   | Ttyp_poly of (string * effect_flag) list * core_type
   | Ttyp_package of package_type
-  | Ttyp_effect of effect_desc
+  | Ttyp_effect of effect_row
 
 and package_type = {
   pack_path : Path.t;
@@ -376,14 +376,14 @@ and row_field =
   | Tinherit of core_type
 
 and effect_type = {
-  eft_desc: effect_desc option;
+  eft_desc: effect_row option;
   eft_type: Types.type_expr;
 }
 
-and effect_desc = {
-  efd_effects : (Longident.t loc * Path.t) list;
-  efd_type: Types.type_expr;
-  efd_row : core_type option;
+and effect_row = {
+  efr_effects : (Longident.t loc * Path.t) list;
+  efr_type: Types.type_expr;
+  efr_row : core_type option;
 }
 
 and value_description =

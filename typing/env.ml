@@ -170,7 +170,7 @@ module EnvTbl =
 type type_descriptions =
     constructor_description list * label_description list
 
-type effect_description =
+type effect_constructors =
     effect_constructor_description list
 
 let in_signature_flag = 0x01
@@ -182,7 +182,7 @@ type t = {
   labels: label_description EnvTbl.t;
   types: (Path.t * (type_declaration * type_descriptions)) EnvTbl.t;
   effect_constrs: effect_constructor_description EnvTbl.t;
-  effects: (Path.t * (effect_declaration * effect_description)) EnvTbl.t;
+  effects: (Path.t * (effect_declaration * effect_constructors)) EnvTbl.t;
   modules: (Path.t * module_declaration) EnvTbl.t;
   modtypes: (Path.t * modtype_declaration) EnvTbl.t;
   components: (Path.t * module_components) EnvTbl.t;
@@ -211,7 +211,7 @@ and structure_components = {
   mutable comp_effect_constrs:
    (string, (effect_constructor_description * int)) Tbl.t;
   mutable comp_effects:
-   (string, ((effect_declaration * effect_description) * int)) Tbl.t;
+   (string, ((effect_declaration * effect_constructors) * int)) Tbl.t;
   mutable comp_modules:
    (string, ((Subst.t * Types.module_type,module_type) EnvLazy.t * int)) Tbl.t;
   mutable comp_modtypes: (string, (modtype_declaration * int)) Tbl.t;

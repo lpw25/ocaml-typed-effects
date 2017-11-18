@@ -37,7 +37,7 @@ val diff: t -> t -> Ident.t list
 type type_descriptions =
     constructor_description list * label_description list
 
-type effect_description =
+type effect_constructors =
     effect_constructor_description list
 
 (* For short-paths *)
@@ -56,7 +56,7 @@ val find_value: Path.t -> t -> value_description
 val find_type: Path.t -> t -> type_declaration
 val find_type_descrs: Path.t -> t -> type_descriptions
 val find_effect: Path.t -> t -> effect_declaration
-val find_effect_descrs: Path.t -> t -> effect_description
+val find_effect_descrs: Path.t -> t -> effect_constructors
 val find_module: Path.t -> t -> module_declaration
 val find_modtype: Path.t -> t -> modtype_declaration
 val find_class: Path.t -> t -> class_declaration
@@ -257,7 +257,7 @@ val fold_labels:
   Longident.t option -> t -> 'a -> 'a
 
 val fold_effects:
-  (string -> Path.t -> effect_declaration * effect_description -> 'a -> 'a) ->
+  (string -> Path.t -> effect_declaration * effect_constructors -> 'a -> 'a) ->
   Longident.t option -> t -> 'a -> 'a
 
 val fold_effect_constructors:

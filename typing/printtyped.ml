@@ -202,24 +202,24 @@ let rec core_type i ppf x =
   | Ttyp_package { pack_path = s; pack_fields = l } ->
       line i ppf "Ptyp_package %a\n" fmt_path s;
       list i package_with ppf l;
-  | Ttyp_effect efd ->
+  | Ttyp_effect efr ->
       line i ppf "Ptyp_effect\n";
-      effect_desc i ppf efd
+      effect_row i ppf efr
 
 and package_with i ppf (s, t) =
   line i ppf "with type %a\n" fmt_longident s;
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_desc ppf x.eft_desc
+  option i effect_row ppf x.eft_desc
 
-and effect_desc i ppf x =
-  line i ppf "effect_desc\n";
+and effect_row i ppf x =
+  line i ppf "effect_row\n";
   let i = i+1 in
-  line i ppf "peft_constrs =\n";
-  list (i+1) longident_x_path ppf x.efd_effects;
-  line i ppf "peft_row =\n";
-  option (i+1) core_type ppf x.efd_row
+  line i ppf "pefr_constrs =\n";
+  list (i+1) longident_x_path ppf x.efr_effects;
+  line i ppf "pefr_row =\n";
+  option (i+1) core_type ppf x.efr_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;

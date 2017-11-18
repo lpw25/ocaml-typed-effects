@@ -46,7 +46,7 @@ let rec add_type bv ty =
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
   | Ptyp_arrow(_, t1, eft, t2) ->
-      add_type bv t1; add_opt add_effect_desc bv eft; add_type bv t2
+      add_type bv t1; add_opt add_effect_row bv eft; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) -> List.iter (fun (_, _, t) -> add_type bv t) fl
@@ -59,16 +59,16 @@ let rec add_type bv ty =
         fl
   | Ptyp_poly(_, t) -> add_type bv t
   | Ptyp_package pt -> add_package_type bv pt
-  | Ptyp_effect efd -> add_effect_desc bv efd
+  | Ptyp_effect efd -> add_effect_row bv efd
   | Ptyp_extension _ -> ()
 
 and add_package_type bv (lid, l) =
   add bv lid;
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
 
-and add_effect_desc bv efd =
-  List.iter (add bv) efd.pefd_effects;
-  add_opt add_type bv efd.pefd_row
+and add_effect_row bv efd =
+  List.iter (add bv) efd.pefr_effects;
+  add_opt add_type bv efd.pefr_row
 
 let add_constructor_decl bv pcd =
   List.iter (add_type bv) pcd.pcd_args; Misc.may (add_type bv) pcd.pcd_res

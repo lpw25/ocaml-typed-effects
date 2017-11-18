@@ -250,7 +250,7 @@ class printer  ()= object(self:'self)
     match x with
     | None -> pp f "->"
     | Some e  ->
-        match e.pefd_effects, e.pefd_row with
+        match e.pefr_effects, e.pefr_row with
         | [], None -> pp f "=>"
         | effs, None ->
             pp f "-[%a]->" effects effs

@@ -188,9 +188,9 @@ let rec core_type i ppf x =
   | Ptyp_package (s, l) ->
       line i ppf "Ptyp_package %a\n" fmt_longident_loc s;
       list i package_with ppf l;
-  | Ptyp_effect desc ->
+  | Ptyp_effect row ->
       line i ppf "Ptyp_effect\n";
-      effect_desc i ppf desc
+      effect_row i ppf row
   | Ptyp_extension (s, arg) ->
       line i ppf "Ptyp_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -200,15 +200,15 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  option i effect_desc ppf x
+  option i effect_row ppf x
 
-and effect_desc i ppf x =
-  line i ppf "effect_desc\n";
+and effect_row i ppf x =
+  line i ppf "effect_row\n";
   let i = i+1 in
   line i ppf "peft_constrs =\n";
-  list (i+1) longident_loc ppf x.pefd_effects;
+  list (i+1) longident_loc ppf x.pefr_effects;
   line i ppf "peft_row =\n";
-  option (i+1) core_type ppf x.pefd_row
+  option (i+1) core_type ppf x.pefr_row
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.ppat_loc;

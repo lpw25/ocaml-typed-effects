@@ -816,8 +816,8 @@ let rec transl_type env policy expected_sort styp =
            }) ty
   | Ptyp_effect desc ->
       check_sort styp.ptyp_loc env expected_sort Seffect;
-      let efd = transl_effect_desc env policy desc in
-      ctyp (Ttyp_effect efd) efd.efd_type
+      let efr = transl_effect_row env policy desc in
+      ctyp (Ttyp_effect efr) efr.efr_type
   | Ptyp_extension ext ->
       raise (Error_forward (error_of_extension ext))
 
@@ -837,28 +837,28 @@ and transl_fields loc env policy seen o =
       let ty2 = transl_fields loc env policy (s :: seen) o l in
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
 
-and transl_effect_desc env policy desc =
-  let efd_effects =
+and transl_effect_row env policy desc =
+  let efr_effects =
     List.map
       (fun lid ->
         let path, _ = find_effect env lid.loc lid.txt in
           lid, path)
-      desc.pefd_effects
+      desc.pefr_effects
   in
-  let efd_row, row =
-    match desc.pefd_row with
+  let efr_row, row =
+    match desc.pefr_row with
     | None -> None, newty Tenil
     | Some styp ->
         let typ = transl_type env policy (Some Seffect) styp in
         Some typ, typ.ctyp_type
   in
-  let efd_type =
+  let efr_type =
     List.fold_left
       (fun tail (_, path) ->
          newty (Teffect(path, tail)))
-      row efd_effects
+      row efr_effects
   in
-  { efd_effects; efd_type; efd_row }
+  { efr_effects; efr_type; efr_row }
 
 and transl_effect_type env policy eft =
   match eft with
@@ -868,9 +868,9 @@ and transl_effect_type env policy eft =
       { eft_desc = None;
         eft_type = ty; }
   | Some desc ->
-      let efd = transl_effect_desc env policy desc in
-      { eft_desc = Some efd;
-        eft_type = efd.efd_type; }
+      let efr = transl_effect_row env policy desc in
+      { eft_desc = Some efr;
+        eft_type = efr.efr_type; }
 
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =
