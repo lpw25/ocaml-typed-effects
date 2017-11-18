@@ -4776,35 +4776,35 @@ exception Unknown_effects of type_expr * Location.t * string
 let new_toplevel_expectation () =
   Toplevel(ref [], !current_level)
 
-let rec check_default_handlers env loc str level ty =
-  let ty = repr ty in
-  match ty.desc with
-  | Teffect(p, ty) ->
-    let eff =
-      match Env.find_effect p env with
-      | eff -> eff
-      | exception Not_found ->
-          raise (No_default_handler(p, loc, str))
-    in
-    if not eff.eff_handler then
-      raise (No_default_handler(p, loc, str));
-    check_default_handlers env loc str level ty
-  | Tenil -> ()
-  | Tvar _ ->
-      if ty.level < level then
-        raise (Unknown_effects(ty, loc, str))
-  | _ ->
-    match !forward_try_expand_once env ty with
-    | ty -> check_default_handlers env loc str level ty
-    | exception Cannot_expand ->
-        raise (Unknown_effects(ty, loc, str))
+(* let rec check_default_handlers env loc str level ty = *)
+(*   let ty = repr ty in *)
+(*   match ty.desc with *)
+(*   | Teffect(p, ty) -> *)
+(*     let eff = *)
+(*       match Env.find_effect p env with *)
+(*       | eff -> eff *)
+(*       | exception Not_found -> *)
+(*           raise (No_default_handler(p, loc, str)) *)
+(*     in *)
+(*     if not eff.eff_handler then *)
+(*       raise (No_default_handler(p, loc, str)); *)
+(*     check_default_handlers env loc str level ty *)
+(*   | Tenil -> () *)
+(*   | Tvar _ -> *)
+(*       if ty.level < level then *)
+(*         raise (Unknown_effects(ty, loc, str)) *)
+(*   | _ -> *)
+(*     match !forward_try_expand_once env ty with *)
+(*     | ty -> check_default_handlers env loc str level ty *)
+(*     | exception Cannot_expand -> *)
+(*         raise (Unknown_effects(ty, loc, str)) *)
 
 let check_expectation env = function
   | Expected _ -> ()
   | Toplevel(lr, level) ->
       List.iter
-      (fun (ty, loc, str) ->
-        check_default_handlers env loc str level ty)
+      (fun (ty, loc, str) -> ()
+        (* check_default_handlers env loc str level ty *))
       !lr
 
 
