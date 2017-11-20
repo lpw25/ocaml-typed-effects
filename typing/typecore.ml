@@ -4125,13 +4125,6 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
               end_def ();
               generalize_structure ty'
             end;
-(* <<<<<<< HEAD
- *             let exp = type_expect exp_env expected_eff sexp ty' in
- *             end_def ();
- *             check_univars env true "definition" exp pat.pat_type vars;
- *             {exp with exp_type = instance env exp.exp_type}
- *         | _ -> type_expect exp_env expected_eff sexp pat.pat_type)
- * ======= *)
             let eff = newvar Seffect in
             let exp =
               Typetexp.with_warning_attribute pvb_attributes (fun () ->
