@@ -4643,12 +4643,17 @@ and subtype_effects env trace ty1 ty2 cstrs =
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (miss1, miss2) = diff_effects env effs1 effs2 in
   let cstrs =
-    if rest1.desc = Tenil then cstrs else
-    if miss2 = [] then
-      subtype_rec env ((rest1, rest2)::trace) rest1 rest2 cstrs
-    else
-      (trace, rest1, build_effects (repr ty2).level miss2 rest2,
-       !univar_pairs) :: cstrs
+    match rest1.desc, rest2.desc with
+    | Tenil, _ -> cstrs
+    | Tconstr _, Tconstr _ ->
+        (* TODO Is this really ok? *)
+        (trace, rest1, rest2, !univar_pairs) :: cstrs
+    | _, _ ->
+      if miss2 = [] then
+        subtype_rec env ((rest1, rest2)::trace) rest1 rest2 cstrs
+      else
+        (trace, rest1, build_effects (repr ty2).level miss2 rest2,
+         !univar_pairs) :: cstrs
   in
   let cstrs =
     if miss1 = [] then cstrs else
