@@ -979,6 +979,23 @@ let rec update_level env level ty =
    end;
    raise exn
 
+(* Check that an effect type is pure *)
+let rec pure_effect env var_level ty =
+  let ty = repr ty in
+  if ty.level <= var_level then false
+  else begin
+    match ty.desc with
+    | Tvar _ -> true
+    | Tconstr _ -> begin
+        match !forward_try_expand_once env ty with
+        | ty -> pure_effect env var_level ty
+        | exception Cannot_expand -> false
+      end
+    | Tenil -> true
+    | Teffect _ -> false
+    | _ -> assert false
+  end
+
 (* Generalize and lower levels of contravariant branches simultaneously *)
 
 let rec generalize_expansive env var_level ty =
@@ -1015,6 +1032,10 @@ let generalize_expansive env ty =
     generalize_expansive env !nongen_level ty
   with Unify ([_, ty'] as tr) ->
     raise (Unify ((ty, ty') :: tr))
+
+let pure_effect env ty =
+  simple_abbrevs := Mnil;
+  pure_effect env !nongen_level ty
 
 let generalize_global ty = generalize_structure false !global_level ty
 let generalize_structure_and_closed_effects ty =

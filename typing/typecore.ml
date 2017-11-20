@@ -336,29 +336,19 @@ let unify_exp_types loc env ty expected_ty =
 
 (* effect unification inside type_pat *)
 let unify_pat_effects loc env eff expected_eff =
-  match expected_eff with
-  | Toplevel(lr, _) ->
-      lr := (eff, loc, "pattern") :: !lr
-  | Expected expected_eff -> begin
-      try
-        unify env eff expected_eff
-      with
-        Unify trace ->
-          raise(Error(loc, env, Pattern_effect_clash(trace)))
-    end
+  try
+    unify env eff expected_eff
+  with
+    Unify trace ->
+    raise(Error(loc, env, Pattern_effect_clash(trace)))
 
 (* effect unification inside type_exp and type_expect *)
 let unify_exp_effects loc env eff expected_eff =
-  match expected_eff with
-  | Toplevel(lr, _) ->
-      lr := (eff, loc, "expression") :: !lr
-  | Expected expected_eff -> begin
-      try
-        unify env eff expected_eff
-      with
-        Unify trace ->
-          raise(Error(loc, env, Expr_effect_clash(trace)))
-    end
+  try
+    unify env eff expected_eff
+  with
+    Unify trace ->
+    raise(Error(loc, env, Expr_effect_clash(trace)))
 
 (* level at which to create the local type declarations *)
 let newtype_level = ref None
@@ -1323,17 +1313,9 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         match ty_res, scont with
         | None, None -> None
         | Some res_type, Some scont ->
-           let eff_cont =
-             match expected_eff with
-             | Expected eff -> eff
-             | Toplevel(lr, _) ->
-                let evar = Ctype.newvar Seffect in
-                lr := (evar, loc, "continuation") :: !lr;
-                evar
-           in
            let ty_cont =
              instance_def
-               (Predef.type_continuation res_type eff_cont cont_ty)
+               (Predef.type_continuation res_type expected_eff cont_ty)
            in
            Some (type_continuation_pat !env expected_eff ty_cont scont)
         | None, Some _ ->
@@ -1755,9 +1737,7 @@ let list_labels env ty =
   wrap_trace_gadt_instances env (list_labels_aux env [] []) ty
 
 (* Check that all univars are safe in a type *)
-let check_univars env expans kind exp ty_expected vars =
-  if expans && not (is_nonexpansive exp) then
-    generalize_expansive env exp.exp_type;
+let check_univars env kind exp ty_expected vars =
   (* need to expand twice? cf. Ctype.unify2 *)
   let vars = List.map (expand_head env) vars in
   let vars = List.map (expand_head env) vars in
@@ -2174,12 +2154,17 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
   | Pexp_match(sarg, caselist) ->
-      let eff = newvar Seffect in
       begin_def ();
-      let arg = type_exp env (Expected eff) sarg in
+      let eff = newvar Seffect in
+      let arg = type_exp env eff sarg in
       end_def ();
-      if is_nonexpansive arg then generalize arg.exp_type
-      else generalize_expansive env arg.exp_type;
+      if pure_effect env eff || is_nonexpansive arg then begin
+        generalize arg.exp_type;
+        generalize eff
+      end else begin
+        generalize_expansive env arg.exp_type;
+        generalize_expansive env eff
+      end;
       close_effects_covariant env arg.exp_type;
       check_value_case loc env caselist;
       let cases, partial, handled =
@@ -2192,7 +2177,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           (fun p ty -> newty (Teffect(p, ty)))
           handled outer_eff
       in
-      unify_exp_effects arg.exp_loc env eff (Expected inner_eff);
+      unify_exp_effects arg.exp_loc env (instance env eff) inner_eff;
       unify_exp_effects loc env outer_eff expected_eff;
       re {
         exp_desc = Texp_match(arg, cases, partial);
@@ -2202,7 +2187,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
         exp_env = env }
   | Pexp_try(sbody, caselist) ->
       let eff = newvar Seffect in
-      let body = type_expect env (Expected eff) sbody ty_expected in
+      let body = type_expect env eff sbody ty_expected in
       let caselist = make_exception_default caselist in
       let cases, _, handled =
         type_cases env ~allow_exn:true expected_eff (newvar Stype)
@@ -2214,7 +2199,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           (fun p ty -> newty (Teffect(p, ty)))
           handled outer_eff
       in
-      unify_exp_effects body.exp_loc env eff (Expected inner_eff);
+      unify_exp_effects body.exp_loc env eff inner_eff;
       unify_exp_effects loc env outer_eff expected_eff;
       re {
         exp_desc = Texp_try(body, cases);
@@ -2816,7 +2801,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       begin_def ();
       Ident.set_current_time ty.level;
       let context = Typetexp.narrow () in
-      let modl = !type_module env expected_eff smodl in
+      let modl = !type_module env (Expected expected_eff) smodl in
       let (id, new_env) = Env.enter_module name.txt modl.mod_type env in
       Ctype.init_def(Ident.current_time());
       Typetexp.widen context;
@@ -2860,7 +2845,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let to_unify = Predef.type_lazy_t ty in
       unify_exp_types loc env to_unify ty_expected;
       let eff = Predef.effect_io (newgenty Tenil) in
-      let arg = type_expect env (Expected eff) e ty in
+      let arg = type_expect env eff e ty in
       re {
         exp_desc = Texp_lazy arg;
         exp_loc = loc; exp_extra = [];
@@ -2909,7 +2894,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
             end;
             let exp = type_expect env expected_eff sbody ty'' in
             end_def ();
-            check_univars env false "method" exp ty_expected vars;
+            check_univars env "method" exp ty_expected vars;
             { exp with exp_type = instance env ty }
         | Tvar _ ->
             let exp = type_exp env expected_eff sbody in
@@ -2984,7 +2969,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
         | _ ->
             raise (Error (loc, env, Not_a_packed_module ty_expected))
       in
-      let (modl, tl') = !type_package env expected_eff m p nl tl in
+      let (modl, tl') = !type_package env (Expected expected_eff) m p nl tl in
       rue {
         exp_desc = Texp_pack modl;
         exp_loc = loc; exp_extra = [];
@@ -3036,7 +3021,7 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   end;
   let cases, partial, _ =
     type_cases ~allow_exn:false ~in_function:(loc_fun,ty_fun) env
-      (Expected ty_eff) ty_arg ty_res loc caselist
+      ty_eff ty_arg ty_res loc caselist
   in
   let not_function ty =
     let ls, tvar = list_labels env ty in
@@ -3347,29 +3332,47 @@ and type_label_exp create env loc expected_eff ty_expected
       raise (Error(loc, env, Private_type ty_expected))
     else
       raise (Error(lid.loc, env, Private_label(lid.txt, ty_expected)));
-  let arg =
-    let snap = if vars = [] then None else Some (Btype.snapshot ()) in
-    let arg =
-      type_argument env expected_eff sarg ty_arg (instance env ty_arg)
-    in
-    end_def ();
-    try
-      check_univars env (vars <> []) "field value" arg label.lbl_arg vars;
-      arg
-    with exn when not (is_nonexpansive arg) -> try
-      (* Try to retype without propagating ty_arg, cf PR#4862 *)
-      may Btype.backtrack snap;
-      begin_def ();
-      let arg = type_exp env expected_eff sarg in
+  let eff = newvar Seffect in
+  let eff, arg =
+    if vars = [] then begin
+      let arg =
+        type_argument env eff sarg ty_arg (instance env ty_arg)
+      in
       end_def ();
-      generalize_expansive env arg.exp_type;
-      unify_exp env arg ty_arg;
-      check_univars env false "field value" arg label.lbl_arg vars;
-      arg
-    with Error (_, _, Less_general _) as e -> raise e
-    | _ -> raise exn    (* In case of failure return the first error *)
+      eff, arg
+    end else begin
+      let snap = Btype.snapshot () in
+      let arg =
+        type_argument env eff sarg ty_arg (instance env ty_arg)
+      in
+      end_def ();
+      let nonexpansive = pure_effect env eff || is_nonexpansive arg in
+      if not nonexpansive then begin
+        generalize_expansive env arg.exp_type;
+        generalize_expansive env eff;
+      end;
+      try
+        check_univars env "field value" arg label.lbl_arg vars;
+        eff, arg
+      with exn when not nonexpansive -> try
+        (* Try to retype without propagating ty_arg, cf PR#4862 *)
+        Btype.backtrack snap;
+        begin_def ();
+        let eff = newvar Seffect in
+        let arg = type_exp env eff sarg in
+        end_def ();
+        generalize_expansive env arg.exp_type;
+        generalize_expansive env eff;
+        unify_exp env arg ty_arg;
+        check_univars env "field value" arg label.lbl_arg vars;
+        eff, arg
+      with Error (_, _, Less_general _) as e -> raise e
+      | _ -> raise exn    (* In case of failure return the first error *)
+    end
   in
-  (lid, label, {arg with exp_type = instance env arg.exp_type})
+  unify_exp_effects loc env (instance env eff) expected_eff;
+  let arg = {arg with exp_type = instance env arg.exp_type} in
+  (lid, label, arg)
 
 and type_argument env expected_eff sarg ty_expected' ty_expected =
   (* ty_expected' may be generic *)
@@ -3470,14 +3473,6 @@ and type_application env loc expected_eff funct sargs =
   let has_label l ty_fun =
     let ls, tvar = list_labels env ty_fun in
     tvar || List.mem l ls
-  in
-  let eff =
-    match expected_eff with
-    | Expected eff -> eff
-    | Toplevel(lr, _) ->
-        let evar = Ctype.newvar Seffect in
-        lr := (evar, loc, "application") :: !lr;
-        evar
   in
   let ignored = ref [] in
   let rec type_unknown_args
@@ -3683,9 +3678,9 @@ and type_application env loc expected_eff funct sargs =
   | _ ->
       let ty = funct.exp_type in
       if ignore_labels then
-        type_args [] [] eff ty (instance env ty) ty [] sargs
+        type_args [] [] expected_eff ty (instance env ty) ty [] sargs
       else
-        type_args [] [] eff ty (instance env ty) ty sargs []
+        type_args [] [] expected_eff ty (instance env ty) ty sargs []
 
 and type_construct env loc lid sarg ty_expected expected_eff attrs =
   let opath =
@@ -3842,12 +3837,9 @@ and type_cases ?in_function ~allow_exn env
       correct_levels ty_res, duplicate_ident_types loc caselist env
     else ty_res, env
   and expected_eff =
-    match expected_eff with
-    | Toplevel _ -> expected_eff
-    | Expected eff ->
-        if has_gadts && not !Clflags.principal then
-          Expected (correct_levels eff)
-        else expected_eff
+    if has_gadts && not !Clflags.principal then
+      correct_levels expected_eff
+    else expected_eff
   in
   let lev, env =
     if has_gadts then begin
@@ -4120,7 +4112,7 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   in
   let exp_list =
     List.map2
-      (fun {pvb_expr=sexp; _} (pat, slot) ->
+      (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot) ->
         let sexp =
           if rec_flag = Recursive then wrap_unpacks sexp unpacks else sexp in
         if is_recursive then current_slot := slot;
@@ -4133,11 +4125,33 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
               end_def ();
               generalize_structure ty'
             end;
-            let exp = type_expect exp_env expected_eff sexp ty' in
+(* <<<<<<< HEAD
+ *             let exp = type_expect exp_env expected_eff sexp ty' in
+ *             end_def ();
+ *             check_univars env true "definition" exp pat.pat_type vars;
+ *             {exp with exp_type = instance env exp.exp_type}
+ *         | _ -> type_expect exp_env expected_eff sexp pat.pat_type)
+ * ======= *)
+            let eff = newvar Seffect in
+            let exp =
+              Typetexp.with_warning_attribute pvb_attributes (fun () ->
+                type_expect exp_env eff sexp ty')
+            in
             end_def ();
-            check_univars env true "definition" exp pat.pat_type vars;
-            {exp with exp_type = instance env exp.exp_type}
-        | _ -> type_expect exp_env expected_eff sexp pat.pat_type)
+            let nonexpansive = pure_effect env eff || is_nonexpansive exp in
+            if not nonexpansive then begin
+              generalize_expansive env exp.exp_type;
+              generalize_expansive env eff;
+            end;
+            check_univars env "definition" exp pat.pat_type vars;
+            {exp with exp_type = instance env exp.exp_type}, instance env eff
+        | _ ->
+            let eff = newvar Seffect in
+            let exp =
+              Typetexp.with_warning_attribute pvb_attributes (fun () ->
+                type_expect exp_env eff sexp pat.pat_type)
+            in
+            exp, eff)
       spat_sexp_list pat_slot_list in
   current_slot := None;
   if is_recursive && not !rec_needed
@@ -4145,27 +4159,34 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
     Location.prerr_warning (List.hd spat_sexp_list).pvb_pat.ppat_loc
       Warnings.Unused_rec_flag;
   List.iter2
-    (fun pat exp ->
+    (fun pat (exp, _) ->
       ignore(check_partial ~env ~expected_eff ~cont_ty pat.pat_type
                pat.pat_loc [case pat exp]))
     pat_list exp_list;
   end_def();
   List.iter2
-    (fun pat exp ->
-       if not (is_nonexpansive exp) then
-         iter_pattern (fun pat -> generalize_expansive env pat.pat_type) pat)
+    (fun pat (exp, eff) ->
+       let nonexpansive = pure_effect env eff || is_nonexpansive exp in
+       if not nonexpansive then
+         iter_pattern (fun pat -> generalize_expansive env pat.pat_type) pat;
+         generalize_expansive env eff)
     pat_list exp_list;
   List.iter
     (fun pat -> iter_pattern (fun pat -> generalize pat.pat_type) pat)
     pat_list;
+  List.iter (fun (_, eff) -> generalize eff) exp_list;
   List.iter
     (fun pat ->
       iter_pattern (fun pat -> close_effects_covariant env pat.pat_type) pat)
     pat_list;
+  List.iter
+    (fun (exp, eff) ->
+      unify_exp_effects exp.exp_loc env (instance env eff) expected_eff)
+    exp_list;
   let l = List.combine pat_list exp_list in
   let l =
     List.map2
-      (fun (p, e) pvb ->
+      (fun (p, (e, _)) pvb ->
         {vb_pat=p; vb_expr=e; vb_attributes=pvb.pvb_attributes;
          vb_loc=pvb.pvb_loc;
         })
@@ -4173,10 +4194,27 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   in
   (l, new_env, unpacks)
 
+(* Handling effect expectations *)
+
+let effect_expectation kind loc expected_eff =
+  match expected_eff with
+  | Expected eff -> eff
+  | Toplevel(lr, _) ->
+      let evar = Ctype.newvar Seffect in
+      lr := (evar, loc, kind) :: !lr;
+      evar
+
+let check_expectation env eff_expected =
+  match Ctype.check_expectation env eff_expected with
+  | () -> ()
+  | exception Ctype.Unknown_effects(ty, loc, str) ->
+      raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
+
 (* Typing of toplevel bindings *)
 
-let type_binding env expected_eff rec_flag spat_sexp_list scope =
+let type_binding env loc expected_eff rec_flag spat_sexp_list scope =
   Typetexp.reset_type_variables();
+  let expected_eff = effect_expectation "binding" loc expected_eff in
   let (pat_exp_list, new_env, unpacks) =
     type_let
       ~check:(fun s -> Warnings.Unused_value_declaration s)
@@ -4185,7 +4223,8 @@ let type_binding env expected_eff rec_flag spat_sexp_list scope =
   in
   (pat_exp_list, new_env)
 
-let type_let env expected_eff rec_flag spat_sexp_list scope =
+let type_let env loc expected_eff rec_flag spat_sexp_list scope =
+  let expected_eff = effect_expectation "let binding" loc expected_eff in
   let (pat_exp_list, new_env, unpacks) =
     type_let env rec_flag spat_sexp_list scope false expected_eff in
   (pat_exp_list, new_env)
@@ -4194,12 +4233,22 @@ let type_let env expected_eff rec_flag spat_sexp_list scope =
 
 let type_expression env expected_eff sexp =
   Typetexp.reset_type_variables();
+  let expected_eff =
+    effect_expectation "expression" sexp.pexp_loc expected_eff
+  in
   begin_def();
-  let exp = type_exp env expected_eff sexp in
+  let eff = newvar Seffect in
+  let exp = type_exp env eff sexp in
   end_def();
-  if is_nonexpansive exp then generalize exp.exp_type
-  else generalize_expansive env exp.exp_type;
+  if pure_effect env eff || is_nonexpansive exp then begin
+    generalize exp.exp_type;
+    generalize eff
+  end else begin
+    generalize_expansive env exp.exp_type;
+    generalize_expansive env eff
+  end;
   close_effects_covariant env exp.exp_type;
+  unify_exp_effects exp.exp_loc env (instance env eff) expected_eff;
   match sexp.pexp_desc with
     Pexp_ident lid ->
       (* Special case for keeping type variables when looking-up a variable *)
@@ -4207,11 +4256,13 @@ let type_expression env expected_eff sexp =
       {exp with exp_type = desc.val_type}
   | _ -> exp
 
+
 let check_expectation env expected_eff =
   match Ctype.check_expectation env expected_eff with
   | () -> ()
   | exception Ctype.Unknown_effects(ty, loc, str) ->
       raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
+
 (* Error report *)
 
 open Format

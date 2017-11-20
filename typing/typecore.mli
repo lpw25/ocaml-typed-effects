@@ -19,25 +19,25 @@ open Format
 val is_nonexpansive: Typedtree.expression -> bool
 
 val type_binding:
-        Env.t -> effect_expectation -> rec_flag ->
+        Env.t -> Location.t -> effect_expectation -> rec_flag ->
           Parsetree.value_binding list ->
           Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_let:
-        Env.t -> effect_expectation -> rec_flag ->
+        Env.t -> Location.t -> effect_expectation -> rec_flag ->
           Parsetree.value_binding list -> Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_expression:
         Env.t -> effect_expectation ->
         Parsetree.expression -> Typedtree.expression
 val type_class_arg_pattern:
-        string -> Env.t -> Env.t -> effect_expectation -> label ->
+        string -> Env.t -> Env.t -> type_expr -> label ->
         Parsetree.pattern ->
         Typedtree.pattern *
         (Ident.t * string loc * Ident.t * type_expr) list *
         Env.t * Env.t
 val type_self_pattern:
-        string -> type_expr -> Env.t -> Env.t -> Env.t -> effect_expectation ->
+        string -> type_expr -> Env.t -> Env.t -> Env.t -> type_expr ->
         Parsetree.pattern ->
         Typedtree.pattern *
         (Ident.t * type_expr) Meths.t ref *
@@ -45,20 +45,20 @@ val type_self_pattern:
             Vars.t ref *
         Env.t * Env.t * Env.t
 val check_partial:
-        ?lev:int -> env:Env.t -> expected_eff:effect_expectation ->
+        ?lev:int -> env:Env.t -> expected_eff:type_expr ->
         cont_ty:type_expr -> type_expr -> Location.t -> Typedtree.case list ->
         Typedtree.partial * Path.t list
 val type_expect:
         ?in_function:(Location.t * type_expr) ->
-        Env.t -> effect_expectation -> Parsetree.expression -> type_expr ->
+        Env.t -> type_expr -> Parsetree.expression -> type_expr ->
         Typedtree.expression
 val type_exp:
-        Env.t -> effect_expectation ->
+        Env.t -> type_expr ->
         Parsetree.expression -> Typedtree.expression
 val type_approx:
         Env.t -> Parsetree.expression -> type_expr * type_expr list
 val type_argument:
-        Env.t -> effect_expectation -> Parsetree.expression -> type_expr ->
+        Env.t -> type_expr -> Parsetree.expression -> type_expr ->
         type_expr -> Typedtree.expression
 
 val option_some: Typedtree.expression -> Typedtree.expression
@@ -71,6 +71,7 @@ val force_delayed_checks: unit -> unit
 
 val self_coercion : (Path.t * Location.t list ref) list ref
 
+val effect_expectation: string -> Location.t -> effect_expectation -> type_expr
 val check_expectation: Env.t -> effect_expectation -> unit
 
 type error =

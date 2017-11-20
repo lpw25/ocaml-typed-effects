@@ -602,7 +602,7 @@ let rec class_field self_loc cl_num self_type meths vars
       if !Clflags.principal then Ctype.begin_def ();
       let eff = Predef.effect_io (Btype.newgenty Tenil) in
       let exp =
-        try type_exp val_env (Expected eff) sexp with Ctype.Unify [(ty, _)] ->
+        try type_exp val_env eff sexp with Ctype.Unify [(ty, _)] ->
           raise(Error(loc, val_env, Make_nongen_seltype ty))
       in
       if !Clflags.principal then begin
@@ -686,7 +686,7 @@ let rec class_field self_loc cl_num self_type meths vars
           vars := vars_local;
           let eff = Btype.newgenty Tenil in
           let texp =
-            type_expect met_env (Expected eff) meth_expr meth_type
+            type_expect met_env eff meth_expr meth_type
           in
           Ctype.end_def ();
           mkcf (Tcf_method (lab, priv, Tcfk_concrete (ovf, texp)))
@@ -715,7 +715,7 @@ let rec class_field self_loc cl_num self_type meths vars
           vars := vars_local;
           let eff = Btype.newgenty Tenil in
           let texp =
-            type_expect met_env (Expected eff) expr meth_type
+            type_expect met_env eff expr meth_type
           in
           Ctype.end_def ();
           mkcf (Tcf_initializer texp)
@@ -751,7 +751,7 @@ and class_structure cl_num final val_env met_env loc
   let self_eff = Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil)) in
   let (pat, meths, vars, val_env, meth_env, par_env) =
     type_self_pattern cl_num private_self
-      val_env met_env par_env (Expected self_eff) spat
+      val_env met_env par_env self_eff spat
   in
   let public_self = pat.pat_type in
 
@@ -942,7 +942,7 @@ and class_expr cl_num val_env met_env scl =
       in
       let (pat, pv, val_env', met_env) =
         Typecore.type_class_arg_pattern cl_num
-          val_env met_env (Expected eff) l spat
+          val_env met_env eff l spat
       in
       if !Clflags.principal then begin
         Ctype.end_def ();
@@ -970,7 +970,7 @@ and class_expr cl_num val_env met_env scl =
       in
       let cont = Ctype.newvar Stype in
       let partial, _ =
-        Typecore.check_partial val_env (Expected eff) cont pat.pat_type
+        Typecore.check_partial val_env eff cont pat.pat_type
           pat.pat_loc
           [{c_lhs=pat;
             c_guard=None;
@@ -1042,7 +1042,7 @@ and class_expr cl_num val_env met_env scl =
                       raise(Error(sarg0.pexp_loc, val_env,
                                   Apply_wrong_label l'))
                     else ([], more_sargs,
-                          Some (type_argument val_env (Expected eff)
+                          Some (type_argument val_env eff
                                   sarg0 ty ty0))
                 | _ ->
                     assert false
@@ -1062,12 +1062,12 @@ and class_expr cl_num val_env met_env scl =
                     (Warnings.Nonoptional_label l);
                 sargs, more_sargs,
                 if optional = Required || Btype.is_optional l' then
-                  Some (type_argument val_env (Expected eff) sarg0 ty ty0)
+                  Some (type_argument val_env eff sarg0 ty ty0)
                 else
                   let ty' = extract_option_type val_env ty
                   and ty0' = extract_option_type val_env ty0 in
                   let arg =
-                    type_argument val_env (Expected eff) sarg0 ty' ty0'
+                    type_argument val_env eff sarg0 ty' ty0'
                   in
                   Some (option_some arg)
               with Not_found ->
@@ -1113,7 +1113,7 @@ and class_expr cl_num val_env met_env scl =
       in
       let (defs, val_env) =
         try
-          Typecore.type_let val_env (Expected eff) rec_flag sdefs None
+          Typecore.type_let val_env scl.pcl_loc (Expected eff) rec_flag sdefs None
         with Ctype.Unify [(ty, _)] ->
           raise(Error(scl.pcl_loc, val_env, Make_nongen_seltype ty))
       in

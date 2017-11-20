@@ -178,6 +178,17 @@ let warning_attribute attrs =
     )
     attrs
 
+let with_warning_attribute attrs f =
+  try
+    warning_enter_scope ();
+    warning_attribute attrs;
+    let ret = f () in
+    warning_leave_scope ();
+    ret
+  with exn ->
+    warning_leave_scope ();
+    raise exn
+
 type variable_context = int * (string * type_sort, type_expr) Tbl.t
 
 (* Local definitions *)

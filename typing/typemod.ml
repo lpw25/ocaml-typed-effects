@@ -1220,6 +1220,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
 
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
+      let eff = Typecore.effect_expectation "unpack expression" smod.pmod_loc eff in
       let exp = Typecore.type_exp env eff sexp in
       if !Clflags.principal then begin
         Ctype.end_def ();
@@ -1279,7 +1280,7 @@ and type_structure ?(toplevel = false) funct_body anchor eff env sstr scope =
               Some (Annot.Idef {scope with Location.loc_start = start})
         in
         let (defs, newenv) =
-          Typecore.type_binding env eff rec_flag sdefs scope
+          Typecore.type_binding env loc eff rec_flag sdefs scope
         in
         (* Note: Env.find_value does not trigger the value_used event. Values
            will be marked as being used during the signature inclusion test. *)
@@ -1536,8 +1537,8 @@ and type_structure ?(toplevel = false) funct_body anchor eff env sstr scope =
 let type_phrase toplevel env s =
   Env.reset_required_globals ();
   Ctype.init_def(Ident.current_time());
-  Ctype.begin_def();
   let eff_expected = Ctype.new_toplevel_expectation () in
+  Ctype.begin_def();
   let (str, sg, finalenv) =
     type_structure ~toplevel false None eff_expected env s Location.none
   in
@@ -1655,8 +1656,8 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     ignore (map.Ast_mapper.structure map ast)
   end;
   Ctype.init_def(Ident.current_time());
-  Ctype.begin_def();
   let eff_expected = Ctype.new_toplevel_expectation () in
+  Ctype.begin_def();
   let (str, sg, finalenv) =
     type_structure false None eff_expected
       initial_env ast (Location.in_file sourcefile)
