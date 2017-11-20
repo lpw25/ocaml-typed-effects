@@ -66,9 +66,6 @@ type mapper = {
   class_type_field: mapper -> class_type_field -> class_type_field;
   constructor_declaration: mapper -> constructor_declaration
                            -> constructor_declaration;
-  effect_declaration: mapper -> effect_declaration
-                      -> effect_declaration;
-  effect_kind: mapper -> effect_kind -> effect_kind;
   effect_constructor: mapper -> effect_constructor
                          -> effect_constructor;
   effect_row: mapper -> effect_row -> effect_row;

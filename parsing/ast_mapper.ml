@@ -40,11 +40,7 @@ type mapper = {
   class_type_field: mapper -> class_type_field -> class_type_field;
   constructor_declaration: mapper -> constructor_declaration
                            -> constructor_declaration;
-  effect_declaration: mapper -> effect_declaration
-                      -> effect_declaration;
-  effect_kind: mapper -> effect_kind -> effect_kind;
-  effect_constructor: mapper -> effect_constructor
-                         -> effect_constructor;
+  effect_constructor: mapper -> effect_constructor -> effect_constructor;
   effect_row: mapper -> effect_row -> effect_row;
   effect_type: mapper -> effect_type -> effect_type;
   expr: mapper -> expression -> expression;
@@ -121,21 +117,23 @@ module T = struct
     | Ptyp_effect d -> effect_ (sub.effect_row sub d)
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
-  let map_effect_type sub x =
-    let peft_desc =
-      match x.peft_desc with
-        | Peft_io -> Peft_io
-        | Peft_pure -> Peft_pure
-        | Peft_io_tilde -> Peft_io_tilde
-        | Peft_pure_tilde -> Peft_pure_tilde
-        | Peft_row efr -> Peft_row (sub.effect_row sub efr)
-    in
-    { peft_desc = peft_desc;
-      peft_loc = sub.location sub x.peft_loc; }
+  let map_effect_type sub
+      {peft_io; peft_tilde; peft_row; peft_loc} =
+    { peft_io; peft_tilde;
+      peft_row = map_opt (sub.effect_row sub) peft_row;
+      peft_loc = sub.location sub peft_loc; }
 
-  let map_effect_row sub { pefr_effects; pefr_row } =
-    { pefr_effects = List.map (map_loc sub) pefr_effects;
-      pefr_row = Misc.may_map (sub.typ sub) pefr_row; }
+  let map_effect_row sub {pefr_effects; pefr_next} =
+    { pefr_effects =
+        List.map (sub.effect_constructor sub) pefr_effects;
+      pefr_next = map_opt (sub.typ sub) pefr_next; }
+
+  let map_effect_constructor sub
+      {peff_label; peff_args; peff_res; peff_attributes} =
+    { peff_label;
+      peff_args = List.map (sub.typ sub) peff_args;
+      peff_res = map_opt (sub.typ sub) peff_res;
+      peff_attributes = sub.attributes sub peff_attributes }
 
   let map_type_declaration sub
       {ptype_name; ptype_params; ptype_cstrs;
@@ -190,41 +188,6 @@ module T = struct
       (map_extension_constructor_kind sub pext_kind)
       ~loc:(sub.location sub pext_loc)
       ~attrs:(sub.attributes sub pext_attributes)
-
-end
-
-module Eff = struct
-
-  let map_constructor sub
-    {pec_name;
-     pec_args;
-     pec_res;
-     pec_loc;
-     pec_attributes} =
-  Eff.constructor
-    (map_loc sub pec_name)
-    ~args:(List.map (sub.typ sub) pec_args)
-    ?res:(Misc.may_map (sub.typ sub) pec_res)
-    ~loc:(sub.location sub pec_loc)
-    ~attrs:(sub.attributes sub pec_attributes)
-
-  let map_kind sub = function
-    | Peff_abstract -> Peff_abstract
-    | Peff_variant l ->
-        Peff_variant (List.map (sub.effect_constructor sub) l)
-
-  let map_declaration sub
-    {peff_name;
-     peff_kind;
-     peff_manifest;
-     peff_loc;
-     peff_attributes} =
-    Eff.mk
-      (map_loc sub peff_name)
-      ~kind:(sub.effect_kind sub peff_kind)
-      ?manifest:(Misc.may_map (map_loc sub) peff_manifest)
-      ~loc:(sub.location sub peff_loc)
-      ~attrs:(sub.attributes sub peff_attributes)
 
 end
 
@@ -301,7 +264,6 @@ module MT = struct
     | Psig_type l -> type_ ~loc (List.map (sub.type_declaration sub) l)
     | Psig_typext te -> type_extension ~loc (sub.type_extension sub te)
     | Psig_exception ed -> exception_ ~loc (sub.extension_constructor sub ed)
-    | Psig_effect ed -> effect_ ~loc (sub.effect_declaration sub ed)
     | Psig_module x -> module_ ~loc (sub.module_declaration sub x)
     | Psig_recmodule l ->
         rec_module ~loc (List.map (sub.module_declaration sub) l)
@@ -350,7 +312,6 @@ module M = struct
     | Pstr_type l -> type_ ~loc (List.map (sub.type_declaration sub) l)
     | Pstr_typext te -> type_extension ~loc (sub.type_extension sub te)
     | Pstr_exception ed -> exception_ ~loc (sub.extension_constructor sub ed)
-    | Pstr_effect ed -> effect_ ~loc (sub.effect_declaration sub ed)
     | Pstr_module x -> module_ ~loc (sub.module_binding sub x)
     | Pstr_recmodule l -> rec_module ~loc (List.map (sub.module_binding sub) l)
     | Pstr_modtype x -> modtype ~loc (sub.module_type_declaration sub x)
@@ -415,8 +376,8 @@ module E = struct
           (sub.typ sub t2)
     | Pexp_constraint (e, t) ->
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
-    | Pexp_perform (lid, arg) ->
-        perform_ ~loc ~attrs (map_loc sub lid) (map_opt (sub.expr sub) arg)
+    | Pexp_perform (s, arg) ->
+        perform_ ~loc ~attrs s (List.map (sub.expr sub) arg)
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
     | Pexp_new lid -> new_ ~loc ~attrs (map_loc sub lid)
     | Pexp_setinstvar (s, e) ->
@@ -467,9 +428,9 @@ module P = struct
     | Ppat_lazy p -> lazy_ ~loc ~attrs (sub.pat sub p)
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
     | Ppat_exception p -> exception_ ~loc ~attrs (sub.pat sub p)
-    | Ppat_effect(l, p1, p2) ->
-        effect_ ~loc ~attrs (map_loc sub l)
-          (map_opt (sub.pat sub) p1) (map_opt (sub.pat sub) p2)
+    | Ppat_effect(s, p1, p2) ->
+        effect_ ~loc ~attrs s
+          (List.map (sub.pat sub) p1) (map_opt (sub.pat sub) p2)
     | Ppat_extension x -> extension ~loc ~attrs (sub.extension sub x)
 end
 
@@ -566,9 +527,7 @@ let default_mapper =
     typ = T.map;
     type_extension = T.map_type_extension;
     extension_constructor = T.map_extension_constructor;
-    effect_declaration = Eff.map_declaration;
-    effect_constructor = Eff.map_constructor;
-    effect_kind = Eff.map_kind;
+    effect_constructor = T.map_effect_constructor;
     effect_row = T.map_effect_row;
     effect_type = T.map_effect_type;
     value_description =

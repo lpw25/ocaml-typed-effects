@@ -38,9 +38,21 @@ let mkrhs rhs pos = mkloc rhs (rhs_loc pos)
 let mkoption d =
   let loc = {d.ptyp_loc with loc_ghost = true} in
   Typ.mk ~loc (Ptyp_constr(mkloc (Ldot (Lident "*predef*", "option")) loc,[d]))
-let mkarrow d =
-  { peft_desc = d;
+let mkarrow io tilde row =
+  { peft_io = io;
+    peft_tilde = tilde;
+    peft_row = row;
     peft_loc = symbol_rloc (); }
+
+let mkeffect effects rowo =
+  { pefr_effects = effects;
+    pefr_next    = rowo; }
+
+let mkeconstructor ?(attrs=[]) label args res =
+  { peff_label = label;
+    peff_args  = args;
+    peff_res   = res;
+    peff_attributes = attrs; }
 
 let reloc_pat x = { x with ppat_loc = symbol_rloc () };;
 let reloc_exp x = { x with pexp_loc = symbol_rloc () };;
@@ -277,13 +289,16 @@ let varify_constructors newtypes t =
       | Rinherit t ->
           Rinherit (loop t)
   and loop_effect_type eft =
-    match eft.peft_desc with
-    | Peft_io | Peft_pure | Peft_io_tilde | Peft_pure_tilde -> eft
-    | Peft_row row -> { eft with peft_desc = Peft_row (loop_effect_row row) }
+    let row = Misc.may_map loop_effect_row eft.peft_row in
+    { eft with peft_row = row }
   and loop_effect_row row =
-    match row.pefr_row with
-    | None -> row
-    | Some t -> { row with pefr_row = Some (loop t) }
+    let next = Misc.may_map loop row.pefr_next in
+    let effects = List.map loop_effect_field row.pefr_effects in
+    { pefr_next = next; pefr_effects = effects }
+  and loop_effect_field field =
+    let args = List.map loop field.peff_args in
+    let res = Misc.may_map loop field.peff_res in
+    { field with peff_args = args; peff_res = res }
   in
   loop t
 
@@ -417,16 +432,6 @@ let class_of_let_bindings lbs body =
       raise Syntaxerr.(Error(Not_expecting(lbs.lbs_loc, "attributes")));
     mkclass(Pcl_let (lbs.lbs_rec, List.rev bindings, body))
 
-let mkeffect effects rowo =
-  { pefr_effects = effects;
-    pefr_row = rowo; }
-
-let pure_effect = mkeffect [] None
-
-let tilde_effect =
-  let row = mktyp (Ptyp_var("~", Effect)) in
-    mkeffect [] (Some row)
-
 %}
 
 /* Tokens */
@@ -533,6 +538,9 @@ let tilde_effect =
 %token RBRACE
 %token RBRACKET
 %token RBRACKETMINUSGREATER
+%token RBRACKETMINUSGREATERGREATER
+%token RBRACKETTILDEGREATER
+%token RBRACKETTILDEGREATERGREATER
 %token REC
 %token RPAREN
 %token SEMI
@@ -547,6 +555,7 @@ let tilde_effect =
 %token TILDE
 %token TILDEGREATER
 %token TILDEGREATERGREATER
+%token TILDELBRACKET
 %token TO
 %token TRUE
 %token TRY
@@ -800,8 +809,6 @@ structure_item:
       { mkstr(Pstr_typext $1) }
   | str_exception_declaration
       { mkstr(Pstr_exception $1) }
-  | effect_declaration
-      { mkstr(Pstr_effect $1) }
   | module_binding
       { mkstr(Pstr_module $1) }
   | rec_module_bindings
@@ -898,8 +905,6 @@ signature_item:
       { mksig(Psig_typext $1) }
   | sig_exception_declaration
       { mksig(Psig_exception $1) }
-  | effect_declaration
-      { mksig(Psig_effect $1) }
   | module_declaration
       { mksig(Psig_module $1) }
   | module_alias
@@ -1317,10 +1322,8 @@ expr:
   | FOR ext_attributes pattern EQUAL seq_expr direction_flag seq_expr DO
     seq_expr DONE
       { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
-  | PERFORM ext_attributes constr_longident %prec below_SHARP
-      { mkexp_attrs (Pexp_perform(mkrhs $3 3, None)) $2 }
-  | PERFORM ext_attributes constr_longident simple_expr %prec below_SHARP
-      { mkexp_attrs (Pexp_perform(mkrhs $3 3, Some $4)) $2 }
+  | PERFORM ext_attributes ident LPAREN effect_arg_list RPAREN
+      { mkexp_attrs (Pexp_perform($3, $5)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -1634,6 +1637,16 @@ expr_semi_list:
     expr                                        { [$1] }
   | expr_semi_list SEMI expr                    { $3 :: $1 }
 ;
+effect_arg_list_non_empty:
+    simple_expr
+      { [$1] }
+  | effect_arg_list_non_empty COMMA simple_expr
+      { $3 :: $1 }
+;
+effect_arg_list:
+    /* empty */                                 { [] }
+  | effect_arg_list_non_empty                   { List.rev $1 }
+;
 type_constraint:
     COLON core_type                             { (Some $2, None) }
   | COLON core_type COLONGREATER core_type      { (Some $2, Some $4) }
@@ -1649,15 +1662,11 @@ computation_pattern:
       { $1 }
   | EXCEPTION pattern %prec prec_constr_appl
       { mkpat(Ppat_exception $2) }
-  | EFFECT constr_longident
-      { mkpat(Ppat_effect(mkrhs $2 2, None, None)) }
-  | EFFECT constr_longident simple_pattern
-      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, None)) }
-  | EFFECT constr_longident COMMA pattern
-      { mkpat(Ppat_effect(mkrhs $2 2, None, Some $4)) }
-  | EFFECT constr_longident simple_pattern COMMA pattern
-      { mkpat(Ppat_effect(mkrhs $2 2, Some $3, Some $5)) }
-
+  | EFFECT ident LPAREN effect_param_list RPAREN
+      { mkpat(Ppat_effect($2, $4, None)) }
+  | EFFECT ident LPAREN effect_param_list RPAREN COMMA pattern
+      { mkpat(Ppat_effect($2, $4, Some $7)) }
+;
 pattern:
     simple_pattern
       { $1 }
@@ -1763,6 +1772,15 @@ lbl_pattern:
   | label_longident
       { (mkrhs $1 1, pat_of_label $1 1) }
 ;
+effect_param_list_non_empty:
+    simple_pattern
+     { [$1] }
+  | effect_param_list_non_empty COMMA simple_pattern
+     { $3 :: $1 }
+;
+effect_param_list:
+    /* empty */                                 { [] }
+  | effect_param_list_non_empty                 { List.rev $1 }
 
 /* Value descriptions */
 
@@ -1918,45 +1936,6 @@ sig_exception_declaration:
           Te.decl (mkrhs $2 2) ~args ?res ~attrs:($4 @ $5)
             ~loc:(symbol_rloc()) ~docs:(symbol_docs ()) }
 ;
-
-effect_declaration:
-  | EFFECT LIDENT effect_kind post_item_attributes
-      { let (kind, manifest) = $3 in
-          Eff.mk (mkrhs $2 2) ~kind ?manifest ~attrs:$4
-            ~loc:(symbol_rloc ()) ~docs:(symbol_docs ()) }
-;
-effect_kind:
-    /*empty*/
-      { (Peff_abstract, None) }
-  | EQUAL effect_longident
-      { (Peff_abstract, Some (mkrhs $2 2)) }
-  | EQUAL effect_constructors
-      { (Peff_variant(List.rev $2), None) }
-  | EQUAL effect_longident EQUAL effect_constructors
-      { (Peff_variant(List.rev $4), Some (mkrhs $2 2)) }
-;
-effect_constructors:
-    effect_constructor                              { [$1] }
-  | bar_effect_constructor                          { [$1] }
-  | effect_constructors bar_effect_constructor      { $2 :: $1 }
-;
-effect_constructor:
-  | constr_ident generalized_constructor_arguments attributes
-      {
-       let args,res = $2 in
-       Eff.constructor (mkrhs $1 1) ~args ?res ~attrs:$3
-         ~loc:(symbol_rloc()) ~info:(symbol_info ())
-      }
-;
-bar_effect_constructor:
-  | BAR constr_ident generalized_constructor_arguments attributes
-      {
-       let args,res = $3 in
-       Eff.constructor (mkrhs $2 2) ~args ?res ~attrs:$4
-         ~loc:(symbol_rloc()) ~info:(symbol_info ())
-      }
-;
-
 generalized_constructor_arguments:
     /*empty*/                                   { ([],None) }
   | OF core_type_list_no_attr                   { (List.rev $2,None) }
@@ -2138,52 +2117,69 @@ core_type2:
 
 arrow:
   | MINUSGREATER
-      { mkarrow Peft_io }
+      { mkarrow true false None }
   | MINUSGREATERGREATER
-      { mkarrow Peft_pure }
+      { mkarrow false false None }
   | TILDEGREATER
-      { mkarrow Peft_io_tilde }
+      { mkarrow true true None }
   | TILDEGREATERGREATER
-      { mkarrow Peft_pure_tilde }
+      { mkarrow false true None }
   | MINUSLBRACKET effect_row RBRACKETMINUSGREATER
-      { mkarrow (Peft_row $2) }
+      { mkarrow true false (Some $2) }
+  | MINUSLBRACKET effect_row RBRACKETMINUSGREATERGREATER
+      { mkarrow false false (Some $2) }
+  | TILDELBRACKET effect_row RBRACKETTILDEGREATER
+      { mkarrow true true (Some $2) }
+  | TILDELBRACKET effect_row RBRACKETTILDEGREATERGREATER
+      { mkarrow false true (Some $2) }
 ;
 
-effect_row_effects:
+effect_constructors:
   | /* empty */
       { [] }
-  | effect_longident
-      { [mkrhs $1 1] }
-  | effect_row_effects BAR effect_longident
-      { (mkrhs $3 3) :: $1 }
+  | effect_constructor
+      { [$1] }
+  | effect_constructors BAR effect_constructor
+      { $3 :: $1 }
+;
+
+effect_constructor:
+  | ident attributes
+      { mkeconstructor $1 [] None ~attrs:$2 }
+  | ident OF core_type_list attributes
+      { mkeconstructor $1 $3 None ~attrs:$4 }
+  | ident COLON core_type_list MINUSGREATER simple_core_type attributes
+      { mkeconstructor $1 $3 (Some $5) ~attrs:$6 }
+  | ident COLON simple_core_type attributes
+      { mkeconstructor $1 [] (some $3) ~attrs:$4 }
 ;
 
 effect_row:
-  | effect_row_effects
+  | effect_constructors
       { mkeffect $1 None }
-  | effect_row_effects BAR DOTDOT AS core_type
+  | effect_constructors BAR DOTDOT AS core_type
       { mkeffect $1 (Some $5) }
   | DOTDOT AS core_type
       { mkeffect [] (Some $3) }
-  | effect_row_effects BAR DOTDOT
+  | effect_constructors BAR DOTDOT
       { let row = mktyp Ptyp_any in
           mkeffect $1 (Some row) }
   | DOTDOT
       { let row = mktyp Ptyp_any in
           mkeffect [] (Some row) }
-  | effect_row_effects BAR BANG ident
+  | effect_constructors BAR BANG ident
       { let row = mktyp(Ptyp_var($4, Effect)) in
           mkeffect $1 (Some row) }
   | BANG ident
       { let row = mktyp(Ptyp_var($2, Effect)) in
         mkeffect [] (Some row) }
-  | effect_row_effects BAR BANG TILDE
+  | effect_constructors BAR BANG TILDE
       { let row = mktyp(Ptyp_var("~", Effect)) in
           mkeffect $1 (Some row) }
   | BANG TILDE
       { let row = mktyp(Ptyp_var("~", Effect)) in
           mkeffect [] (Some row) }
-  | effect_row_effects BAR BANGTILDE
+  | effect_constructors BAR BANGTILDE
       { let row = mktyp(Ptyp_var("~", Effect)) in
           mkeffect $1 (Some row) }
   | BANGTILDE

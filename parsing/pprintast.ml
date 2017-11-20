@@ -244,30 +244,58 @@ class printer  ()= object(self:'self)
         else pp f "%s:%a" s self#core_type1 c
 
   method arrow f x =
-    let effects f x =
-      self#list ~sep:" | " self#longident_loc f x
+    let head =
+      if x.peft_io then ">"
+      else ">>"
     in
-    match x.peft_desc with
-    | Peft_io -> pp f "->"
-    | Peft_pure -> pp f "->>"
-    | Peft_io_tilde -> pp f "~>"
-    | Peft_pure_tilde -> pp f "~>>"
-    | Peft_row efr ->
-        match efr.pefr_effects, efr.pefr_row with
-        | effs, None ->
-            pp f "-[%a]->" effects effs
-        | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
-            pp f "-[!%s]->" s
-        | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
-            pp f "-[%a|!%s]->" effects effs s
-        | [], Some { ptyp_desc = Ptyp_any } ->
-            pp f "-[..]->"
-        | effs, Some { ptyp_desc = Ptyp_any } ->
-            pp f "-[%a | ..]->" effects effs
-        | [], Some t ->
-            pp f "-[.. as %a]->" self#core_type t
-        | effs, Some t ->
-            pp f "-[%a | .. as %a]->" effects effs self#core_type t
+    let tail =
+      if x.peft_tilde then "~"
+      else "-"
+    in
+      match x.peft_row with
+      | None ->
+          pp f "%s%s" tail head
+      | Some row ->
+          pp f "%s[%a]%s%s" tail self#effects row tail head
+
+  method effects f x =
+    let effect_constructors f x =
+      self#list ~sep:" | " self#effect_constructor f x
+    in
+    match x.pefr_effects, x.pefr_next with
+    | effs, None ->
+        pp f "%a" effect_constructors effs
+    | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
+        pp f "!%s" s
+    | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
+        pp f "%a|!%s>" effect_constructors effs s
+    | [], Some { ptyp_desc = Ptyp_any } ->
+        pp f ".."
+    | effs, Some { ptyp_desc = Ptyp_any } ->
+        pp f "%a | .." effect_constructors effs
+    | [], Some t ->
+        pp f ".. as %a" self#core_type t
+    | effs, Some t ->
+        pp f "%a | .. as %a" effect_constructors effs self#core_type t
+
+  method effect_constructor f x =
+    match x.peff_res with
+    | None ->
+        pp f "%s%a@;%a" x.peff_label
+          (fun f -> function
+             | [] -> ()
+             | l -> pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l
+          ) x.peff_args
+          self#attributes x.peff_attributes
+    | Some r ->
+        pp f "%s:@;%a@;%a" x.peff_label
+          (fun f -> function
+             | [] -> self#core_type1 f r
+             | l -> pp f "%a@;->@;%a"
+                                  (self#list self#core_type1 ~sep:"*@;") l
+                                  self#core_type1 r)
+          x.peff_args
+          self#attributes x.peff_attributes
 
   method core_type f x =
     if x.ptyp_attributes <> [] then begin
@@ -360,6 +388,8 @@ class printer  ()= object(self:'self)
         |_ ->
             pp f "@[<hov2>(module@ %a@ with@ %a)@]" self#longident_loc lid
               (self#list aux  ~sep:"@ and@ ")  cstrs)
+    | Ptyp_effect row ->
+        pp f "![%a]" self#effects row
     | Ptyp_extension e -> self#extension f e
     | _ -> self#paren true self#core_type f x
           (********************pattern********************)
@@ -438,10 +468,9 @@ class printer  ()= object(self:'self)
         pp f "@[<2>(lazy@;%a)@]" self#pattern1 p
     | Ppat_exception p ->
         pp f "@[<2>exception@;%a@]" self#pattern1 p
-    | Ppat_effect(li, p1, p2) ->
-        pp f "@[<2>effect@;%a@;%a@;%a@]"
-           self#longident_loc li
-           (self#option self#pattern1) p1
+    | Ppat_effect(s, p1, p2) ->
+        pp f "@[<2>effect@;%s@;(%a)@;%a@]" s
+           (self#list self#pattern1) p1
            (self#option ~first:", " self#pattern1) p2
     | Ppat_extension e -> self#extension f e
     | _ -> self#paren true self#pattern f x
@@ -989,8 +1018,6 @@ class printer  ()= object(self:'self)
         self#type_extension f te
     | Psig_exception ed ->
         self#exception_declaration f ed
-    | Psig_effect ed ->
-        self#effect_declaration f ed
     | Psig_class l ->
         let class_description kwd f ({pci_params=ls;pci_name={txt;_};_} as x) =
           pp f "@[<2>%s %a%a%s@;:@;%a@]%a" kwd
@@ -1155,7 +1182,6 @@ class printer  ()= object(self:'self)
         pp f "@[<2>%a@]" self#bindings (rf,l)
     | Pstr_typext te -> self#type_extension f te
     | Pstr_exception ed -> self#exception_declaration f ed
-    | Pstr_effect ed -> self#effect_declaration f ed
     | Pstr_module x ->
         let rec module_helper me =
           match me.pmod_desc with
@@ -1398,40 +1424,6 @@ class printer  ()= object(self:'self)
         pp f "%s%a@;=@;%a" x.pext_name.txt
           self#attributes x.pext_attributes
           self#longident_loc li
-
-  method effect_declaration f x =
-    let manifest f = function
-      | None -> ()
-      | Some lid ->
-          pp f " =@ %a" self#longident_loc lid
-    in
-    let constructor f x =
-      match x.pec_res with
-      | Some res ->
-          pp f "%s%a:@;%a" x.pec_name.txt
-             self#attributes x.pec_attributes
-             (fun f -> function
-               | [] -> self#core_type1 f res
-               | l -> pp f "%a@;->@;%a"
-                         (self#list self#core_type1 ~sep:"*@;") l
-                         self#core_type1 res) x.pec_args
-      | None ->
-          pp f "|@;%s%a%a" x.pec_name.txt
-             (fun f -> function
-              | [] -> ()
-              | l -> pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l)
-             x.pec_args
-             self#attributes x.pec_attributes
-    in
-    let kind f = function
-      | Peff_abstract -> ()
-      | Peff_variant xs ->
-          pp f "=@\n%a" (self#list ~sep:"@\n" constructor) xs
-    in
-      pp f "effect %s%a%a"
-         x.peff_name.txt
-         manifest x.peff_manifest
-         kind x.peff_kind
 
   method case_list f l : unit =
     let aux f {pc_lhs; pc_guard; pc_rhs} =

@@ -164,7 +164,6 @@ module Sig = struct
   let type_ ?loc a = mk ?loc (Psig_type a)
   let type_extension ?loc a = mk ?loc (Psig_typext a)
   let exception_ ?loc a = mk ?loc (Psig_exception a)
-  let effect_ ?loc a = mk ?loc (Psig_effect a)
   let module_ ?loc a = mk ?loc (Psig_module a)
   let rec_module ?loc a = mk ?loc (Psig_recmodule a)
   let modtype ?loc a = mk ?loc (Psig_modtype a)
@@ -189,7 +188,6 @@ module Str = struct
   let type_ ?loc a = mk ?loc (Pstr_type a)
   let type_extension ?loc a = mk ?loc (Pstr_typext a)
   let exception_ ?loc a = mk ?loc (Pstr_exception a)
-  let effect_ ?loc a = mk ?loc (Pstr_effect a)
   let module_ ?loc a = mk ?loc (Pstr_module a)
   let rec_module ?loc a = mk ?loc (Pstr_recmodule a)
   let modtype ?loc a = mk ?loc (Pstr_modtype a)
@@ -468,33 +466,6 @@ module Te = struct
      pext_kind = Pext_rebind lid;
      pext_loc = loc;
      pext_attributes = add_docs_attrs docs (add_info_attrs info attrs);
-    }
-
-end
-
-module Eff = struct
-  let mk ?(loc = !default_loc) ?(attrs = [])
-        ?(docs = empty_docs) ?(text = [])
-      ?(kind = Peff_abstract)
-      ?manifest
-      name =
-    {
-     peff_name = name;
-     peff_kind = kind;
-     peff_manifest = manifest;
-     peff_attributes =
-       add_text_attrs text (add_docs_attrs docs attrs);
-     peff_loc = loc;
-    }
-
-  let constructor ?(loc = !default_loc) ?(attrs = []) ?(info = empty_info)
-        ?(args = []) ?res name =
-    {
-     pec_name = name;
-     pec_args = args;
-     pec_res = res;
-     pec_loc = loc;
-     pec_attributes = add_info_attrs info attrs;
     }
 
 end

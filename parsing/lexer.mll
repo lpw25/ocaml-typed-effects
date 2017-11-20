@@ -455,8 +455,12 @@ rule token = parse
   | "->>" { MINUSGREATERGREATER }
   | "-[" { MINUSLBRACKET }
   | "]->" { RBRACKETMINUSGREATER }
+  | "]->>" { RBRACKETMINUSGREATERGREATER }
   | "~>" { TILDEGREATER }
   | "~>>" { TILDEGREATERGREATER }
+  | "~[" { TILDELBRACKET }
+  | "]~>" { RBRACKETTILDEGREATER }
+  | "]~>>" { RBRACKETTILDEGREATERGREATER }
   | "."  { DOT }
   | ".." { DOTDOT }
   | ":"  { COLON }

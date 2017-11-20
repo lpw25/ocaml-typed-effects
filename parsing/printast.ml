@@ -108,6 +108,10 @@ let fmt_private_flag f x =
   | Private -> fprintf f "Private";
 ;;
 
+let fmt_bool f x =
+  fprintf f "%s" (string_of_bool x)
+;;
+
 let line i f s (*...*) =
   fprintf f "%s" (String.make ((2*i) mod 72) ' ');
   fprintf f s (*...*)
@@ -133,7 +137,7 @@ let option i f ppf x =
 let longident_loc i ppf li = line i ppf "%a\n" fmt_longident_loc li;;
 let string i ppf s = line i ppf "\"%s\"\n" s;;
 let string_loc i ppf s = line i ppf "%a\n" fmt_string_loc s;;
-let bool i ppf x = line i ppf "%s\n" (string_of_bool x);;
+let bool i ppf x = line i ppf "%a\n" fmt_bool x;;
 let label i ppf x = line i ppf "label=\"%s\"\n" x;;
 
 let fmt_var ppf x =
@@ -200,26 +204,30 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  match x.peft_desc with
-  | Peft_io ->
-      line i ppf "Peft_io %a\n" fmt_location x.peft_loc
-  | Peft_pure ->
-      line i ppf "Peft_pure %a\n" fmt_location x.peft_loc
-  | Peft_io_tilde ->
-      line i ppf "Peft_io_tilde %a\n" fmt_location x.peft_loc
-  | Peft_pure_tilde ->
-      line i ppf "Peft_pure_tilde %a\n" fmt_location x.peft_loc
-  | Peft_row efr ->
-      line i ppf "Peft_row %a\n" fmt_location x.peft_loc;
-      effect_row (i+1) ppf efr
+  line i ppf "effect_type%a\n" fmt_location x.peft_loc;
+  let i = i+1 in
+  line i ppf "pefr_io = %a\n" fmt_bool x.peft_io;
+  line i ppf "pefr_tilde = %a\n" fmt_bool x.peft_tilde;
+  line i ppf "pefr_row =\n";
+  option (i+1) effect_row ppf x.peft_row
 
 and effect_row i ppf x =
   line i ppf "effect_row\n";
   let i = i+1 in
-  line i ppf "peft_constrs =\n";
-  list (i+1) longident_loc ppf x.pefr_effects;
-  line i ppf "peft_row =\n";
-  option (i+1) core_type ppf x.pefr_row
+  line i ppf "pefr_constrs =\n";
+  list (i+1) effect_constructor ppf x.pefr_effects;
+  line i ppf "pefr_next =\n";
+  option (i+1) core_type ppf x.pefr_next
+
+and effect_constructor i ppf x =
+  line i ppf "effect_constructor\n";
+  attributes i ppf x.peff_attributes;
+  let i = i+1 in
+  line i ppf "peff_label = %s\n" x.peff_label;
+  line i ppf "peff_args =\n";
+  list (i+1) core_type ppf x.peff_args;
+  line i ppf "peff_res =\n";
+  option (i+1) core_type ppf x.peff_res
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.ppat_loc;
@@ -268,9 +276,9 @@ and pattern i ppf x =
   | Ppat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p
-  | Ppat_effect(li, p1, p2) ->
-      line i ppf "Ppat_effect %a\n" fmt_longident_loc li;
-      option i pattern ppf p1;
+  | Ppat_effect(s, p1, p2) ->
+      line i ppf "Ppat_effect %s\n" s;
+      list i pattern ppf p1;
       option i pattern ppf p2
   | Ppat_extension (s, arg) ->
       line i ppf "Ppat_extension \"%s\"\n" s.txt;
@@ -360,9 +368,9 @@ and expression i ppf x =
       expression i ppf e;
       option i core_type ppf cto1;
       core_type i ppf cto2;
-  | Pexp_perform (li, eo) ->
-      line i ppf "Pexp_perfrom %a\n" fmt_longident_loc li;
-      option i expression ppf eo;
+  | Pexp_perform (s, l) ->
+      line i ppf "Pexp_perfrom %s\n" s;
+      list i expression ppf l;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;
@@ -488,32 +496,6 @@ and extension_constructor_kind i ppf x =
     | Pext_rebind li ->
         line i ppf "Pext_rebind\n";
         line (i+1) ppf "%a\n" fmt_longident_loc li;
-
-and effect_declaration i ppf x =
-  line i ppf "effect_declaration %a\n" fmt_location x.peff_loc;
-  attributes i ppf x.peff_attributes;
-  let i = i + 1 in
-  line i ppf "peff_manifest = \"%s\"\n" x.peff_name.txt;
-  line i ppf "peff_kind =\n";
-  effect_kind (i + 1) ppf x.peff_kind;
-
-and effect_kind i ppf x =
-  match x with
-    | Peff_abstract ->
-        line i ppf "Peff_abstract\n";
-    | Peff_variant li ->
-        line i ppf "Peff_variant\n";
-        list (i+1) effect_constructor ppf li
-
-and effect_constructor i ppf x =
-  line i ppf "effect_constructor %a\n" fmt_location x.pec_loc;
-  attributes i ppf x.pec_attributes;
-  let i = i + 1 in
-  line i ppf "pec_name = \"%s\"\n" x.pec_name.txt;
-  line i ppf "pec_args =\n";
-  list (i+1) core_type ppf x.pec_args;
-  line i ppf "pec_res =\n";
-  option (i+1) core_type ppf x.pec_res
 
 and class_type i ppf x =
   line i ppf "class_type %a\n" fmt_location x.pcty_loc;
@@ -719,9 +701,6 @@ and signature_item i ppf x =
   | Psig_exception ext ->
       line i ppf "Psig_exception\n";
       extension_constructor i ppf ext;
-  | Psig_effect ext ->
-      line i ppf "Psig_effect\n";
-      effect_declaration i ppf ext;
   | Psig_module pmd ->
       line i ppf "Psig_module %a\n" fmt_string_loc pmd.pmd_name;
       attributes i ppf pmd.pmd_attributes;
@@ -830,9 +809,6 @@ and structure_item i ppf x =
   | Pstr_exception ext ->
       line i ppf "Pstr_exception\n";
       extension_constructor i ppf ext;
-  | Pstr_effect ext ->
-      line i ppf "Pstr_effect\n";
-      effect_declaration i ppf ext;
   | Pstr_module x ->
       line i ppf "Pstr_module\n";
       module_binding i ppf x
@@ -930,7 +906,7 @@ and label_x_expression i ppf (l,e) =
 and label_x_bool_x_core_type_list i ppf x =
   match x with
     Rtag (l, attrs, b, ctl) ->
-      line i ppf "Rtag \"%s\" %s\n" l (string_of_bool b);
+      line i ppf "Rtag \"%s\" %a\n" l fmt_bool b;
       attributes (i+1) ppf attrs;
       list (i+1) core_type ppf ctl
   | Rinherit (ct) ->
@@ -953,7 +929,7 @@ and directive_argument i ppf x =
   | Pdir_string (s) -> line i ppf "Pdir_string \"%s\"\n" s;
   | Pdir_int (n) -> line i ppf "Pdir_int %d\n" n;
   | Pdir_ident (li) -> line i ppf "Pdir_ident %a\n" fmt_longident li;
-  | Pdir_bool (b) -> line i ppf "Pdir_bool %s\n" (string_of_bool b);
+  | Pdir_bool (b) -> line i ppf "Pdir_bool %a\n" fmt_bool b;
 ;;
 
 let interface ppf x = list 0 signature_item ppf x;;

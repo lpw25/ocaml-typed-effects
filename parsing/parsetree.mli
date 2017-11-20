@@ -137,21 +137,24 @@ and row_field =
 
 and effect_type =
   {
-    peft_desc : effect_type_desc;
+    peft_io: bool;
+    peft_tilde: bool;
+    peft_row: effect_row option;
     peft_loc : Location.t;
   }
 
-and effect_type_desc =
-  | Peft_io
-  | Peft_pure
-  | Peft_io_tilde
-  | Peft_pure_tilde
-  | Peft_row of effect_row
-
 and effect_row =
   {
-    pefr_effects : Longident.t loc list;
-    pefr_row : core_type option;
+    pefr_effects : effect_constructor list;
+    pefr_next : core_type option;
+  }
+
+and effect_constructor =
+  {
+    peff_label: label;
+    peff_args: core_type list;
+    peff_res: core_type option;
+    peff_attributes: attributes;
   }
 
 (* Patterns *)
@@ -214,7 +217,7 @@ and pattern_desc =
          *)
   | Ppat_exception of pattern
         (* exception P *)
-  | Ppat_effect of Longident.t loc * pattern option * pattern option
+  | Ppat_effect of label * pattern list * pattern option
         (* effect E P, P *)
   | Ppat_extension of extension
         (* [%id] *)
@@ -306,7 +309,7 @@ and expression_desc =
         (* (E :> T)        (None, T)
            (E : T0 :> T)   (Some T0, T)
          *)
-  | Pexp_perform of Longident.t loc * expression option
+  | Pexp_perform of label * expression list
         (* perform E *)
   | Pexp_send of expression * string
         (*  E # m *)
@@ -465,29 +468,6 @@ and extension_constructor_kind =
       (*
          | C = D
        *)
-
-and effect_declaration =
-    {
-     peff_name: string loc;
-     peff_kind : effect_kind;
-     peff_manifest: Longident.t loc option;
-     peff_loc : Location.t;
-     peff_attributes: attributes;
-    }
-
-and effect_kind =
-  | Peff_abstract
-  | Peff_variant of effect_constructor list
-
-and effect_constructor =
-    {
-     pec_name: string loc;
-     pec_args: core_type list;
-     pec_res: core_type option;
-     pec_loc: Location.t;
-     pec_attributes: attributes;
-    }
-
 
 (** {2 Class language} *)
 
@@ -697,8 +677,6 @@ and signature_item_desc =
         (* type t1 += ... *)
   | Psig_exception of extension_constructor
         (* exception C of T *)
-  | Psig_effect of effect_declaration
-        (* effect e = ... *)
   | Psig_module of module_declaration
         (* module X : MT *)
   | Psig_recmodule of module_declaration list
@@ -826,8 +804,6 @@ and structure_item_desc =
   | Pstr_exception of extension_constructor
         (* exception C of T
            exception C = M.X *)
-  | Pstr_effect of effect_declaration
-        (* effect e = ... *)
   | Pstr_module of module_binding
         (* module X = ME *)
   | Pstr_recmodule of module_binding list
