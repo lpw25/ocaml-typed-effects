@@ -26,31 +26,31 @@ type obj
 type closure
 val public_method_label : string -> tag
 val new_method : table -> label
-val new_variable : table -> string -> int
+val new_variable : table ->> string -> int
 val new_methods_variables :
-    table -> string array -> string array -> label array
-val get_variable : table -> string -> int
-val get_variables : table -> string array -> int array
-val get_method_label : table -> string -> label
-val get_method_labels : table -> string array -> label array
-val get_method : table -> label -> meth
-val set_method : table -> label -> meth -> unit
-val set_methods : table -> label array -> unit
-val narrow : table -> string array -> string array -> string array -> unit
+    table ->> string array ->> string array -> label array
+val get_variable : table ->> string -> int
+val get_variables : table ->> string array -> int array
+val get_method_label : table ->> string -> label
+val get_method_labels : table ->> string array -> label array
+val get_method : table ->> label -> meth
+val set_method : table ->> label ->> meth -> unit
+val set_methods : table ->> label array -> unit
+val narrow : table ->> string array ->> string array ->> string array -> unit
 val widen : table -> unit
-val add_initializer : table -> (obj -> unit) -> unit
+val add_initializer : table ->> (obj -> unit) -> unit
 val dummy_table : table
 val create_table : string array -> table
 val init_class : table -> unit
 val inherits :
-    table -> string array -> string array -> string array ->
-    (t * (table -> obj -> Obj.t) * t * obj) -> bool -> Obj.t array
+    table ->> string array ->> string array ->> string array ->>
+    (t * (table -> obj -> Obj.t) * t * obj) ->> bool -> Obj.t array
 val make_class :
-    string array -> (table -> Obj.t -> t) ->
+    string array ->> (table -> Obj.t -> t) ->
     (t * (table -> Obj.t -> t) * (Obj.t -> t) * Obj.t)
 type init_table
 val make_class_store :
-    string array -> (table -> t) -> init_table -> unit
+    string array ->> (table -> t) ->> init_table -> unit
 val dummy_class :
     string * int * int ->
     (t * (table -> Obj.t -> t) * (Obj.t -> t) * Obj.t)
@@ -59,20 +59,20 @@ val dummy_class :
 
 val copy : (< .. > as 'a) -> 'a
 val create_object : table -> obj
-val create_object_opt : obj -> table -> obj
-val run_initializers : obj -> table -> unit
-val run_initializers_opt : obj -> obj -> table -> obj
-val create_object_and_run_initializers : obj -> table -> obj
-external send : obj -> tag -> t = "%send"
-external sendcache : obj -> tag -> t -> int -> t = "%sendcache"
-external sendself : obj -> label -> t = "%sendself"
-external get_public_method : obj -> tag -> closure
+val create_object_opt : obj ->> table -> obj
+val run_initializers : obj ->> table -> unit
+val run_initializers_opt : obj ->> obj ->> table -> obj
+val create_object_and_run_initializers : obj ->> table -> obj
+external send : obj ->> tag -> t = "%send"
+external sendcache : obj ->> tag ->> t ->> int -> t = "%sendcache"
+external sendself : obj ->> label -> t = "%sendself"
+external get_public_method : obj ->> tag -> closure
     = "caml_get_public_method" "noalloc"
 
 (** {6 Table cache} *)
 
 type tables
-val lookup_tables : tables -> closure array -> tables
+val lookup_tables : tables ->> closure array -> tables
 
 (** {6 Builtins to reduce code size} *)
 

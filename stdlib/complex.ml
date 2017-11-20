@@ -31,6 +31,7 @@ let mul x y = { re = x.re *. y.re -. x.im *. y.im;
                 im = x.re *. y.im +. x.im *. y.re }
 
 let div x y =
+  let open Float_compare in
   if abs_float y.re >= abs_float y.im then
     let r = y.im /. y.re in
     let d = y.re +. r *. y.im in
@@ -47,6 +48,7 @@ let inv x = div one x
 let norm2 x = x.re *. x.re +. x.im *. x.im
 
 let norm x =
+  let open Float_compare in
   (* Watch out for overflow in computing re^2 + im^2 *)
   let r = abs_float x.re and i = abs_float x.im in
   if r = 0.0 then i
@@ -61,6 +63,7 @@ let arg x = atan2 x.im x.re
 let polar n a = { re = cos a *. n; im = sin a *. n }
 
 let sqrt x =
+  let open Float_compare in
   if x.re = 0.0 && x.im = 0.0 then { re = 0.0; im = 0.0 }
   else begin
     let r = abs_float x.re and i = abs_float x.im in

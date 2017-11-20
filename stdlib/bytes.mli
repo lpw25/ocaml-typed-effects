@@ -40,15 +40,15 @@
    @since 4.02.0
  *)
 
-external length : bytes -> int = "%string_length"
+external length : bytes ->> int = "%string_length"
 (** Return the length (number of bytes) of the argument. *)
 
-external get : bytes -> int -> char = "%string_safe_get"
+external get : bytes ->> int -> char = "%string_safe_get"
 (** [get s n] returns the byte at index [n] in argument [s].
 
     Raise [Invalid_argument] if [n] not a valid index in [s]. *)
 
-external set : bytes -> int -> char -> unit = "%string_safe_set"
+external set : bytes ->> int ->> char -> unit = "%string_safe_set"
 (** [set s n c] modifies [s] in place, replacing the byte at index [n]
     with [c].
 
@@ -60,13 +60,13 @@ external create : int -> bytes = "caml_create_string"
 
     Raise [Invalid_argument] if [n < 0] or [n > ]{!Sys.max_string_length}. *)
 
-val make : int -> char -> bytes
+val make : int ->> char -> bytes
 (** [make n c] returns a new byte sequence of length [n], filled with
     the byte [c].
 
     Raise [Invalid_argument] if [n < 0] or [n > ]{!Sys.max_string_length}. *)
 
-val init : int -> (int -> char) -> bytes
+val init : int ->> (int ~> char) ~> bytes
 (** [Bytes.init n f] returns a fresh byte sequence of length [n], with
     character [i] initialized to the result of [f i] (in increasing
     index order).
@@ -88,7 +88,7 @@ val to_string : bytes -> string
 (** Return a new string that contains the same bytes as the given byte
     sequence. *)
 
-val sub : bytes -> int -> int -> bytes
+val sub : bytes ->> int ->> int -> bytes
 (** [sub s start len] returns a new byte sequence of length [len],
     containing the subsequence of [s] that starts at position [start]
     and has length [len].
@@ -96,10 +96,10 @@ val sub : bytes -> int -> int -> bytes
     Raise [Invalid_argument] if [start] and [len] do not designate a
     valid range of [s]. *)
 
-val sub_string : bytes -> int -> int -> string
+val sub_string : bytes ->> int ->> int -> string
 (** Same as [sub] but return a string instead of a byte sequence. *)
 
-val extend : bytes -> int -> int -> bytes
+val extend : bytes ->> int ->> int -> bytes
 (** [extend s left right] returns a new byte sequence that contains
     the bytes of [s], with [left] uninitialized bytes prepended and
     [right] uninitialized bytes appended to it. If [left] or [right]
@@ -109,14 +109,14 @@ val extend : bytes -> int -> int -> bytes
     Raise [Invalid_argument] if the result length is negative or
     longer than {!Sys.max_string_length} bytes. *)
 
-val fill : bytes -> int -> int -> char -> unit
+val fill : bytes ->> int ->> int ->> char -> unit
 (** [fill s start len c] modifies [s] in place, replacing [len]
     characters with [c], starting at [start].
 
     Raise [Invalid_argument] if [start] and [len] do not designate a
     valid range of [s]. *)
 
-val blit : bytes -> int -> bytes -> int -> int -> unit
+val blit : bytes ->> int ->> bytes ->> int ->> int -> unit
 (** [blit src srcoff dst dstoff len] copies [len] bytes from sequence
     [src], starting at index [srcoff], to sequence [dst], starting at
     index [dstoff]. It works correctly even if [src] and [dst] are the
@@ -127,7 +127,7 @@ val blit : bytes -> int -> bytes -> int -> int -> unit
     designate a valid range of [src], or if [dstoff] and [len]
     do not designate a valid range of [dst]. *)
 
-val blit_string : string -> int -> bytes -> int -> int -> unit
+val blit_string : string ->> int ->> bytes ->> int ->> int -> unit
 (** [blit src srcoff dst dstoff len] copies [len] bytes from string
     [src], starting at index [srcoff], to byte sequence [dst],
     starting at index [dstoff].
@@ -136,7 +136,7 @@ val blit_string : string -> int -> bytes -> int -> int -> unit
     designate a valid range of [src], or if [dstoff] and [len]
     do not designate a valid range of [dst]. *)
 
-val concat : bytes -> bytes list -> bytes
+val concat : bytes ->> bytes list -> bytes
 (** [concat sep sl] concatenates the list of byte sequences [sl],
     inserting the separator byte sequence [sep] between each, and
     returns the result as a new byte sequence.
@@ -144,29 +144,29 @@ val concat : bytes -> bytes list -> bytes
     Raise [Invalid_argument] if the result is longer than
     {!Sys.max_string_length} bytes. *)
 
-val cat : bytes -> bytes -> bytes
+val cat : bytes ->> bytes -> bytes
 (** [cat s1 s2] concatenates [s1] and [s2] and returns the result
      as new byte sequence.
 
     Raise [Invalid_argument] if the result is longer than
     {!Sys.max_string_length} bytes. *)
 
-val iter : (char -> unit) -> bytes -> unit
+val iter : (char ~> unit) ->> bytes ~> unit
 (** [iter f s] applies function [f] in turn to all the bytes of [s].
     It is equivalent to [f (get s 0); f (get s 1); ...; f (get s
     (length s - 1)); ()]. *)
 
-val iteri : (int -> char -> unit) -> bytes -> unit
+val iteri : (int ~> char ~> unit) ->> bytes ~> unit
 (** Same as {!Bytes.iter}, but the function is applied to the index of
     the byte as first argument and the byte itself as second
     argument. *)
 
-val map : (char -> char) -> bytes -> bytes
+val map : (char ~> char) ->> bytes ~> bytes
 (** [map f s] applies function [f] in turn to all the bytes of [s]
     (in increasing index order) and stores the resulting bytes in
     a new sequence that is returned as the result. *)
 
-val mapi : (int -> char -> char) -> bytes -> bytes
+val mapi : (int ~> char ~> char) ->> bytes ~> bytes
 (** [mapi f s] calls [f] with each character of [s] and its
     index (in increasing index order) and stores the resulting bytes
     in a new sequence that is returned as the result. *)
@@ -185,19 +185,19 @@ val escaped : bytes -> bytes
     Raise [Invalid_argument] if the result is longer than
     {!Sys.max_string_length} bytes. *)
 
-val index : bytes -> char -> int
+val index : bytes ->> char -> int
 (** [index s c] returns the index of the first occurrence of byte [c]
     in [s].
 
     Raise [Not_found] if [c] does not occur in [s]. *)
 
-val rindex : bytes -> char -> int
+val rindex : bytes ->> char -> int
 (** [rindex s c] returns the index of the last occurrence of byte [c]
     in [s].
 
     Raise [Not_found] if [c] does not occur in [s]. *)
 
-val index_from : bytes -> int -> char -> int
+val index_from : bytes ->> int ->> char -> int
 (** [index_from s i c] returns the index of the first occurrence of
     byte [c] in [s] after position [i].  [Bytes.index s c] is
     equivalent to [Bytes.index_from s 0 c].
@@ -205,7 +205,7 @@ val index_from : bytes -> int -> char -> int
     Raise [Invalid_argument] if [i] is not a valid position in [s].
     Raise [Not_found] if [c] does not occur in [s] after position [i]. *)
 
-val rindex_from : bytes -> int -> char -> int
+val rindex_from : bytes ->> int ->> char -> int
 (** [rindex_from s i c] returns the index of the last occurrence of
     byte [c] in [s] before position [i+1].  [rindex s c] is equivalent
     to [rindex_from s (Bytes.length s - 1) c].
@@ -213,17 +213,17 @@ val rindex_from : bytes -> int -> char -> int
     Raise [Invalid_argument] if [i+1] is not a valid position in [s].
     Raise [Not_found] if [c] does not occur in [s] before position [i+1]. *)
 
-val contains : bytes -> char -> bool
+val contains : bytes ->> char -> bool
 (** [contains s c] tests if byte [c] appears in [s]. *)
 
-val contains_from : bytes -> int -> char -> bool
+val contains_from : bytes ->> int ->> char -> bool
 (** [contains_from s start c] tests if byte [c] appears in [s] after
     position [start].  [contains s c] is equivalent to [contains_from
     s 0 c].
 
     Raise [Invalid_argument] if [start] is not a valid position in [s]. *)
 
-val rcontains_from : bytes -> int -> char -> bool
+val rcontains_from : bytes ->> int ->> char -> bool
 (** [rcontains_from s stop c] tests if byte [c] appears in [s] before
     position [stop+1].
 
@@ -251,7 +251,7 @@ val uncapitalize : bytes -> bytes
 type t = bytes
 (** An alias for the type of byte sequences. *)
 
-val compare: t -> t -> int
+val compare: t ->> t -> int
 (** The comparison function for byte sequences, with the same
     specification as {!Pervasives.compare}.  Along with the type [t],
     this function [compare] allows the module [Bytes] to be passed as
@@ -391,10 +391,10 @@ let s = Bytes.of_string "hello"
 
 (* The following is for system use only. Do not call directly. *)
 
-external unsafe_get : bytes -> int -> char = "%string_unsafe_get"
-external unsafe_set : bytes -> int -> char -> unit = "%string_unsafe_set"
+external unsafe_get : bytes ->> int -> char = "%string_unsafe_get"
+external unsafe_set : bytes ->> int ->> char -> unit = "%string_unsafe_set"
 external unsafe_blit :
-  bytes -> int -> bytes -> int -> int -> unit
+  bytes ->> int ->> bytes ->> int ->> int -> unit
   = "caml_blit_string" "noalloc"
 external unsafe_fill :
-  bytes -> int -> int -> char -> unit = "caml_fill_string" "noalloc"
+  bytes ->> int ->> int ->> char -> unit = "caml_fill_string" "noalloc"

@@ -94,7 +94,7 @@ val close_box : unit -> unit
 val print_string : string -> unit
 (** [print_string str] prints [str] in the current box. *)
 
-val print_as : int -> string -> unit
+val print_as : int ->> string -> unit
 (** [print_as len str] prints [str] in the
    current box. The pretty-printer formats [str] as if
    it were of length [len]. *)
@@ -128,7 +128,7 @@ val print_cut : unit -> unit
    point, without printing spaces or adding indentation.
    It is equivalent to [print_break 0 0]. *)
 
-val print_break : int -> int -> unit
+val print_break : int ->> int -> unit
 (** Inserts a break hint in a pretty-printing box.
    [print_break nspaces offset] indicates that the line may
    be split (a newline character is printed) at this point,
@@ -237,7 +237,7 @@ val open_tbox : unit -> unit
 val close_tbox : unit -> unit
 (** Closes the most recently opened tabulation box. *)
 
-val print_tbreak : int -> int -> unit
+val print_tbreak : int ->> int -> unit
 (** Break hint in a tabulation box.
    [print_tbreak spaces offset] moves the insertion point to
    the next tabulation ([spaces] being added to this position).
@@ -350,7 +350,7 @@ val set_formatter_out_channel : Pervasives.out_channel -> unit
      default output functions printing to the given channel.) *)
 
 val set_formatter_output_functions :
-  (string -> int -> int -> unit) -> (unit -> unit) -> unit
+  (string -> int -> int -> unit) ->> (unit -> unit) -> unit
 (** [set_formatter_output_functions out flush] redirects the
    pretty-printer output functions to the functions [out] and
    [flush].
@@ -491,7 +491,7 @@ val flush_str_formatter : unit -> string
    the formatter and resets the corresponding buffer. *)
 
 val make_formatter :
-  (string -> int -> int -> unit) -> (unit -> unit) -> formatter
+  (string -> int -> int -> unit) ->> (unit -> unit) -> formatter
 (** [make_formatter out flush] returns a new formatter that writes according
   to the output function [out], and the flushing function [flush]. For
   instance, a formatter to the [Pervasives.out_channel] [oc] is returned by
@@ -499,66 +499,66 @@ val make_formatter :
 
 (** {6 Basic functions to use with formatters} *)
 
-val pp_open_hbox : formatter -> unit -> unit
-val pp_open_vbox : formatter -> int -> unit
-val pp_open_hvbox : formatter -> int -> unit
-val pp_open_hovbox : formatter -> int -> unit
-val pp_open_box : formatter -> int -> unit
-val pp_close_box : formatter -> unit -> unit
-val pp_open_tag : formatter -> string -> unit
-val pp_close_tag : formatter -> unit -> unit
-val pp_print_string : formatter -> string -> unit
-val pp_print_as : formatter -> int -> string -> unit
-val pp_print_int : formatter -> int -> unit
-val pp_print_float : formatter -> float -> unit
-val pp_print_char : formatter -> char -> unit
-val pp_print_bool : formatter -> bool -> unit
-val pp_print_break : formatter -> int -> int -> unit
-val pp_print_cut : formatter -> unit -> unit
-val pp_print_space : formatter -> unit -> unit
-val pp_force_newline : formatter -> unit -> unit
-val pp_print_flush : formatter -> unit -> unit
-val pp_print_newline : formatter -> unit -> unit
-val pp_print_if_newline : formatter -> unit -> unit
-val pp_open_tbox : formatter -> unit -> unit
-val pp_close_tbox : formatter -> unit -> unit
-val pp_print_tbreak : formatter -> int -> int -> unit
-val pp_set_tab : formatter -> unit -> unit
-val pp_print_tab : formatter -> unit -> unit
-val pp_set_tags : formatter -> bool -> unit
-val pp_set_print_tags : formatter -> bool -> unit
-val pp_set_mark_tags : formatter -> bool -> unit
-val pp_get_print_tags : formatter -> unit -> bool
-val pp_get_mark_tags : formatter -> unit -> bool
-val pp_set_margin : formatter -> int -> unit
-val pp_get_margin : formatter -> unit -> int
-val pp_set_max_indent : formatter -> int -> unit
-val pp_get_max_indent : formatter -> unit -> int
-val pp_set_max_boxes : formatter -> int -> unit
-val pp_get_max_boxes : formatter -> unit -> int
-val pp_over_max_boxes : formatter -> unit -> bool
-val pp_set_ellipsis_text : formatter -> string -> unit
-val pp_get_ellipsis_text : formatter -> unit -> string
+val pp_open_hbox : formatter ->> unit -> unit
+val pp_open_vbox : formatter ->> int -> unit
+val pp_open_hvbox : formatter ->> int -> unit
+val pp_open_hovbox : formatter ->> int -> unit
+val pp_open_box : formatter ->> int -> unit
+val pp_close_box : formatter ->> unit -> unit
+val pp_open_tag : formatter ->> string -> unit
+val pp_close_tag : formatter ->> unit -> unit
+val pp_print_string : formatter ->> string -> unit
+val pp_print_as : formatter ->> int ->> string -> unit
+val pp_print_int : formatter ->> int -> unit
+val pp_print_float : formatter ->> float -> unit
+val pp_print_char : formatter ->> char -> unit
+val pp_print_bool : formatter ->> bool -> unit
+val pp_print_break : formatter ->> int ->> int -> unit
+val pp_print_cut : formatter ->> unit -> unit
+val pp_print_space : formatter ->> unit -> unit
+val pp_force_newline : formatter ->> unit -> unit
+val pp_print_flush : formatter ->> unit -> unit
+val pp_print_newline : formatter ->> unit -> unit
+val pp_print_if_newline : formatter ->> unit -> unit
+val pp_open_tbox : formatter ->> unit -> unit
+val pp_close_tbox : formatter ->> unit -> unit
+val pp_print_tbreak : formatter ->> int ->> int -> unit
+val pp_set_tab : formatter ->> unit -> unit
+val pp_print_tab : formatter ->> unit -> unit
+val pp_set_tags : formatter ->> bool -> unit
+val pp_set_print_tags : formatter ->> bool -> unit
+val pp_set_mark_tags : formatter ->> bool -> unit
+val pp_get_print_tags : formatter ->> unit -> bool
+val pp_get_mark_tags : formatter ->> unit -> bool
+val pp_set_margin : formatter ->> int -> unit
+val pp_get_margin : formatter ->> unit -> int
+val pp_set_max_indent : formatter ->> int -> unit
+val pp_get_max_indent : formatter ->> unit -> int
+val pp_set_max_boxes : formatter ->> int -> unit
+val pp_get_max_boxes : formatter ->> unit -> int
+val pp_over_max_boxes : formatter ->> unit -> bool
+val pp_set_ellipsis_text : formatter ->> string -> unit
+val pp_get_ellipsis_text : formatter ->> unit -> string
 val pp_set_formatter_out_channel :
-  formatter -> Pervasives.out_channel -> unit
+  formatter ->> Pervasives.out_channel -> unit
 
 val pp_set_formatter_output_functions :
-  formatter -> (string -> int -> int -> unit) -> (unit -> unit) -> unit
+  formatter ->> (string -> int -> int -> unit) ->> (unit -> unit) -> unit
 
 val pp_get_formatter_output_functions :
-  formatter -> unit -> (string -> int -> int -> unit) * (unit -> unit)
+  formatter ->> unit -> (string -> int -> int -> unit) * (unit -> unit)
 
 val pp_set_formatter_tag_functions :
-  formatter -> formatter_tag_functions -> unit
+  formatter ->> formatter_tag_functions -> unit
 
 val pp_get_formatter_tag_functions :
-  formatter -> unit -> formatter_tag_functions
+  formatter ->> unit -> formatter_tag_functions
 
 val pp_set_formatter_out_functions :
-  formatter -> formatter_out_functions -> unit
+  formatter ->> formatter_out_functions -> unit
 
 val pp_get_formatter_out_functions :
-  formatter -> unit -> formatter_out_functions
+  formatter ->> unit -> formatter_out_functions
 (** These functions are the basic ones: usual functions
    operating on the standard formatter are defined via partial
    evaluation of these primitives. For instance,
@@ -567,8 +567,8 @@ val pp_get_formatter_out_functions :
 (** {6 Convenience formatting functions.} *)
 
 val pp_print_list:
-  ?pp_sep:(formatter -> unit -> unit) ->
-  (formatter -> 'a -> unit) -> (formatter -> 'a list -> unit)
+  ?pp_sep:(formatter ~> unit ~> unit) ->>
+  (formatter ~> 'a ~> unit) ->> (formatter ->> 'a list ~> unit)
 (** [pp_print_list ?pp_sep pp_v ppf l] prints the list [l]. [pp_v] is
     used on the elements of [l] and each element is separated by
     a call to [pp_sep] (defaults to {!pp_print_cut}). Does nothing on
@@ -577,7 +577,7 @@ val pp_print_list:
     @since 4.02.0
 *)
 
-val pp_print_text : formatter -> string -> unit
+val pp_print_text : formatter ->> string -> unit
 (** [pp_print_text ppf s] prints [s] with spaces and newlines
     respectively printed with {!pp_print_space} and
     {!pp_force_newline}.
@@ -587,7 +587,8 @@ val pp_print_text : formatter -> string -> unit
 
 (** {6 [printf] like functions for pretty-printing.} *)
 
-val fprintf : formatter -> ('a, formatter, unit) format -> 'a
+val fprintf :
+  formatter -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]-> 'a
 
 (** [fprintf ff fmt arg1 ... argN] formats the arguments [arg1] to [argN]
    according to the format string [fmt], and outputs the resulting string on
@@ -656,13 +657,13 @@ val fprintf : formatter -> ('a, formatter, unit) format -> 'a
 
 *)
 
-val printf : ('a, formatter, unit) format -> 'a
+val printf : ('a, formatter, unit, ![io | !p]) formate -[io | !p]-> 'a
 (** Same as [fprintf] above, but output on [std_formatter]. *)
 
-val eprintf : ('a, formatter, unit) format -> 'a
+val eprintf : ('a, formatter, unit, ![io | !p]) formate -[io | !p]-> 'a
 (** Same as [fprintf] above, but output on [err_formatter]. *)
 
-val sprintf : ('a, unit, string) format -> 'a
+val sprintf : ('a, unit, string, ![io | !p]) formate -[io | !p]-> 'a
 (** Same as [printf] above, but instead of printing on a formatter,
    returns a string containing the result of formatting the arguments.
    Note that the pretty-printer queue is flushed at the end of {e each
@@ -678,7 +679,8 @@ val sprintf : ('a, unit, string) format -> 'a
    pretty-printing returns the desired string.
 *)
 
-val asprintf : ('a, formatter, unit, string) format4 -> 'a
+val asprintf :
+  ('a, formatter, unit, string, ![io | !p]) format4e -[io | !p]-> 'a
 (** Same as [printf] above, but instead of printing on a formatter,
    returns a string containing the result of formatting the arguments.
    The type of [asprintf] is general enough to interact nicely with [%a]
@@ -686,7 +688,7 @@ val asprintf : ('a, formatter, unit, string) format4 -> 'a
    @since 4.01.0
  *)
 
-val ifprintf : formatter -> ('a, formatter, unit) format -> 'a
+val ifprintf : formatter -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]-> 'a
 (** Same as [fprintf] above, but does not print anything.
    Useful to ignore some material when conditionally printing.
    @since 3.10.0
@@ -694,25 +696,27 @@ val ifprintf : formatter -> ('a, formatter, unit) format -> 'a
 
 (** Formatted output functions with continuations. *)
 
-val kfprintf : (formatter -> 'a) -> formatter ->
-              ('b, formatter, unit, 'a) format4 -> 'b
+val kfprintf : (formatter -[io | !p]-> 'a) -> formatter ->
+              ('b, formatter, unit, 'a, ![io | !p]) format4e -[io | !p]-> 'b
 (** Same as [fprintf] above, but instead of returning immediately,
    passes the formatter to its first argument at the end of printing. *)
 
-val ikfprintf : (formatter -> 'a) -> formatter ->
-              ('b, formatter, unit, 'a) format4 -> 'b
+val ikfprintf : (formatter -[io | !p]-> 'a) -> formatter ->
+  ('b, formatter, unit, 'a, ![io | !p]) format4e -[io | !p]-> 'b
 (** Same as [kfprintf] above, but does not print anything.
    Useful to ignore some material when conditionally printing.
    @since 3.12.0
 *)
 
-val ksprintf : (string -> 'a) -> ('b, unit, string, 'a) format4 -> 'b
+val ksprintf : (string -[io | !p]-> 'a) ->
+  ('b, unit, string, 'a, ![io | !p]) format4e -[io | !p]-> 'b
 (** Same as [sprintf] above, but instead of returning the string,
    passes it to the first argument. *)
 
 (** {6 Deprecated} *)
 
-val bprintf : Buffer.t -> ('a, formatter, unit) format -> 'a
+val bprintf :
+  Buffer.t -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]-> 'a
   [@@ocaml.deprecated]
 (** @deprecated This function is error prone. Do not use it.
 
@@ -720,14 +724,15 @@ val bprintf : Buffer.t -> ('a, formatter, unit) format -> 'a
   formatter writing to [b], using [let to_b = formatter_of_buffer b]; then
   use regular calls to [Format.fprintf] on formatter [to_b]. *)
 
-val kprintf : (string -> 'a) -> ('b, unit, string, 'a) format4 -> 'b
+val kprintf : (string -[io | !p]-> 'a) ->
+  ('b, unit, string, 'a, ![io | !p]) format4e -[io | !p]-> 'b
   [@@ocaml.deprecated "Use Format.ksprintf instead."]
 (** @deprecated An alias for [ksprintf]. *)
 
 val set_all_formatter_output_functions :
-  out:(string -> int -> int -> unit) ->
-  flush:(unit -> unit) ->
-  newline:(unit -> unit) ->
+  out:(string -> int -> int -> unit) ->>
+  flush:(unit -> unit) ->>
+  newline:(unit -> unit) ->>
   spaces:(int -> unit) ->
   unit
 [@@ocaml.deprecated "Use Format.set_formatter_out_functions instead."]
@@ -743,13 +748,13 @@ val get_all_formatter_output_functions :
 (** @deprecated Subsumed by [get_formatter_out_functions]. *)
 
 val pp_set_all_formatter_output_functions :
-  formatter -> out:(string -> int -> int -> unit) -> flush:(unit -> unit) ->
-  newline:(unit -> unit) -> spaces:(int -> unit) -> unit
+  formatter ->> out:(string -> int -> int -> unit) ->> flush:(unit -> unit) ->>
+  newline:(unit -> unit) ->> spaces:(int -> unit) -> unit
 [@@ocaml.deprecated "Use Format.pp_set_formatter_out_functions instead."]
 (** @deprecated Subsumed by [pp_set_formatter_out_functions]. *)
 
 val pp_get_all_formatter_output_functions :
-  formatter -> unit ->
+  formatter ->> unit ->
   (string -> int -> int -> unit) * (unit -> unit) * (unit -> unit) *
   (int -> unit)
 [@@ocaml.deprecated "Use Format.pp_get_formatter_out_functions instead."]

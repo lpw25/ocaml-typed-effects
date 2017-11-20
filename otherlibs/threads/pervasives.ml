@@ -28,8 +28,8 @@ let () =
     (Invalid_argument "index out of bounds")
 
 
-external raise : exn -> 'a = "%raise"
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise : exn ->> 'a = "%raise"
+external raise_notrace : exn ->> 'a = "%raise_notrace"
 
 let failwith s = raise(Failure s)
 let invalid_arg s = raise(Invalid_argument s)
@@ -50,8 +50,8 @@ let discontinue k e =
 
 (* Composition operators *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( |> ) : 'a ->> ('a ~>> 'b) ~>> 'b = "%revapply"
+external ( @@ ) : ('a ~>> 'b) ->> 'a ~>> 'b = "%apply"
 
 (* Debugging *)
 
@@ -61,102 +61,128 @@ external __LINE__ : int = "%loc_LINE"
 external __MODULE__ : string = "%loc_MODULE"
 external __POS__ : string * int * int * int = "%loc_POS"
 
-external __LOC_OF__ : 'a -> string * 'a = "%loc_LOC"
-external __LINE_OF__ : 'a -> int * 'a = "%loc_LINE"
-external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
+external __LOC_OF__ : 'a ->> string * 'a = "%loc_LOC"
+external __LINE_OF__ : 'a ->> int * 'a = "%loc_LINE"
+external __POS_OF__ : 'a ->> (string * int * int * int) * 'a = "%loc_POS"
 
 (* Comparisons *)
 
-external ( = ) : 'a -> 'a -> bool = "%equal"
-external ( <> ) : 'a -> 'a -> bool = "%notequal"
-external ( < ) : 'a -> 'a -> bool = "%lessthan"
-external ( > ) : 'a -> 'a -> bool = "%greaterthan"
-external ( <= ) : 'a -> 'a -> bool = "%lessequal"
-external ( >= ) : 'a -> 'a -> bool = "%greaterequal"
-external compare : 'a -> 'a -> int = "%compare"
+external ( = ) : 'a ->> 'a -> bool = "%equal"
+external ( <> ) : 'a ->> 'a -> bool = "%notequal"
+external ( < ) : 'a ->> 'a -> bool = "%lessthan"
+external ( > ) : 'a ->> 'a -> bool = "%greaterthan"
+external ( <= ) : 'a ->> 'a -> bool = "%lessequal"
+external ( >= ) : 'a ->> 'a -> bool = "%greaterequal"
+external compare : 'a ->> 'a -> int = "%compare"
 
 let min x y = if x <= y then x else y
 let max x y = if x >= y then x else y
 
-external ( == ) : 'a -> 'a -> bool = "%eq"
-external ( != ) : 'a -> 'a -> bool = "%noteq"
+module Int_compare = struct
+  external ( = ) : int ->> int ->> bool = "%equal"
+  external ( <> ) : int ->> int ->> bool = "%notequal"
+  external ( < ) : int ->> int ->> bool = "%lessthan"
+  external ( > ) : int ->> int ->> bool = "%greaterthan"
+  external ( <= ) : int ->> int ->> bool = "%lessequal"
+  external ( >= ) : int ->> int ->> bool = "%greaterequal"
+  external compare : int ->> int ->> int = "%compare"
+
+  let min x y = if x <= y then x else y
+  let max x y = if x >= y then x else y
+end
+
+module Float_compare = struct
+  external ( = ) : float ->> float ->> bool = "%equal"
+  external ( <> ) : float ->> float ->> bool = "%notequal"
+  external ( < ) : float ->> float ->> bool = "%lessthan"
+  external ( > ) : float ->> float ->> bool = "%greaterthan"
+  external ( <= ) : float ->> float ->> bool = "%lessequal"
+  external ( >= ) : float ->> float ->> bool = "%greaterequal"
+  external compare : float ->> float ->> int = "%compare"
+
+  let min x y = if x <= y then x else y
+  let max x y = if x >= y then x else y
+end
+
+external ( == ) : 'a ->> 'a -> bool = "%eq"
+external ( != ) : 'a ->> 'a -> bool = "%noteq"
 
 (* Boolean operations *)
 
-external not : bool -> bool = "%boolnot"
-external ( & ) : bool -> bool -> bool = "%sequand"
-external ( && ) : bool -> bool -> bool = "%sequand"
-external ( or ) : bool -> bool -> bool = "%sequor"
-external ( || ) : bool -> bool -> bool = "%sequor"
+external not : bool ->> bool = "%boolnot"
+external ( & ) : bool ->> bool ->> bool = "%sequand"
+external ( && ) : bool ->> bool ->> bool = "%sequand"
+external ( or ) : bool ->> bool ->> bool = "%sequor"
+external ( || ) : bool ->> bool ->> bool = "%sequor"
 
 (* Integer operations *)
 
-external ( ~- ) : int -> int = "%negint"
-external ( ~+ ) : int -> int = "%identity"
-external succ : int -> int = "%succint"
-external pred : int -> int = "%predint"
-external ( + ) : int -> int -> int = "%addint"
-external ( - ) : int -> int -> int = "%subint"
-external ( * ) : int -> int -> int = "%mulint"
-external ( / ) : int -> int -> int = "%divint"
-external ( mod ) : int -> int -> int = "%modint"
+external ( ~- ) : int ->> int = "%negint"
+external ( ~+ ) : int ->> int = "%identity"
+external succ : int ->> int = "%succint"
+external pred : int ->> int = "%predint"
+external ( + ) : int ->> int ->> int = "%addint"
+external ( - ) : int ->> int ->> int = "%subint"
+external ( * ) : int ->> int ->> int = "%mulint"
+external ( / ) : int ->> int ->> int = "%divint"
+external ( mod ) : int ->> int ->> int = "%modint"
 
-let abs x = if x >= 0 then x else -x
+let abs x = if Int_compare.(>=) x 0 then x else -x
 
-external ( land ) : int -> int -> int = "%andint"
-external ( lor ) : int -> int -> int = "%orint"
-external ( lxor ) : int -> int -> int = "%xorint"
+external ( land ) : int ->> int ->> int = "%andint"
+external ( lor ) : int ->> int ->> int = "%orint"
+external ( lxor ) : int ->> int ->> int = "%xorint"
 
 let lnot x = x lxor (-1)
 
-external ( lsl ) : int -> int -> int = "%lslint"
-external ( lsr ) : int -> int -> int = "%lsrint"
-external ( asr ) : int -> int -> int = "%asrint"
+external ( lsl ) : int ->> int ->> int = "%lslint"
+external ( lsr ) : int ->> int ->> int = "%lsrint"
+external ( asr ) : int ->> int ->> int = "%asrint"
 
 let max_int = (-1) lsr 1
 let min_int = max_int + 1
 
 (* Floating-point operations *)
 
-external ( ~-. ) : float -> float = "%negfloat"
-external ( ~+. ) : float -> float = "%identity"
-external ( +. ) : float -> float -> float = "%addfloat"
-external ( -. ) : float -> float -> float = "%subfloat"
-external ( *. ) : float -> float -> float = "%mulfloat"
-external ( /. ) : float -> float -> float = "%divfloat"
-external ( ** ) : float -> float -> float = "caml_power_float" "pow" "float"
-external exp : float -> float = "caml_exp_float" "exp" "float"
-external expm1 : float -> float = "caml_expm1_float" "caml_expm1" "float"
-external acos : float -> float = "caml_acos_float" "acos" "float"
-external asin : float -> float = "caml_asin_float" "asin" "float"
-external atan : float -> float = "caml_atan_float" "atan" "float"
-external atan2 : float -> float -> float = "caml_atan2_float" "atan2" "float"
-external hypot : float -> float -> float
+external ( ~-. ) : float ->> float = "%negfloat"
+external ( ~+. ) : float ->> float = "%identity"
+external ( +. ) : float ->> float ->> float = "%addfloat"
+external ( -. ) : float ->> float ->> float = "%subfloat"
+external ( *. ) : float ->> float ->> float = "%mulfloat"
+external ( /. ) : float ->> float ->> float = "%divfloat"
+external ( ** ) : float ->> float ->> float = "caml_power_float" "pow" "float"
+external exp : float ->> float = "caml_exp_float" "exp" "float"
+external expm1 : float ->> float = "caml_expm1_float" "caml_expm1" "float"
+external acos : float ->> float = "caml_acos_float" "acos" "float"
+external asin : float ->> float = "caml_asin_float" "asin" "float"
+external atan : float ->> float = "caml_atan_float" "atan" "float"
+external atan2 : float ->> float ->> float = "caml_atan2_float" "atan2" "float"
+external hypot : float ->> float ->> float
                = "caml_hypot_float" "caml_hypot" "float"
-external cos : float -> float = "caml_cos_float" "cos" "float"
-external cosh : float -> float = "caml_cosh_float" "cosh" "float"
-external log : float -> float = "caml_log_float" "log" "float"
-external log10 : float -> float = "caml_log10_float" "log10" "float"
-external log1p : float -> float = "caml_log1p_float" "caml_log1p" "float"
-external sin : float -> float = "caml_sin_float" "sin" "float"
-external sinh : float -> float = "caml_sinh_float" "sinh" "float"
-external sqrt : float -> float = "caml_sqrt_float" "sqrt" "float"
-external tan : float -> float = "caml_tan_float" "tan" "float"
-external tanh : float -> float = "caml_tanh_float" "tanh" "float"
-external ceil : float -> float = "caml_ceil_float" "ceil" "float"
-external floor : float -> float = "caml_floor_float" "floor" "float"
-external abs_float : float -> float = "%absfloat"
-external copysign : float -> float -> float
+external cos : float ->> float = "caml_cos_float" "cos" "float"
+external cosh : float ->> float = "caml_cosh_float" "cosh" "float"
+external log : float ->> float = "caml_log_float" "log" "float"
+external log10 : float ->> float = "caml_log10_float" "log10" "float"
+external log1p : float ->> float = "caml_log1p_float" "caml_log1p" "float"
+external sin : float ->> float = "caml_sin_float" "sin" "float"
+external sinh : float ->> float = "caml_sinh_float" "sinh" "float"
+external sqrt : float ->> float = "caml_sqrt_float" "sqrt" "float"
+external tan : float ->> float = "caml_tan_float" "tan" "float"
+external tanh : float ->> float = "caml_tanh_float" "tanh" "float"
+external ceil : float ->> float = "caml_ceil_float" "ceil" "float"
+external floor : float ->> float = "caml_floor_float" "floor" "float"
+external abs_float : float ->> float = "%absfloat"
+external copysign : float ->> float ->> float
                   = "caml_copysign_float" "caml_copysign" "float"
-external mod_float : float -> float -> float = "caml_fmod_float" "fmod" "float"
-external frexp : float -> float * int = "caml_frexp_float"
-external ldexp : float -> int -> float = "caml_ldexp_float"
-external modf : float -> float * float = "caml_modf_float"
-external float : int -> float = "%floatofint"
-external float_of_int : int -> float = "%floatofint"
-external truncate : float -> int = "%intoffloat"
-external int_of_float : float -> int = "%intoffloat"
-external float_of_bits : int64 -> float = "caml_int64_float_of_bits"
+external mod_float : float ->> float ->> float = "caml_fmod_float" "fmod" "float"
+external frexp : float ->> float * int = "caml_frexp_float"
+external ldexp : float ->> int ->> float = "caml_ldexp_float"
+external modf : float ->> float * float = "caml_modf_float"
+external float : int ->> float = "%floatofint"
+external float_of_int : int ->> float = "%floatofint"
+external truncate : float ->> int = "%intoffloat"
+external int_of_float : float ->> int = "%intoffloat"
+external float_of_bits : int64 ->> float = "caml_int64_float_of_bits"
 let infinity =
   float_of_bits 0x7F_F0_00_00_00_00_00_00L
 let neg_infinity =
@@ -176,12 +202,12 @@ type fpclass =
   | FP_zero
   | FP_infinite
   | FP_nan
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float ->> fpclass = "caml_classify_float"
 
 (* String and byte sequence operations -- more in modules String and Bytes *)
 
-external string_length : string -> int = "%string_length"
-external bytes_length : bytes -> int = "%string_length"
+external string_length : string ->> int = "%string_length"
+external bytes_length : bytes ->> int = "%string_length"
 external bytes_create : int -> bytes = "caml_create_string"
 external string_blit : string -> int -> bytes -> int -> int -> unit
                      = "caml_blit_string" "noalloc"
@@ -199,26 +225,27 @@ let ( ^ ) s1 s2 =
 
 (* Character operations -- more in module Char *)
 
-external int_of_char : char -> int = "%identity"
-external unsafe_char_of_int : int -> char = "%identity"
+external int_of_char : char ->> int = "%identity"
+external unsafe_char_of_int : int ->> char = "%identity"
 let char_of_int n =
+  let open Int_compare in
   if n < 0 || n > 255 then invalid_arg "char_of_int" else unsafe_char_of_int n
 
 (* Unit operations *)
 
-external ignore : 'a -> unit = "%ignore"
+external ignore : 'a ->> unit = "%ignore"
 
 (* Pair operations *)
 
-external fst : 'a * 'b -> 'a = "%field0"
-external snd : 'a * 'b -> 'b = "%field1"
+external fst : 'a * 'b ->> 'a = "%field0"
+external snd : 'a * 'b ->> 'b = "%field1"
 
 (* References *)
 
 type 'a ref = { mutable contents : 'a }
 external ref : 'a -> 'a ref = "%makemutable"
 external ( ! ) : 'a ref -> 'a = "%field0"
-external ( := ) : 'a ref -> 'a -> unit = "%setfield0"
+external ( := ) : 'a ref ->> 'a -> unit = "%setfield0"
 external incr : int ref -> unit = "%incr"
 external decr : int ref -> unit = "%decr"
 
@@ -389,12 +416,12 @@ let output_binary_int oc n =
   output_byte oc (n asr 8);
   output_byte oc n
 
-external marshal_to_string : 'a -> unit list -> string
+external marshal_to_string : 'a ->> unit list -> string
                            = "caml_output_value_to_string"
 
 let output_value oc v = output_string oc (marshal_to_string v [])
 
-external seek_out_blocking : out_channel -> int -> unit = "caml_ml_seek_out"
+external seek_out_blocking : out_channel ->> int -> unit = "caml_ml_seek_out"
 
 let seek_out oc pos = flush oc; seek_out_blocking oc pos
 
@@ -406,7 +433,7 @@ let close_out oc = (try flush oc with _ -> ()); close_out_channel oc
 let close_out_noerr oc =
   (try flush oc with _ -> ());
   (try close_out_channel oc with _ -> ())
-external set_binary_mode_out : out_channel -> bool -> unit
+external set_binary_mode_out : out_channel ->> bool -> unit
                              = "caml_ml_set_binary_mode"
 
 (* General input functions *)
@@ -461,7 +488,7 @@ let really_input_string ic len =
   really_input ic s 0 len;
   bytes_unsafe_to_string s
 
-external bytes_set : bytes -> int -> char -> unit = "%string_safe_set"
+external bytes_set : bytes ->> int ->> char -> unit = "%string_safe_set"
 
 let input_line ic =
   let buf = ref (bytes_create 128) in
@@ -499,8 +526,8 @@ let input_binary_int ic =
   let b4 = input_byte ic in
   (n1 lsl 24) + (b2 lsl 16) + (b3 lsl 8) + b4
 
-external unmarshal : bytes -> int -> 'a = "caml_input_value_from_string"
-external marshal_data_size : bytes -> int -> int = "caml_marshal_data_size"
+external unmarshal : bytes ->> int -> 'a = "caml_input_value_from_string"
+external marshal_data_size : bytes ->> int -> int = "caml_marshal_data_size"
 
 let input_value ic =
   let header = bytes_create 20 in
@@ -511,12 +538,12 @@ let input_value ic =
   really_input ic buffer 20 bsize;
   unmarshal buffer 0
 
-external seek_in : in_channel -> int -> unit = "caml_ml_seek_in"
+external seek_in : in_channel ->> int -> unit = "caml_ml_seek_in"
 external pos_in : in_channel -> int = "caml_ml_pos_in"
 external in_channel_length : in_channel -> int = "caml_ml_channel_size"
 external close_in : in_channel -> unit = "caml_ml_close_channel"
 let close_in_noerr ic = (try close_in ic with _ -> ());;
-external set_binary_mode_in : in_channel -> bool -> unit
+external set_binary_mode_in : in_channel ->> bool -> unit
                             = "caml_ml_set_binary_mode"
 
 (* Output functions on standard output *)
@@ -551,31 +578,39 @@ let read_float () = float_of_string(read_line())
 
 module LargeFile =
   struct
-    external seek_out : out_channel -> int64 -> unit = "caml_ml_seek_out_64"
+    external seek_out : out_channel ->> int64 -> unit = "caml_ml_seek_out_64"
     external pos_out : out_channel -> int64 = "caml_ml_pos_out_64"
     external out_channel_length : out_channel -> int64
                                 = "caml_ml_channel_size_64"
-    external seek_in : in_channel -> int64 -> unit = "caml_ml_seek_in_64"
+    external seek_in : in_channel ->> int64 -> unit = "caml_ml_seek_in_64"
     external pos_in : in_channel -> int64 = "caml_ml_pos_in_64"
     external in_channel_length : in_channel -> int64 = "caml_ml_channel_size_64"
   end
 
 (* Formats *)
 
-type ('a, 'b, 'c, 'd, 'e, 'f) format6
-   = ('a, 'b, 'c, 'd, 'e, 'f) CamlinternalFormatBasics.format6
-   = Format of ('a, 'b, 'c, 'd, 'e, 'f) CamlinternalFormatBasics.fmt
-               * string
+type ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e
+   = ('a, 'b, 'c, 'd, 'e, 'f, !p) CamlinternalFormatBasics.format6e
+   = Format of
+       ('a, 'b, 'c, 'd, 'e, 'f, !p) CamlinternalFormatBasics.fmt
+       * string
 
-type ('a, 'b, 'c, 'd) format4 = ('a, 'b, 'c, 'c, 'c, 'd) format6
+type ('a, 'b, 'c, 'd, 'e, 'f) format6 =
+  ('a, 'b, 'c, 'd, 'e, 'f, ![io]) format6e
 
-type ('a, 'b, 'c) format = ('a, 'b, 'c, 'c) format4
+type ('a, 'b, 'c, 'd, !p) format4e = ('a, 'b, 'c, 'c, 'c, 'd, !p) format6e
+
+type ('a, 'b, 'c, 'd) format4 = ('a, 'b, 'c, 'd, ![io]) format4e
+
+type ('a, 'b, 'c, !p) formate = ('a, 'b, 'c, 'c, !p) format4e
+
+type ('a, 'b, 'c) format = ('a, 'b, 'c, ![io]) formate
 
 let string_of_format (Format (fmt, str)) = str
 
 external format_of_string :
- ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
- ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%identity"
+ ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+ ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e = "%identity"
 
 let (^^) (Format (fmt1, str1)) (Format (fmt2, str2)) =
   Format (CamlinternalFormatBasics.concat_fmt fmt1 fmt2,

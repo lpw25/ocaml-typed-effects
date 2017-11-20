@@ -13,10 +13,10 @@
 
 (** Array operations. *)
 
-external length : 'a array -> int = "%array_length"
+external length : 'a array ->> int = "%array_length"
 (** Return the length (number of elements) of the given array. *)
 
-external get : 'a array -> int -> 'a = "%array_safe_get"
+external get : 'a array ->> int -> 'a = "%array_safe_get"
 (** [ArrayLabels.get a n] returns the element number [n] of array [a].
    The first element has number 0.
    The last element has number [ArrayLabels.length a - 1].
@@ -25,7 +25,7 @@ external get : 'a array -> int -> 'a = "%array_safe_get"
    Raise [Invalid_argument "index out of bounds"]
    if [n] is outside the range 0 to [(ArrayLabels.length a - 1)]. *)
 
-external set : 'a array -> int -> 'a -> unit = "%array_safe_set"
+external set : 'a array ->> int ->> 'a -> unit = "%array_safe_set"
 (** [ArrayLabels.set a n x] modifies array [a] in place, replacing
    element number [n] with [x].
    You can also write [a.(n) <- x] instead of [ArrayLabels.set a n x].
@@ -33,7 +33,7 @@ external set : 'a array -> int -> 'a -> unit = "%array_safe_set"
    Raise [Invalid_argument "index out of bounds"]
    if [n] is outside the range 0 to [ArrayLabels.length a - 1]. *)
 
-external make : int -> 'a -> 'a array = "caml_make_vect"
+external make : int ->> 'a -> 'a array = "caml_make_vect"
 (** [ArrayLabels.make n x] returns a fresh array of length [n],
    initialized with [x].
    All the elements of this new array are initially
@@ -46,11 +46,11 @@ external make : int -> 'a -> 'a array = "caml_make_vect"
    If the value of [x] is a floating-point number, then the maximum
    size is only [Sys.max_array_length / 2].*)
 
-external create : int -> 'a -> 'a array = "caml_make_vect"
+external create : int ->> 'a -> 'a array = "caml_make_vect"
   [@@ocaml.deprecated "Use ArrayLabels.make instead."]
 (** @deprecated [ArrayLabels.create] is an alias for {!ArrayLabels.make}. *)
 
-val init : int -> f:(int -> 'a) -> 'a array
+val init : int ->> f:(int ~> 'a) ~> 'a array
 (** [ArrayLabels.init n f] returns a fresh array of length [n],
    with element number [i] initialized to the result of [f i].
    In other terms, [ArrayLabels.init n f] tabulates the results of [f]
@@ -60,7 +60,7 @@ val init : int -> f:(int -> 'a) -> 'a array
    If the return type of [f] is [float], then the maximum
    size is only [Sys.max_array_length / 2].*)
 
-val make_matrix : dimx:int -> dimy:int -> 'a -> 'a array array
+val make_matrix : dimx:int ->> dimy:int ->> 'a -> 'a array array
 (** [ArrayLabels.make_matrix dimx dimy e] returns a two-dimensional array
    (an array of arrays) with first dimension [dimx] and
    second dimension [dimy]. All the elements of this new matrix
@@ -73,19 +73,19 @@ val make_matrix : dimx:int -> dimy:int -> 'a -> 'a array array
    If the value of [e] is a floating-point number, then the maximum
    size is only [Sys.max_array_length / 2]. *)
 
-val create_matrix : dimx:int -> dimy:int -> 'a -> 'a array array
+val create_matrix : dimx:int ->> dimy:int ->> 'a -> 'a array array
   [@@ocaml.deprecated "Use ArrayLabels.make_matrix instead."]
 (** @deprecated [ArrayLabels.create_matrix] is an alias for
    {!ArrayLabels.make_matrix}. *)
 
-val append : 'a array -> 'a array -> 'a array
+val append : 'a array ->> 'a array -> 'a array
 (** [ArrayLabels.append v1 v2] returns a fresh array containing the
    concatenation of the arrays [v1] and [v2]. *)
 
 val concat : 'a array list -> 'a array
 (** Same as [ArrayLabels.append], but concatenates a list of arrays. *)
 
-val sub : 'a array -> pos:int -> len:int -> 'a array
+val sub : 'a array ->> pos:int ->> len:int -> 'a array
 (** [ArrayLabels.sub a start len] returns a fresh array of length [len],
    containing the elements number [start] to [start + len - 1]
    of array [a].
@@ -98,7 +98,7 @@ val copy : 'a array -> 'a array
 (** [ArrayLabels.copy a] returns a copy of [a], that is, a fresh array
    containing the same elements as [a]. *)
 
-val fill : 'a array -> pos:int -> len:int -> 'a -> unit
+val fill : 'a array ->> pos:int ->> len:int ->> 'a -> unit
 (** [ArrayLabels.fill a ofs len x] modifies the array [a] in place,
    storing [x] in elements number [ofs] to [ofs + len - 1].
 
@@ -106,7 +106,7 @@ val fill : 'a array -> pos:int -> len:int -> 'a -> unit
    designate a valid subarray of [a]. *)
 
 val blit :
-  src:'a array -> src_pos:int -> dst:'a array -> dst_pos:int -> len:int ->
+  src:'a array ->> src_pos:int ->> dst:'a array ->> dst_pos:int ->> len:int ->
     unit
 (** [ArrayLabels.blit v1 o1 v2 o2 len] copies [len] elements
    from array [v1], starting at element number [o1], to array [v2],
@@ -125,32 +125,32 @@ val of_list : 'a list -> 'a array
 (** [ArrayLabels.of_list l] returns a fresh array containing the elements
    of [l]. *)
 
-val iter : f:('a -> unit) -> 'a array -> unit
+val iter : f:('a ~> unit) ->> 'a array ~> unit
 (** [ArrayLabels.iter f a] applies function [f] in turn to all
    the elements of [a].  It is equivalent to
    [f a.(0); f a.(1); ...; f a.(ArrayLabels.length a - 1); ()]. *)
 
-val map : f:('a -> 'b) -> 'a array -> 'b array
+val map : f:('a ~> 'b) ->> 'a array ~> 'b array
 (** [ArrayLabels.map f a] applies function [f] to all the elements of [a],
    and builds an array with the results returned by [f]:
    [[| f a.(0); f a.(1); ...; f a.(ArrayLabels.length a - 1) |]]. *)
 
-val iteri : f:(int -> 'a -> unit) -> 'a array -> unit
+val iteri : f:(int ~> 'a ~> unit) ->> 'a array ~> unit
 (** Same as {!ArrayLabels.iter}, but the
    function is applied to the index of the element as first argument,
    and the element itself as second argument. *)
 
-val mapi : f:(int -> 'a -> 'b) -> 'a array -> 'b array
+val mapi : f:(int ~> 'a ~> 'b) ->> 'a array ~> 'b array
 (** Same as {!ArrayLabels.map}, but the
    function is applied to the index of the element as first argument,
    and the element itself as second argument. *)
 
-val fold_left : f:('a -> 'b -> 'a) -> init:'a -> 'b array -> 'a
+val fold_left : f:('a ~> 'b ~> 'a) ->> init:'a ->> 'b array ~> 'a
 (** [ArrayLabels.fold_left f x a] computes
    [f (... (f (f x a.(0)) a.(1)) ...) a.(n-1)],
    where [n] is the length of the array [a]. *)
 
-val fold_right : f:('b -> 'a -> 'a) -> 'b array -> init:'a -> 'a
+val fold_right : f:('b ~> 'a ~> 'a) ->> 'b array ->> init:'a ~> 'a
 (** [ArrayLabels.fold_right f a x] computes
    [f a.(0) (f a.(1) ( ... (f a.(n-1) x) ...))],
    where [n] is the length of the array [a]. *)
@@ -159,7 +159,7 @@ val fold_right : f:('b -> 'a -> 'a) -> 'b array -> init:'a -> 'a
 (** {6 Sorting} *)
 
 
-val sort : cmp:('a -> 'a -> int) -> 'a array -> unit
+val sort : cmp:('a ~> 'a ~> int) ->> 'a array ~> unit
 (** Sort an array in increasing order according to a comparison
    function.  The comparison function must return 0 if its arguments
    compare as equal, a positive integer if the first is greater,
@@ -185,7 +185,7 @@ val sort : cmp:('a -> 'a -> int) -> 'a array -> unit
 -   [cmp a.(i) a.(j)] >= 0 if and only if i >= j
 *)
 
-val stable_sort : cmp:('a -> 'a -> int) -> 'a array -> unit
+val stable_sort : cmp:('a ~> 'a ~> int) ->> 'a array ~> unit
 (** Same as {!ArrayLabels.sort}, but the sorting algorithm is stable (i.e.
    elements that compare equal are kept in their original order) and
    not guaranteed to run in constant heap space.
@@ -195,7 +195,7 @@ val stable_sort : cmp:('a -> 'a -> int) -> 'a array -> unit
    It is usually faster than the current implementation of {!ArrayLabels.sort}.
 *)
 
-val fast_sort : cmp:('a -> 'a -> int) -> 'a array -> unit
+val fast_sort : cmp:('a ~> 'a ~> int) ->> 'a array ~> unit
 (** Same as {!ArrayLabels.sort} or {!ArrayLabels.stable_sort}, whichever is
     faster on typical input.
 *)
@@ -207,5 +207,5 @@ val fast_sort : cmp:('a -> 'a -> int) -> 'a array -> unit
 
 (* The following is for system use only. Do not call directly. *)
 
-external unsafe_get : 'a array -> int -> 'a = "%array_unsafe_get"
-external unsafe_set : 'a array -> int -> 'a -> unit = "%array_unsafe_set"
+external unsafe_get : 'a array ->> int -> 'a = "%array_unsafe_get"
+external unsafe_set : 'a array ->> int ->> 'a -> unit = "%array_unsafe_set"

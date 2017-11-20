@@ -13,15 +13,16 @@
 
 (* Character operations *)
 
-external code: char -> int = "%identity"
-external unsafe_chr: int -> char = "%identity"
+external code: char ->> int = "%identity"
+external unsafe_chr: int ->> char = "%identity"
 
 let chr n =
+  let open Int_compare in
   if n < 0 || n > 255 then invalid_arg "Char.chr" else unsafe_chr n
 
 external string_create: int -> string = "caml_create_string"
-external string_unsafe_get : string -> int -> char = "%string_unsafe_get"
-external string_unsafe_set : string -> int -> char -> unit
+external string_unsafe_get : string ->> int -> char = "%string_unsafe_get"
+external string_unsafe_set : string ->> int ->> char -> unit
                            = "%string_unsafe_set"
 
 let escaped = function
@@ -44,7 +45,21 @@ let escaped = function
       string_unsafe_set s 3 (unsafe_chr (48 + n mod 10));
       s
 
+module Compare = struct
+  external ( = ) : char ->> char ->> bool = "%equal"
+  external ( <> ) : char ->> char ->> bool = "%notequal"
+  external ( < ) : char ->> char ->> bool = "%lessthan"
+  external ( > ) : char ->> char ->> bool = "%greaterthan"
+  external ( <= ) : char ->> char ->> bool = "%lessequal"
+  external ( >= ) : char ->> char ->> bool = "%greaterequal"
+  external compare : char ->> char ->> int = "%compare"
+
+  let min x y = if x <= y then x else y
+  let max x y = if x >= y then x else y
+end
+
 let lowercase c =
+  let open Compare in
   if (c >= 'A' && c <= 'Z')
   || (c >= '\192' && c <= '\214')
   || (c >= '\216' && c <= '\222')
@@ -52,6 +67,7 @@ let lowercase c =
   else c
 
 let uppercase c =
+  let open Compare in
   if (c >= 'a' && c <= 'z')
   || (c >= '\224' && c <= '\246')
   || (c >= '\248' && c <= '\254')

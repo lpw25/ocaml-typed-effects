@@ -31,10 +31,10 @@ exception Empty
 val create : unit -> 'a t
 (** Return a new queue, initially empty. *)
 
-val add : 'a -> 'a t -> unit
+val add : 'a ->> 'a t -> unit
 (** [add x q] adds the element [x] at the end of the queue [q]. *)
 
-val push : 'a -> 'a t -> unit
+val push : 'a ->> 'a t -> unit
 (** [push] is a synonym for [add]. *)
 
 val take : 'a t -> 'a
@@ -63,17 +63,17 @@ val is_empty : 'a t -> bool
 val length : 'a t -> int
 (** Return the number of elements in a queue. *)
 
-val iter : ('a -> unit) -> 'a t -> unit
+val iter : ('a ~> unit) ->> 'a t ~> unit
 (** [iter f q] applies [f] in turn to all elements of [q],
    from the least recently entered to the most recently entered.
    The queue itself is unchanged. *)
 
-val fold : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
+val fold : ('b ~> 'a ~> 'b) ->> 'b ->> 'a t ~> 'b
 (** [fold f accu q] is equivalent to [List.fold_left f accu l],
    where [l] is the list of [q]'s elements. The queue remains
    unchanged. *)
 
-val transfer : 'a t -> 'a t -> unit
+val transfer : 'a t ->> 'a t -> unit
 (** [transfer q1 q2] adds all of [q1]'s elements at the end of
    the queue [q2], then clears [q1]. It is equivalent to the
    sequence [iter (fun x -> add x q2) q1; clear q1], but runs

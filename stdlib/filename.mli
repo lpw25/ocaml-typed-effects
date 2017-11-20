@@ -23,7 +23,7 @@ val parent_dir_name : string
 val dir_sep : string
 (** The directory separator (e.g. [/] in Unix). @since 3.11.2 *)
 
-val concat : string -> string -> string
+val concat : string ->> string -> string
 (** [concat dir file] returns a file name that designates file
    [file] in directory [dir]. *)
 
@@ -38,11 +38,11 @@ val is_implicit : string -> bool
    [../] in Unix), [false] if it starts with an explicit reference
    to the root directory or the current directory. *)
 
-val check_suffix : string -> string -> bool
+val check_suffix : string ->> string -> bool
 (** [check_suffix name suff] returns [true] if the filename [name]
    ends with the suffix [suff]. *)
 
-val chop_suffix : string -> string -> string
+val chop_suffix : string ->> string -> string
 (** [chop_suffix name suff] removes the suffix [suff] from
    the filename [name]. The behavior is undefined if [name] does not
    end with the suffix [suff]. *)
@@ -71,7 +71,7 @@ val dirname : string -> string
    This function conforms to the specification of POSIX.1-2008 for the
    [dirname] utility. *)
 
-val temp_file : ?temp_dir: string -> string -> string -> string
+val temp_file : ?temp_dir: string -> string ->> string -> string
 (** [temp_file prefix suffix] returns the name of a
    fresh temporary file in the temporary directory.
    The base name of the temporary file is formed by concatenating
@@ -87,7 +87,7 @@ val temp_file : ?temp_dir: string -> string -> string -> string
 *)
 
 val open_temp_file :
-      ?mode: open_flag list -> ?temp_dir: string -> string -> string ->
+      ?mode: open_flag list ->> ?temp_dir: string -> string ->> string ->
       string * out_channel
 (** Same as {!Filename.temp_file}, but returns both the name of a fresh
    temporary file, and an output channel opened (atomically) on

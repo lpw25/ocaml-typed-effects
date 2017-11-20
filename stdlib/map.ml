@@ -22,45 +22,95 @@ module type S =
     type key
     type +'a t
     val empty: 'a t
-    val is_empty: 'a t -> bool
-    val mem:  key -> 'a t -> bool
-    val add: key -> 'a -> 'a t -> 'a t
-    val singleton: key -> 'a -> 'a t
-    val remove: key -> 'a t -> 'a t
+    val is_empty: 'a t ->> bool
+    val mem:  key ->> 'a t -> bool
+    val add: key ->> 'a ->> 'a t -> 'a t
+    val singleton: key ->> 'a ->> 'a t
+    val remove: key ->> 'a t -> 'a t
     val merge:
-          (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
-    val compare: ('a -> 'a -> int) -> 'a t -> 'a t -> int
-    val equal: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
-    val iter: (key -> 'a -> unit) -> 'a t -> unit
-    val fold: (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
-    val for_all: (key -> 'a -> bool) -> 'a t -> bool
-    val exists: (key -> 'a -> bool) -> 'a t -> bool
-    val filter: (key -> 'a -> bool) -> 'a t -> 'a t
-    val partition: (key -> 'a -> bool) -> 'a t -> 'a t * 'a t
-    val cardinal: 'a t -> int
-    val bindings: 'a t -> (key * 'a) list
-    val min_binding: 'a t -> (key * 'a)
-    val max_binding: 'a t -> (key * 'a)
-    val choose: 'a t -> (key * 'a)
-    val split: key -> 'a t -> 'a t * 'a option * 'a t
-    val find: key -> 'a t -> 'a
-    val map: ('a -> 'b) -> 'a t -> 'b t
-    val mapi: (key -> 'a -> 'b) -> 'a t -> 'b t
+          (key ~> 'a option ~> 'b option ~> 'c option) ->>
+          'a t ->> 'b t ~> 'c t
+    val compare: ('a ~> 'a ~> int) ->> 'a t ->> 'a t ~> int
+    val equal: ('a ~> 'a ~> bool) ->> 'a t ->> 'a t ~> bool
+    val iter: (key ~> 'a ~> unit) ->> 'a t ~> unit
+    val fold: (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
+    val for_all: (key ~> 'a ~> bool) ->> 'a t ~> bool
+    val exists: (key ~> 'a ~> bool) ->> 'a t ~> bool
+    val filter: (key ~> 'a ~> bool) ->> 'a t ~> 'a t
+    val partition: (key ~> 'a ~> bool) ->> 'a t ~> 'a t * 'a t
+    val cardinal: 'a t ->> int
+    val bindings: 'a t ->> (key * 'a) list
+    val min_binding: 'a t ->> (key * 'a)
+    val max_binding: 'a t ->> (key * 'a)
+    val choose: 'a t ->> (key * 'a)
+    val split: key ->> 'a t -> 'a t * 'a option * 'a t
+    val find: key ->> 'a t -> 'a
+    val map: ('a ~> 'b) ->> 'a t ~> 'b t
+    val mapi: (key ~> 'a ~> 'b) ->> 'a t ~> 'b t
   end
 
-module Make(Ord: OrderedType) = struct
+module type OrderedTypePure =
+  sig
+    type t
+    val compare: t ->> t ->> int
+  end
+
+module type SPure =
+  sig
+    type key
+    type +'a t
+    val empty: 'a t
+    val is_empty: 'a t ->> bool
+    val mem:  key ->> 'a t ->> bool
+    val add: key ->> 'a ->> 'a t ->> 'a t
+    val singleton: key ->> 'a ->> 'a t
+    val remove: key ->> 'a t ->> 'a t
+    val merge:
+          (key ~>> 'a option ~>> 'b option ~>> 'c option) ->>
+          'a t ->> 'b t ~>> 'c t
+    val compare: ('a ~>> 'a ~>> int) ->> 'a t ->> 'a t ~>> int
+    val equal: ('a ~>> 'a ~>> bool) ->> 'a t ->> 'a t ~>> bool
+    val iter: (key ~>> 'a ~>> unit) ->> 'a t ~>> unit
+    val fold: (key ~>> 'a ~>> 'b ~>> 'b) ->> 'a t ->> 'b ~>> 'b
+    val for_all: (key ~>> 'a ~>> bool) ->> 'a t ~>> bool
+    val exists: (key ~>> 'a ~>> bool) ->> 'a t ~>> bool
+    val filter: (key ~>> 'a ~>> bool) ->> 'a t ~>> 'a t
+    val partition: (key ~>> 'a ~>> bool) ->> 'a t ~>> 'a t * 'a t
+    val cardinal: 'a t ->> int
+    val bindings: 'a t ->> (key * 'a) list
+    val min_binding: 'a t ->> (key * 'a)
+    val max_binding: 'a t ->> (key * 'a)
+    val choose: 'a t ->> (key * 'a)
+    val split: key ->> 'a t ->> 'a t * 'a option * 'a t
+    val find: key ->> 'a t ->> 'a
+    val map: ('a ~>> 'b) ->> 'a t ~>> 'b t
+    val mapi: (key ~>> 'a ~>> 'b) ->> 'a t ~>> 'b t
+  end
+
+type ('a, 'key) tree =
+    Empty
+  | Node of ('a, 'key) tree * 'key * 'a * ('a, 'key) tree * int
+
+
+module MakeGen
+    (E : sig
+       type + !r eff : effect
+     end)
+    (Ord : sig
+       type t
+       val compare: t -[.. as ![] E.eff]-> t -[.. as ![] E.eff]-> int
+     end) = struct
 
     type key = Ord.t
 
-    type 'a t =
-        Empty
-      | Node of 'a t * key * 'a * 'a t * int
+    type 'a t = ('a, key) tree
 
     let height = function
         Empty -> 0
       | Node(_,_,_,_,h) -> h
 
     let create l x d r =
+      let open Int_compare in
       let hl = height l and hr = height r in
       Node(l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
 
@@ -69,6 +119,7 @@ module Make(Ord: OrderedType) = struct
     let bal l x d r =
       let hl = match l with Empty -> 0 | Node(_,_,_,_,h) -> h in
       let hr = match r with Empty -> 0 | Node(_,_,_,_,h) -> h in
+      let open Int_compare in
       if hl > hr + 2 then begin
         match l with
           Empty -> invalid_arg "Map.bal"
@@ -104,6 +155,7 @@ module Make(Ord: OrderedType) = struct
         Empty ->
           Node(Empty, x, data, Empty, 1)
       | Node(l, v, d, r, h) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then
             Node(l, x, data, r, h)
@@ -116,6 +168,7 @@ module Make(Ord: OrderedType) = struct
         Empty ->
           raise Not_found
       | Node(l, v, d, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then d
           else find x (if c < 0 then l else r)
@@ -124,6 +177,7 @@ module Make(Ord: OrderedType) = struct
         Empty ->
           false
       | Node(l, v, d, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           c = 0 || mem x (if c < 0 then l else r)
 
@@ -154,6 +208,7 @@ module Make(Ord: OrderedType) = struct
         Empty ->
           Empty
       | Node(l, v, d, r, h) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then
             merge l r
@@ -225,6 +280,7 @@ module Make(Ord: OrderedType) = struct
         (Empty, _) -> add_min_binding v d r
       | (_, Empty) -> add_max_binding v d l
       | (Node(ll, lv, ld, lr, lh), Node(rl, rv, rd, rr, rh)) ->
+          let open Int_compare in
           if lh > rh + 2 then bal ll lv ld (join lr v d r) else
           if rh > lh + 2 then bal (join l v d rl) rv rd rr else
           create l v d r
@@ -250,6 +306,7 @@ module Make(Ord: OrderedType) = struct
         Empty ->
           (Empty, None, Empty)
       | Node(l, v, d, r, _) ->
+          let open Int_compare in
           let c = Ord.compare x v in
           if c = 0 then (l, Some d, r)
           else if c < 0 then
@@ -258,6 +315,7 @@ module Make(Ord: OrderedType) = struct
             let (lr, pres, rr) = split x r in (join l v d lr, pres, rr)
 
     let rec merge f s1 s2 =
+      let open Int_compare in
       match (s1, s2) with
         (Empty, Empty) -> Empty
       | (Node (l1, v1, d1, r1, h1), _) when h1 >= height s2 ->
@@ -303,6 +361,7 @@ module Make(Ord: OrderedType) = struct
         | (End, _)  -> -1
         | (_, End) -> 1
         | (More(v1, d1, r1, e1), More(v2, d2, r2, e2)) ->
+            let open Int_compare in
             let c = Ord.compare v1 v2 in
             if c <> 0 then c else
             let c = cmp d1 d2 in
@@ -317,6 +376,7 @@ module Make(Ord: OrderedType) = struct
         | (End, _)  -> false
         | (_, End) -> false
         | (More(v1, d1, r1, e1), More(v2, d2, r2, e2)) ->
+            let open Int_compare in
             Ord.compare v1 v2 = 0 && cmp d1 d2 &&
             equal_aux (cons_enum r1 e1) (cons_enum r2 e2)
       in equal_aux (cons_enum m1 End) (cons_enum m2 End)
@@ -335,3 +395,14 @@ module Make(Ord: OrderedType) = struct
     let choose = min_binding
 
 end
+
+module Pure = struct
+  type !r eff : effect = !r
+end
+
+module Impure = struct
+  type !r eff : effect = ![io | !r]
+end
+
+module Make = MakeGen(Impure)
+module MakePure = MakeGen(Pure)

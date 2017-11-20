@@ -13,10 +13,10 @@
 
 (** Character operations. *)
 
-external code : char -> int = "%identity"
+external code : char ->> int = "%identity"
 (** Return the ASCII code of the argument. *)
 
-val chr : int -> char
+val chr : int ->> char
 (** Return the character with the given ASCII code.
    Raise [Invalid_argument "Char.chr"] if the argument is
    outside the range 0--255. *)
@@ -28,16 +28,16 @@ val escaped : char -> string
     All characters outside the ASCII printable range (32..126) are
     escaped, as well as backslash, double-quote, and single-quote. *)
 
-val lowercase : char -> char
+val lowercase : char ->> char
 (** Convert the given character to its equivalent lowercase character. *)
 
-val uppercase : char -> char
+val uppercase : char ->> char
 (** Convert the given character to its equivalent uppercase character. *)
 
 type t = char
 (** An alias for the type of characters. *)
 
-val compare: t -> t -> int
+val compare: t ->> t ->> int
 (** The comparison function for characters, with the same specification as
     {!Pervasives.compare}.  Along with the type [t], this function [compare]
     allows the module [Char] to be passed as argument to the functors
@@ -47,4 +47,4 @@ val compare: t -> t -> int
 
 (* The following is for system use only. Do not call directly. *)
 
-external unsafe_chr : int -> char = "%identity"
+external unsafe_chr : int ->> char = "%identity"

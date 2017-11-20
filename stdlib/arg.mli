@@ -65,7 +65,7 @@ type usage_msg = string
 type anon_fun = (string -> unit)
 
 val parse :
-  (key * spec * doc) list -> anon_fun -> usage_msg -> unit
+  (key * spec * doc) list ->> anon_fun ->> usage_msg -> unit
 (** [Arg.parse speclist anon_fun usage_msg] parses the command line.
     [speclist] is a list of triples [(key, spec, doc)].
     [key] is the option keyword, it must start with a ['-'] character.
@@ -94,7 +94,7 @@ val parse :
 *)
 
 val parse_dynamic :
-  (key * spec * doc) list ref -> anon_fun -> usage_msg -> unit
+  (key * spec * doc) list ref ->> anon_fun ->> usage_msg -> unit
 (** Same as {!Arg.parse}, except that the [speclist] argument is a reference
     and may be updated during the parsing. A typical use for this feature
     is to parse command lines of the form:
@@ -102,8 +102,8 @@ val parse_dynamic :
     where the list of options depends on the value of the subcommand argument.
 *)
 
-val parse_argv : ?current: int ref -> string array ->
-  (key * spec * doc) list -> anon_fun -> usage_msg -> unit
+val parse_argv : ?current: int ref ->> string array ->>
+  (key * spec * doc) list ->> anon_fun ->> usage_msg -> unit
 (** [Arg.parse_argv ~current args speclist anon_fun usage_msg] parses
   the array [args] as if it were the command line.  It uses and updates
   the value of [~current] (if given), or [Arg.current].  You must set
@@ -115,8 +115,8 @@ val parse_argv : ?current: int ref -> string array ->
   as argument.
 *)
 
-val parse_argv_dynamic : ?current:int ref -> string array ->
-  (key * spec * doc) list ref -> anon_fun -> string -> unit
+val parse_argv_dynamic : ?current:int ref ->> string array ->>
+  (key * spec * doc) list ref ->> anon_fun ->> string -> unit
 (** Same as {!Arg.parse_argv}, except that the [speclist] argument is a
     reference and may be updated during the parsing.
     See {!Arg.parse_dynamic}.
@@ -130,17 +130,17 @@ exception Bad of string
     message to reject invalid arguments.
     [Arg.Bad] is also raised by [Arg.parse_argv] in case of an error. *)
 
-val usage : (key * spec * doc) list -> usage_msg -> unit
+val usage : (key * spec * doc) list ->> usage_msg -> unit
 (** [Arg.usage speclist usage_msg] prints to standard error
     an error message that includes the list of valid options.  This is
     the same message that {!Arg.parse} prints in case of error.
     [speclist] and [usage_msg] are the same as for [Arg.parse]. *)
 
-val usage_string : (key * spec * doc) list -> usage_msg -> string
+val usage_string : (key * spec * doc) list ->> usage_msg -> string
 (** Returns the message that would have been printed by {!Arg.usage},
     if provided with the same parameters. *)
 
-val align: ?limit: int -> (key * spec * doc) list -> (key * spec * doc) list;;
+val align: ?limit: int ->> (key * spec * doc) list -> (key * spec * doc) list;;
 (** Align the documentation strings by inserting spaces at the first
     space, according to the length of the keyword.  Use a
     space as the first character in a doc string if you want to

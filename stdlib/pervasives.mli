@@ -25,18 +25,18 @@
 
 (** {6 Exceptions} *)
 
-external raise : exn -> 'a = "%raise"
+external raise : exn ->> 'a = "%raise"
 (** Raise the given exception value *)
 
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise_notrace : exn ->> 'a = "%raise_notrace"
 (** A faster version [raise] which does not record the backtrace.
     @since 4.02.0
 *)
 
-val invalid_arg : string -> 'a
+val invalid_arg : string ->> 'a
 (** Raise exception [Invalid_argument] with the given string. *)
 
-val failwith : string -> 'a
+val failwith : string ->> 'a
 (** Raise exception [Failure] with the given string. *)
 
 exception Exit
@@ -50,18 +50,18 @@ exception Exit
 
     @raise Invalid_argument if the continuation has already been
     resumed. *)
-val continue: ('a, ![io | ..] as !p, 'b) continuation -> 'a -[!p]-> 'b
+val continue: ('a, ![io | ..] as !p, 'b) continuation ->> 'a -[!p]-> 'b
 
 (** [discontinue k e] resumes the continuation [k] by raising the
     exception [e] in [k].
 
     @raise Invalid_argument if the continuation has already been
     resumed. *)
-val discontinue: ('a, ![io | ..] as !p, 'b) continuation -> exn -[!p]-> 'b
+val discontinue: ('a, ![io | ..] as !p, 'b) continuation ->> exn -[!p]-> 'b
 
 (** {6 Comparisons} *)
 
-external ( = ) : 'a -> 'a -> bool = "%equal"
+external ( = ) : 'a ->> 'a -> bool = "%equal"
 (** [e1 = e2] tests for structural equality of [e1] and [e2].
    Mutable structures (e.g. references and arrays) are equal
    if and only if their current contents are structurally equal,
@@ -69,19 +69,19 @@ external ( = ) : 'a -> 'a -> bool = "%equal"
    Equality between functional values raises [Invalid_argument].
    Equality between cyclic data structures may not terminate. *)
 
-external ( <> ) : 'a -> 'a -> bool = "%notequal"
+external ( <> ) : 'a ->> 'a -> bool = "%notequal"
 (** Negation of {!Pervasives.( = )}. *)
 
-external ( < ) : 'a -> 'a -> bool = "%lessthan"
+external ( < ) : 'a ->> 'a -> bool = "%lessthan"
 (** See {!Pervasives.( >= )}. *)
 
-external ( > ) : 'a -> 'a -> bool = "%greaterthan"
+external ( > ) : 'a ->> 'a -> bool = "%greaterthan"
 (** See {!Pervasives.( >= )}. *)
 
-external ( <= ) : 'a -> 'a -> bool = "%lessequal"
+external ( <= ) : 'a ->> 'a -> bool = "%lessequal"
 (** See {!Pervasives.( >= )}. *)
 
-external ( >= ) : 'a -> 'a -> bool = "%greaterequal"
+external ( >= ) : 'a ->> 'a -> bool = "%greaterequal"
 (** Structural ordering functions. These functions coincide with
    the usual orderings over integers, characters, strings, byte sequences
    and floating-point numbers, and extend them to a
@@ -91,7 +91,7 @@ external ( >= ) : 'a -> 'a -> bool = "%greaterequal"
    Comparison between functional values raises [Invalid_argument].
    Comparison between cyclic structures may not terminate. *)
 
-external compare : 'a -> 'a -> int = "%compare"
+external compare : 'a ->> 'a -> int = "%compare"
 (** [compare x y] returns [0] if [x] is equal to [y],
    a negative integer if [x] is less than [y], and a positive integer
    if [x] is greater than [y].  The ordering implemented by [compare]
@@ -110,17 +110,43 @@ external compare : 'a -> 'a -> int = "%compare"
    required by the {!Set.Make} and {!Map.Make} functors, as well as
    the {!List.sort} and {!Array.sort} functions. *)
 
-val min : 'a -> 'a -> 'a
+val min : 'a ->> 'a -> 'a
 (** Return the smaller of the two arguments.
     The result is unspecified if one of the arguments contains
     the float value [nan]. *)
 
-val max : 'a -> 'a -> 'a
+val max : 'a ->> 'a -> 'a
 (** Return the greater of the two arguments.
     The result is unspecified if one of the arguments contains
     the float value [nan]. *)
 
-external ( == ) : 'a -> 'a -> bool = "%eq"
+module Int_compare : sig
+  external ( = ) : int ->> int ->> bool = "%equal"
+  external ( <> ) : int ->> int ->> bool = "%notequal"
+  external ( < ) : int ->> int ->> bool = "%lessthan"
+  external ( > ) : int ->> int ->> bool = "%greaterthan"
+  external ( <= ) : int ->> int ->> bool = "%lessequal"
+  external ( >= ) : int ->> int ->> bool = "%greaterequal"
+  external compare : int ->> int ->> int = "%compare"
+
+  val min : int ->> int ->> int
+  val max : int ->> int ->> int
+end
+
+module Float_compare : sig
+  external ( = ) : float ->> float ->> bool = "%equal"
+  external ( <> ) : float ->> float ->> bool = "%notequal"
+  external ( < ) : float ->> float ->> bool = "%lessthan"
+  external ( > ) : float ->> float ->> bool = "%greaterthan"
+  external ( <= ) : float ->> float ->> bool = "%lessequal"
+  external ( >= ) : float ->> float ->> bool = "%greaterequal"
+  external compare : float ->> float ->> int = "%compare"
+
+  val min : float ->> float ->> float
+  val max : float ->> float ->> float
+end
+
+external ( == ) : 'a ->> 'a -> bool = "%eq"
 (** [e1 == e2] tests for physical equality of [e1] and [e2].
    On mutable types such as references, arrays, byte sequences, records with
    mutable fields and objects with mutable instance variables,
@@ -130,30 +156,30 @@ external ( == ) : 'a -> 'a -> bool = "%eq"
    implementation-dependent; however, it is guaranteed that
    [e1 == e2] implies [compare e1 e2 = 0]. *)
 
-external ( != ) : 'a -> 'a -> bool = "%noteq"
+external ( != ) : 'a ->> 'a -> bool = "%noteq"
 (** Negation of {!Pervasives.( == )}. *)
 
 
 (** {6 Boolean operations} *)
 
-external not : bool -> bool = "%boolnot"
+external not : bool ->> bool = "%boolnot"
 (** The boolean negation. *)
 
-external ( && ) : bool -> bool -> bool = "%sequand"
+external ( && ) : bool ->> bool ->> bool = "%sequand"
 (** The boolean 'and'. Evaluation is sequential, left-to-right:
    in [e1 && e2], [e1] is evaluated first, and if it returns [false],
    [e2] is not evaluated at all. *)
 
-external ( & ) : bool -> bool -> bool = "%sequand"
+external ( & ) : bool ->> bool ->> bool = "%sequand"
   [@@ocaml.deprecated "Use (&&) instead."]
 (** @deprecated {!Pervasives.( && )} should be used instead. *)
 
-external ( || ) : bool -> bool -> bool = "%sequor"
+external ( || ) : bool ->> bool ->> bool = "%sequor"
 (** The boolean 'or'. Evaluation is sequential, left-to-right:
    in [e1 || e2], [e1] is evaluated first, and if it returns [true],
    [e2] is not evaluated at all. *)
 
-external ( or ) : bool -> bool -> bool = "%sequor"
+external ( or ) : bool ->> bool ->> bool = "%sequor"
   [@@ocaml.deprecated "Use (||) instead."]
 (** @deprecated {!Pervasives.( || )} should be used instead.*)
 
@@ -189,20 +215,20 @@ external __POS__ : string * int * int * int = "%loc_POS"
     @since 4.02.0
  *)
 
-external __LOC_OF__ : 'a -> string * 'a = "%loc_LOC"
+external __LOC_OF__ : 'a ->> string * 'a = "%loc_LOC"
 (** [__LOC_OF__ expr] returns a pair [(loc, expr)] where [loc] is the
     location of [expr] in the file currently being parsed by the
     compiler, with the standard error format of OCaml: "File %S, line
     %d, characters %d-%d".
     @since 4.02.0
  *)
-external __LINE_OF__ : 'a -> int * 'a = "%loc_LINE"
+external __LINE_OF__ : 'a ->> int * 'a = "%loc_LINE"
 (** [__LINE__ expr] returns a pair [(line, expr)], where [line] is the
     line number at which the expression [expr] appears in the file
     currently being parsed by the compiler.
     @since 4.02.0
  *)
-external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
+external __POS_OF__ : 'a ->> (string * int * int * int) * 'a = "%loc_POS"
 (** [__POS_OF__ expr] returns a pair [(loc,expr)], where [loc] is a
     tuple [(file,lnum,cnum,enum)] corresponding to the location at
     which the expression [expr] appears in the file currently being
@@ -214,13 +240,13 @@ external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
 
 (** {6 Composition operators} *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
+external ( |> ) : 'a ->> ('a ~>> 'b) ~>> 'b = "%revapply"
 (** Reverse-application operator: [x |> f |> g] is exactly equivalent
  to [g (f (x))].
    @since 4.01
 *)
 
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( @@ ) : ('a ~>> 'b) ->> 'a ~>> 'b = "%apply"
 (** Application operator: [g @@ f @@ x] is exactly equivalent to
  [g (f (x))].
    @since 4.01
@@ -232,30 +258,30 @@ external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
    All operations are taken modulo 2{^31} (or 2{^63}).
    They do not fail on overflow. *)
 
-external ( ~- ) : int -> int = "%negint"
+external ( ~- ) : int ->> int = "%negint"
 (** Unary negation. You can also write [- e] instead of [~- e]. *)
 
-external ( ~+ ) : int -> int = "%identity"
+external ( ~+ ) : int ->> int = "%identity"
 (** Unary addition. You can also write [+ e] instead of [~+ e].
     @since 3.12.0
 *)
 
-external succ : int -> int = "%succint"
+external succ : int ->> int = "%succint"
 (** [succ x] is [x + 1]. *)
 
-external pred : int -> int = "%predint"
+external pred : int ->> int = "%predint"
 (** [pred x] is [x - 1]. *)
 
-external ( + ) : int -> int -> int = "%addint"
+external ( + ) : int ->> int ->> int = "%addint"
 (** Integer addition. *)
 
-external ( - ) : int -> int -> int = "%subint"
+external ( - ) : int ->> int ->> int = "%subint"
 (** Integer subtraction. *)
 
-external ( * ) : int -> int -> int = "%mulint"
+external ( * ) : int ->> int ->> int = "%mulint"
 (** Integer multiplication. *)
 
-external ( / ) : int -> int -> int = "%divint"
+external ( / ) : int ->> int ->> int = "%divint"
 (** Integer division.
    Raise [Division_by_zero] if the second argument is 0.
    Integer division rounds the real quotient of its arguments towards zero.
@@ -263,7 +289,7 @@ external ( / ) : int -> int -> int = "%divint"
    less than or equal to the real quotient of [x] by [y].  Moreover,
    [(- x) / y = x / (- y) = - (x / y)].  *)
 
-external ( mod ) : int -> int -> int = "%modint"
+external ( mod ) : int ->> int ->> int = "%modint"
 (** Integer remainder.  If [y] is not zero, the result
    of [x mod y] satisfies the following properties:
    [x = (x / y) * y + x mod y] and
@@ -272,7 +298,7 @@ external ( mod ) : int -> int -> int = "%modint"
    Note that [x mod y] is negative only if [x < 0].
    Raise [Division_by_zero] if [y] is zero. *)
 
-val abs : int -> int
+val abs : int ->> int
 (** Return the absolute value of the argument.  Note that this may be
   negative if the argument is [min_int]. *)
 
@@ -285,31 +311,31 @@ val min_int : int
 
 (** {7 Bitwise operations} *)
 
-external ( land ) : int -> int -> int = "%andint"
+external ( land ) : int ->> int ->> int = "%andint"
 (** Bitwise logical and. *)
 
-external ( lor ) : int -> int -> int = "%orint"
+external ( lor ) : int ->> int ->> int = "%orint"
 (** Bitwise logical or. *)
 
-external ( lxor ) : int -> int -> int = "%xorint"
+external ( lxor ) : int ->> int ->> int = "%xorint"
 (** Bitwise logical exclusive or. *)
 
-val lnot : int -> int
+val lnot : int ->> int
 (** Bitwise logical negation. *)
 
-external ( lsl ) : int -> int -> int = "%lslint"
+external ( lsl ) : int ->> int ->> int = "%lslint"
 (** [n lsl m] shifts [n] to the left by [m] bits.
    The result is unspecified if [m < 0] or [m >= bitsize],
    where [bitsize] is [32] on a 32-bit platform and
    [64] on a 64-bit platform. *)
 
-external ( lsr ) : int -> int -> int = "%lsrint"
+external ( lsr ) : int ->> int ->> int = "%lsrint"
 (** [n lsr m] shifts [n] to the right by [m] bits.
    This is a logical shift: zeroes are inserted regardless of
    the sign of [n].
    The result is unspecified if [m < 0] or [m >= bitsize]. *)
 
-external ( asr ) : int -> int -> int = "%asrint"
+external ( asr ) : int ->> int ->> int = "%asrint"
 (** [n asr m] shifts [n] to the right by [m] bits.
    This is an arithmetic shift: the sign bit of [n] is replicated.
    The result is unspecified if [m < 0] or [m >= bitsize]. *)
@@ -329,80 +355,80 @@ external ( asr ) : int -> int -> int = "%asrint"
    as argument returns [nan] as result.
 *)
 
-external ( ~-. ) : float -> float = "%negfloat"
+external ( ~-. ) : float ->> float = "%negfloat"
 (** Unary negation. You can also write [-. e] instead of [~-. e]. *)
 
-external ( ~+. ) : float -> float = "%identity"
+external ( ~+. ) : float ->> float = "%identity"
 (** Unary addition. You can also write [+. e] instead of [~+. e].
     @since 3.12.0
 *)
 
-external ( +. ) : float -> float -> float = "%addfloat"
+external ( +. ) : float ->> float ->> float = "%addfloat"
 (** Floating-point addition *)
 
-external ( -. ) : float -> float -> float = "%subfloat"
+external ( -. ) : float ->> float ->> float = "%subfloat"
 (** Floating-point subtraction *)
 
-external ( *. ) : float -> float -> float = "%mulfloat"
+external ( *. ) : float ->> float ->> float = "%mulfloat"
 (** Floating-point multiplication *)
 
-external ( /. ) : float -> float -> float = "%divfloat"
+external ( /. ) : float ->> float ->> float = "%divfloat"
 (** Floating-point division. *)
 
-external ( ** ) : float -> float -> float = "caml_power_float" "pow" "float"
+external ( ** ) : float ->> float ->> float = "caml_power_float" "pow" "float"
 (** Exponentiation. *)
 
-external sqrt : float -> float = "caml_sqrt_float" "sqrt" "float"
+external sqrt : float ->> float = "caml_sqrt_float" "sqrt" "float"
 (** Square root. *)
 
-external exp : float -> float = "caml_exp_float" "exp" "float"
+external exp : float ->> float = "caml_exp_float" "exp" "float"
 (** Exponential. *)
 
-external log : float -> float = "caml_log_float" "log" "float"
+external log : float ->> float = "caml_log_float" "log" "float"
 (** Natural logarithm. *)
 
-external log10 : float -> float = "caml_log10_float" "log10" "float"
+external log10 : float ->> float = "caml_log10_float" "log10" "float"
 (** Base 10 logarithm. *)
 
-external expm1 : float -> float = "caml_expm1_float" "caml_expm1" "float"
+external expm1 : float ->> float = "caml_expm1_float" "caml_expm1" "float"
 (** [expm1 x] computes [exp x -. 1.0], giving numerically-accurate results
     even if [x] is close to [0.0].
     @since 3.12.0
 *)
 
-external log1p : float -> float = "caml_log1p_float" "caml_log1p" "float"
+external log1p : float ->> float = "caml_log1p_float" "caml_log1p" "float"
 (** [log1p x] computes [log(1.0 +. x)] (natural logarithm),
     giving numerically-accurate results even if [x] is close to [0.0].
     @since 3.12.0
 *)
 
-external cos : float -> float = "caml_cos_float" "cos" "float"
+external cos : float ->> float = "caml_cos_float" "cos" "float"
 (** Cosine.  Argument is in radians. *)
 
-external sin : float -> float = "caml_sin_float" "sin" "float"
+external sin : float ->> float = "caml_sin_float" "sin" "float"
 (** Sine.  Argument is in radians. *)
 
-external tan : float -> float = "caml_tan_float" "tan" "float"
+external tan : float ->> float = "caml_tan_float" "tan" "float"
 (** Tangent.  Argument is in radians. *)
 
-external acos : float -> float = "caml_acos_float" "acos" "float"
+external acos : float ->> float = "caml_acos_float" "acos" "float"
 (** Arc cosine.  The argument must fall within the range [[-1.0, 1.0]].
     Result is in radians and is between [0.0] and [pi]. *)
 
-external asin : float -> float = "caml_asin_float" "asin" "float"
+external asin : float ->> float = "caml_asin_float" "asin" "float"
 (** Arc sine.  The argument must fall within the range [[-1.0, 1.0]].
     Result is in radians and is between [-pi/2] and [pi/2]. *)
 
-external atan : float -> float = "caml_atan_float" "atan" "float"
+external atan : float ->> float = "caml_atan_float" "atan" "float"
 (** Arc tangent.
     Result is in radians and is between [-pi/2] and [pi/2]. *)
 
-external atan2 : float -> float -> float = "caml_atan2_float" "atan2" "float"
+external atan2 : float ->> float ->> float = "caml_atan2_float" "atan2" "float"
 (** [atan2 y x] returns the arc tangent of [y /. x].  The signs of [x]
     and [y] are used to determine the quadrant of the result.
     Result is in radians and is between [-pi] and [pi]. *)
 
-external hypot : float -> float -> float
+external hypot : float ->> float ->> float
                = "caml_hypot_float" "caml_hypot" "float"
 (** [hypot x y] returns [sqrt(x *. x + y *. y)], that is, the length
   of the hypotenuse of a right-angled triangle with sides of length
@@ -410,30 +436,30 @@ external hypot : float -> float -> float
   to origin.
   @since 4.00.0  *)
 
-external cosh : float -> float = "caml_cosh_float" "cosh" "float"
+external cosh : float ->> float = "caml_cosh_float" "cosh" "float"
 (** Hyperbolic cosine.  Argument is in radians. *)
 
-external sinh : float -> float = "caml_sinh_float" "sinh" "float"
+external sinh : float ->> float = "caml_sinh_float" "sinh" "float"
 (** Hyperbolic sine.  Argument is in radians. *)
 
-external tanh : float -> float = "caml_tanh_float" "tanh" "float"
+external tanh : float ->> float = "caml_tanh_float" "tanh" "float"
 (** Hyperbolic tangent.  Argument is in radians. *)
 
-external ceil : float -> float = "caml_ceil_float" "ceil" "float"
+external ceil : float ->> float = "caml_ceil_float" "ceil" "float"
 (** Round above to an integer value.
     [ceil f] returns the least integer value greater than or equal to [f].
     The result is returned as a float. *)
 
-external floor : float -> float = "caml_floor_float" "floor" "float"
+external floor : float ->> float = "caml_floor_float" "floor" "float"
 (** Round below to an integer value.
     [floor f] returns the greatest integer value less than or
     equal to [f].
     The result is returned as a float. *)
 
-external abs_float : float -> float = "%absfloat"
+external abs_float : float ->> float = "%absfloat"
 (** [abs_float f] returns the absolute value of [f]. *)
 
-external copysign : float -> float -> float
+external copysign : float ->> float ->> float
                   = "caml_copysign_float" "caml_copysign" "float"
 (** [copysign x y] returns a float whose absolute value is that of [x]
   and whose sign is that of [y].  If [x] is [nan], returns [nan].
@@ -441,35 +467,35 @@ external copysign : float -> float -> float
   specified which.
   @since 4.00.0  *)
 
-external mod_float : float -> float -> float = "caml_fmod_float" "fmod" "float"
+external mod_float : float ->> float ->> float = "caml_fmod_float" "fmod" "float"
 (** [mod_float a b] returns the remainder of [a] with respect to
    [b].  The returned value is [a -. n *. b], where [n]
    is the quotient [a /. b] rounded towards zero to an integer. *)
 
-external frexp : float -> float * int = "caml_frexp_float"
+external frexp : float ->> float * int = "caml_frexp_float"
 (** [frexp f] returns the pair of the significant
    and the exponent of [f].  When [f] is zero, the
    significant [x] and the exponent [n] of [f] are equal to
    zero.  When [f] is non-zero, they are defined by
    [f = x *. 2 ** n] and [0.5 <= x < 1.0]. *)
 
-external ldexp : float -> int -> float = "caml_ldexp_float"
+external ldexp : float ->> int ->> float = "caml_ldexp_float"
 (** [ldexp x n] returns [x *. 2 ** n]. *)
 
-external modf : float -> float * float = "caml_modf_float"
+external modf : float ->> float * float = "caml_modf_float"
 (** [modf f] returns the pair of the fractional and integral
    part of [f]. *)
 
-external float : int -> float = "%floatofint"
+external float : int ->> float = "%floatofint"
 (** Same as {!Pervasives.float_of_int}. *)
 
-external float_of_int : int -> float = "%floatofint"
+external float_of_int : int ->> float = "%floatofint"
 (** Convert an integer to floating-point. *)
 
-external truncate : float -> int = "%intoffloat"
+external truncate : float ->> int = "%intoffloat"
 (** Same as {!Pervasives.int_of_float}. *)
 
-external int_of_float : float -> int = "%intoffloat"
+external int_of_float : float ->> int = "%intoffloat"
 (** Truncate the given floating-point number to an integer.
    The result is unspecified if the argument is [nan] or falls outside the
    range of representable integers. *)
@@ -507,7 +533,7 @@ type fpclass =
 (** The five classes of floating-point numbers, as determined by
    the {!Pervasives.classify_float} function. *)
 
-external classify_float : float -> fpclass = "caml_classify_float"
+external classify_float : float ->> fpclass = "caml_classify_float"
 (** Return the class of the given floating-point number:
    normal, subnormal, zero, infinite, or not a number. *)
 
@@ -517,7 +543,7 @@ external classify_float : float -> fpclass = "caml_classify_float"
    More string operations are provided in module {!String}.
 *)
 
-val ( ^ ) : string -> string -> string
+val ( ^ ) : string ->> string -> string
 (** String concatenation. *)
 
 
@@ -526,10 +552,10 @@ val ( ^ ) : string -> string -> string
    More character operations are provided in module {!Char}.
 *)
 
-external int_of_char : char -> int = "%identity"
+external int_of_char : char ->> int = "%identity"
 (** Return the ASCII code of the argument. *)
 
-val char_of_int : int -> char
+val char_of_int : int ->> char
 (** Return the character with the given ASCII code.
    Raise [Invalid_argument "char_of_int"] if the argument is
    outside the range 0--255. *)
@@ -537,7 +563,7 @@ val char_of_int : int -> char
 
 (** {6 Unit operations} *)
 
-external ignore : 'a -> unit = "%ignore"
+external ignore : 'a ->> unit = "%ignore"
 (** Discard the value of its argument and return [()].
    For instance, [ignore(f x)] discards the result of
    the side-effecting function [f].  It is equivalent to
@@ -580,10 +606,10 @@ external float_of_string : string -> float = "caml_float_of_string"
 
 (** {6 Pair operations} *)
 
-external fst : 'a * 'b -> 'a = "%field0"
+external fst : 'a * 'b ->> 'a = "%field0"
 (** Return the first component of a pair. *)
 
-external snd : 'a * 'b -> 'b = "%field1"
+external snd : 'a * 'b ->> 'b = "%field1"
 (** Return the second component of a pair. *)
 
 
@@ -592,7 +618,7 @@ external snd : 'a * 'b -> 'b = "%field1"
    More list operations are provided in module {!List}.
 *)
 
-val ( @ ) : 'a list -> 'a list -> 'a list
+val ( @ ) : 'a list ->> 'a list ->> 'a list
 (** List concatenation. *)
 
 
@@ -717,7 +743,7 @@ val open_out_bin : string -> out_channel
    systems that do not distinguish between text mode and binary
    mode, this function behaves like {!Pervasives.open_out}. *)
 
-val open_out_gen : open_flag list -> int -> string -> out_channel
+val open_out_gen : open_flag list ->> int ->> string -> out_channel
 (** [open_out_gen mode perm filename] opens the named file for writing,
    as described above. The extra argument [mode]
    specify the opening mode. The extra argument [perm] specifies
@@ -734,33 +760,33 @@ val flush : out_channel -> unit
 val flush_all : unit -> unit
 (** Flush all open output channels; ignore errors. *)
 
-val output_char : out_channel -> char -> unit
+val output_char : out_channel ->> char -> unit
 (** Write the character on the given output channel. *)
 
-val output_string : out_channel -> string -> unit
+val output_string : out_channel ->> string -> unit
 (** Write the string on the given output channel. *)
 
-val output_bytes : out_channel -> bytes -> unit
+val output_bytes : out_channel ->> bytes -> unit
 (** Write the byte sequence on the given output channel.
    @since 4.02.0 *)
 
-val output : out_channel -> bytes -> int -> int -> unit
+val output : out_channel ->> bytes ->> int ->> int -> unit
 (** [output oc buf pos len] writes [len] characters from byte sequence [buf],
    starting at offset [pos], to the given output channel [oc].
    Raise [Invalid_argument "output"] if [pos] and [len] do not
    designate a valid range of [buf]. *)
 
-val output_substring : out_channel -> string -> int -> int -> unit
+val output_substring : out_channel ->> string ->> int ->> int -> unit
 (** Same as [output] but take a string as argument instead of
    a byte sequence.
    @since 4.02.0 *)
 
-val output_byte : out_channel -> int -> unit
+val output_byte : out_channel ->> int -> unit
 (** Write one 8-bit integer (as the single character with that code)
    on the given output channel. The given integer is taken modulo
    256. *)
 
-val output_binary_int : out_channel -> int -> unit
+val output_binary_int : out_channel ->> int -> unit
 (** Write one integer in binary format (4 bytes, big-endian)
    on the given output channel.
    The given integer is taken modulo 2{^32}.
@@ -768,7 +794,7 @@ val output_binary_int : out_channel -> int -> unit
    {!Pervasives.input_binary_int} function. The format is compatible across
    all machines for a given version of OCaml. *)
 
-val output_value : out_channel -> 'a -> unit
+val output_value : out_channel ->> 'a -> unit
 (** Write the representation of a structured value of any type
    to a channel. Circularities and sharing inside the value
    are detected and preserved. The object can be read back,
@@ -776,7 +802,7 @@ val output_value : out_channel -> 'a -> unit
    {!Marshal} for more information. {!Pervasives.output_value} is equivalent
    to {!Marshal.to_channel} with an empty list of flags. *)
 
-val seek_out : out_channel -> int -> unit
+val seek_out : out_channel ->> int -> unit
 (** [seek_out chan pos] sets the current writing position to [pos]
    for channel [chan]. This works only for regular files. On
    files of other kinds (such as terminals, pipes and sockets),
@@ -803,7 +829,7 @@ val close_out : out_channel -> unit
 val close_out_noerr : out_channel -> unit
 (** Same as [close_out], but ignore all errors. *)
 
-val set_binary_mode_out : out_channel -> bool -> unit
+val set_binary_mode_out : out_channel ->> bool -> unit
 (** [set_binary_mode_out oc true] sets the channel [oc] to binary
    mode: no translations take place during output.
    [set_binary_mode_out oc false] sets the channel [oc] to text
@@ -826,7 +852,7 @@ val open_in_bin : string -> in_channel
    systems that do not distinguish between text mode and binary
    mode, this function behaves like {!Pervasives.open_in}. *)
 
-val open_in_gen : open_flag list -> int -> string -> in_channel
+val open_in_gen : open_flag list ->> int ->> string -> in_channel
 (** [open_in_gen mode perm filename] opens the named file for reading,
    as described above. The extra arguments
    [mode] and [perm] specify the opening mode and file permissions.
@@ -844,7 +870,7 @@ val input_line : in_channel -> string
    Raise [End_of_file] if the end of the file is reached
    at the beginning of line. *)
 
-val input : in_channel -> bytes -> int -> int -> int
+val input : in_channel ->> bytes ->> int ->> int -> int
 (** [input ic buf pos len] reads up to [len] characters from
    the given channel [ic], storing them in byte sequence [buf], starting at
    character number [pos].
@@ -861,7 +887,7 @@ val input : in_channel -> bytes -> int -> int -> int
    Exception [Invalid_argument "input"] is raised if [pos] and [len]
    do not designate a valid range of [buf]. *)
 
-val really_input : in_channel -> bytes -> int -> int -> unit
+val really_input : in_channel ->> bytes ->> int ->> int -> unit
 (** [really_input ic buf pos len] reads [len] characters from channel [ic],
    storing them in byte sequence [buf], starting at character number [pos].
    Raise [End_of_file] if the end of file is reached before [len]
@@ -869,7 +895,7 @@ val really_input : in_channel -> bytes -> int -> int -> unit
    Raise [Invalid_argument "really_input"] if
    [pos] and [len] do not designate a valid range of [buf]. *)
 
-val really_input_string : in_channel -> int -> string
+val really_input_string : in_channel ->> int -> string
 (** [really_input_string ic len] reads [len] characters from channel [ic]
    and returns them in a new string.
    Raise [End_of_file] if the end of file is reached before [len]
@@ -894,7 +920,7 @@ val input_value : in_channel -> 'a
    see the description of module {!Marshal} for more information,
    in particular concerning the lack of type safety. *)
 
-val seek_in : in_channel -> int -> unit
+val seek_in : in_channel ->> int -> unit
 (** [seek_in chan pos] sets the current reading position to [pos]
    for channel [chan]. This works only for regular files. On
    files of other kinds, the behavior is unspecified. *)
@@ -919,7 +945,7 @@ val close_in : in_channel -> unit
 val close_in_noerr : in_channel -> unit
 (** Same as [close_in], but ignore all errors. *)
 
-val set_binary_mode_in : in_channel -> bool -> unit
+val set_binary_mode_in : in_channel ->> bool -> unit
 (** [set_binary_mode_in ic true] sets the channel [ic] to binary
    mode: no translations take place during input.
    [set_binary_mode_out ic false] sets the channel [ic] to text
@@ -934,10 +960,10 @@ val set_binary_mode_in : in_channel -> bool -> unit
 
 module LargeFile :
   sig
-    val seek_out : out_channel -> int64 -> unit
+    val seek_out : out_channel ->> int64 -> unit
     val pos_out : out_channel -> int64
     val out_channel_length : out_channel -> int64
-    val seek_in : in_channel -> int64 -> unit
+    val seek_in : in_channel ->> int64 -> unit
     val pos_in : in_channel -> int64
     val in_channel_length : in_channel -> int64
   end
@@ -962,7 +988,7 @@ external ( ! ) : 'a ref -> 'a = "%field0"
 (** [!r] returns the current contents of reference [r].
    Equivalent to [fun r -> r.contents]. *)
 
-external ( := ) : 'a ref -> 'a -> unit = "%setfield0"
+external ( := ) : 'a ref ->> 'a -> unit = "%setfield0"
 (** [r := a] stores the value of [a] in reference [r].
    Equivalent to [fun r v -> r.contents <- v]. *)
 
@@ -1047,20 +1073,26 @@ type ('a,'b) result = Ok of 'a | Error of 'b
       for the [scanf]-style functions, it is typically the result type of the
       receiver function.
 *)
+type ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e =
+  ('a, 'b, 'c, 'd, 'e, 'f, !p) CamlinternalFormatBasics.format6e
 
 type ('a, 'b, 'c, 'd, 'e, 'f) format6 =
-  ('a, 'b, 'c, 'd, 'e, 'f) CamlinternalFormatBasics.format6
+  ('a, 'b, 'c, 'd, 'e, 'f, ![io]) format6e
 
-type ('a, 'b, 'c, 'd) format4 = ('a, 'b, 'c, 'c, 'c, 'd) format6
+type ('a, 'b, 'c, 'd, !p) format4e = ('a, 'b, 'c, 'c, 'c, 'd, !p) format6e
 
-type ('a, 'b, 'c) format = ('a, 'b, 'c, 'c) format4
+type ('a, 'b, 'c, 'd) format4 = ('a, 'b, 'c, 'd, ![io]) format4e
 
-val string_of_format : ('a, 'b, 'c, 'd, 'e, 'f) format6 -> string
+type ('a, 'b, 'c, !p) formate = ('a, 'b, 'c, 'c, !p) format4e
+
+type ('a, 'b, 'c) format = ('a, 'b, 'c, ![io]) formate
+
+val string_of_format : ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->> string
 (** Converts a format string into a string. *)
 
 external format_of_string :
-  ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
-  ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%identity"
+  ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+  ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e = "%identity"
 (** [format_of_string s] returns a format string read from the string
     literal [s].
     Note: [format_of_string] can not convert a string argument that is not a
@@ -1069,9 +1101,9 @@ external format_of_string :
 *)
 
 val ( ^^ ) :
-      ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
-      ('f, 'b, 'c, 'e, 'g, 'h) format6 ->
-      ('a, 'b, 'c, 'd, 'g, 'h) format6
+      ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+      ('f, 'b, 'c, 'e, 'g, 'h, !p) format6e ->
+      ('a, 'b, 'c, 'd, 'g, 'h, !p) format6e
 (** [f1 ^^ f2] catenates format strings [f1] and [f2]. The result is a
   format string that behaves as the concatenation of format strings [f1] and
   [f2]: in case of formatted output, it accepts arguments from [f1], then
@@ -1105,6 +1137,6 @@ val at_exit : (unit -> unit) -> unit
 
 val valid_float_lexem : string -> string
 
-val unsafe_really_input : in_channel -> bytes -> int -> int -> unit
+val unsafe_really_input : in_channel ->> bytes ->> int ->> int -> unit
 
 val do_at_exit : unit -> unit

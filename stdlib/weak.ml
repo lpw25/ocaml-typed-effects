@@ -19,11 +19,11 @@ external create: int -> 'a t = "caml_weak_create";;
 
 let length x = Obj.size(Obj.repr x) - 1;;
 
-external set : 'a t -> int -> 'a option -> unit = "caml_weak_set";;
-external get: 'a t -> int -> 'a option = "caml_weak_get";;
-external get_copy: 'a t -> int -> 'a option = "caml_weak_get_copy";;
-external check: 'a t -> int -> bool = "caml_weak_check";;
-external blit: 'a t -> int -> 'a t -> int -> int -> unit = "caml_weak_blit";;
+external set : 'a t ->> int ->> 'a option -> unit = "caml_weak_set";;
+external get: 'a t ->> int -> 'a option = "caml_weak_get";;
+external get_copy: 'a t ->> int -> 'a option = "caml_weak_get_copy";;
+external check: 'a t ->> int -> bool = "caml_weak_check";;
+external blit: 'a t ->> int ->> 'a t ->> int ->> int -> unit = "caml_weak_blit";;
 (* blit: src srcoff dst dstoff len *)
 
 let fill ar ofs len x =
@@ -43,14 +43,14 @@ module type S = sig
   type t
   val create : int -> t
   val clear : t -> unit
-  val merge : t -> data -> data
-  val add : t -> data -> unit
-  val remove : t -> data -> unit
-  val find : t -> data -> data
-  val find_all : t -> data -> data list
-  val mem : t -> data -> bool
-  val iter : (data -> unit) -> t -> unit
-  val fold : (data -> 'a -> 'a) -> t -> 'a -> 'a
+  val merge : t ->> data -> data
+  val add : t ->> data -> unit
+  val remove : t ->> data -> unit
+  val find : t ->> data -> data
+  val find_all : t ->> data -> data list
+  val mem : t ->> data -> bool
+  val iter : (data ~> unit) ->> t ~> unit
+  val fold : (data ~> 'a ~> 'a) ->> t ->> 'a ~> 'a
   val count : t -> int
   val stats : t -> int * int * int * int * int * int
 end;;
