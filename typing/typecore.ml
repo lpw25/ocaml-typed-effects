@@ -2045,14 +2045,11 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
   | Pexp_constant(Const_string (str, _) as cst) -> (
     (* Terrible hack for format strings *)
     let ty_exp = expand_head env ty_expected in
-    let fmt6_path =
-      Path.(Pdot (Pident (Ident.create_persistent "CamlinternalFormatBasics"),
-                  "format6", 0)) in
     let fmt6e_path =
       Path.(Pdot (Pident (Ident.create_persistent "CamlinternalFormatBasics"),
                   "format6e", 0)) in
     let is_format = match ty_exp.desc with
-      | Tconstr(path, _, _, _) when Path.same path fmt6_path || Path.same path fmt6e_path ->
+      | Tconstr(path, _, _, _) when Path.same path fmt6e_path ->
         if !Clflags.principal && ty_exp.level <> generic_level then
           Location.prerr_warning loc
             (Warnings.Not_principal "this coercion to format6");
