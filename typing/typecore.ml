@@ -3124,15 +3124,15 @@ and type_format loc str env =
           mk_constr "Escaped_percent" []
         | Scan_indic c ->
           mk_constr "Scan_indic" [ mk_char c ]
-      and mk_formatting_gen : type a b c d e f .
-          (a, b, c, d, e, f) formatting_gen -> Parsetree.expression =
+      and mk_formatting_gen : type a b c d e f (p : effect) .
+          (a, b, c, d, e, f, p) formatting_gen -> Parsetree.expression =
         fun fmting -> match fmting with
         | Open_tag (Format (fmt', str')) ->
           mk_constr "Open_tag" [ mk_format fmt' str' ]
         | Open_box (Format (fmt', str')) ->
           mk_constr "Open_box" [ mk_format fmt' str' ]
-      and mk_format : type a b c d e f .
-          (a, b, c, d, e, f) CamlinternalFormatBasics.fmt -> string ->
+      and mk_format : type a b c d e f (p : effect) .
+          (a, b, c, d, e, f, p) CamlinternalFormatBasics.fmt -> string ->
           Parsetree.expression = fun fmt str ->
         mk_constr "Format" [ mk_fmt fmt; mk_string str ]
       and mk_side side = match side with
@@ -3175,8 +3175,8 @@ and type_format loc str env =
         | Some n ->
           let lid_loc = mk_lid_loc (Longident.Lident "Some") in
           mk_exp_loc (Pexp_construct (lid_loc, Some (mk_int n)))
-      and mk_fmtty : type a b c d e f g h i j k l .
-          (a, b, c, d, e, f, g, h, i, j, k, l) fmtty_rel -> Parsetree.expression =
+      and mk_fmtty : type a b c d e f (p : effect) g h i j k l (q : effect) .
+          (a, b, c, d, e, f, p, g, h, i, j, k, l, q) fmtty_rel -> Parsetree.expression =
       fun fmtty -> match fmtty with
         | Char_ty rest      -> mk_constr "Char_ty"      [ mk_fmtty rest ]
         | String_ty rest    -> mk_constr "String_ty"    [ mk_fmtty rest ]
@@ -3198,8 +3198,8 @@ and type_format loc str env =
           mk_constr "Format_subst_ty"
             [ mk_fmtty sub_fmtty1; mk_fmtty sub_fmtty2; mk_fmtty rest ]
         | End_of_fmtty -> mk_constr "End_of_fmtty" []
-      and mk_ignored : type a b c d e f .
-          (a, b, c, d, e, f) ignored -> Parsetree.expression =
+      and mk_ignored : type a b c d e f (p : effect) .
+          (a, b, c, d, e, f, p) ignored -> Parsetree.expression =
       fun ign -> match ign with
         | Ignored_char ->
           mk_constr "Ignored_char" []
@@ -3237,18 +3237,18 @@ and type_format loc str env =
           ]
         | Ignored_scan_next_char ->
           mk_constr "Ignored_scan_next_char" []
-      and mk_padding : type x y . (x, y) padding -> Parsetree.expression =
+      and mk_padding : type x y (p : effect) . (x, y, p) padding -> Parsetree.expression =
       fun pad -> match pad with
         | No_padding         -> mk_constr "No_padding" []
         | Lit_padding (s, w) -> mk_constr "Lit_padding" [ mk_side s; mk_int w ]
         | Arg_padding s      -> mk_constr "Arg_padding" [ mk_side s ]
-      and mk_precision : type x y . (x, y) precision -> Parsetree.expression =
+      and mk_precision : type x y (p : effect) . (x, y, p) precision -> Parsetree.expression =
       fun prec -> match prec with
         | No_precision    -> mk_constr "No_precision" []
         | Lit_precision w -> mk_constr "Lit_precision" [ mk_int w ]
         | Arg_precision   -> mk_constr "Arg_precision" []
-      and mk_fmt : type a b c d e f .
-          (a, b, c, d, e, f) fmt -> Parsetree.expression =
+      and mk_fmt : type a b c d e f (p : effect) .
+          (a, b, c, d, e, f, p) fmt -> Parsetree.expression =
       fun fmt -> match fmt with
         | Char rest ->
           mk_constr "Char" [ mk_fmt rest ]
