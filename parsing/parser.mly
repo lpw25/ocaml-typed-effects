@@ -611,7 +611,7 @@ The precedences must be listed from low to high.
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/expr_comma_list (e,e,e) */
 %right    MINUSGREATER MINUSGREATERGREATER TILDEGREATER
-          TILDEGREATERGREATER MINUSLBRACKET
+          TILDEGREATERGREATER MINUSLBRACKET TILDELBRACKET
                                         /* core_type2 (t -> t -> t) */
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
@@ -2128,10 +2128,10 @@ arrow:
       { mkarrow true false (Some $2) }
   | MINUSLBRACKET effect_row RBRACKETMINUSGREATERGREATER
       { mkarrow false false (Some $2) }
-  | TILDELBRACKET effect_row RBRACKETTILDEGREATER
-      { mkarrow true true (Some $2) }
-  | TILDELBRACKET effect_row RBRACKETTILDEGREATERGREATER
-      { mkarrow false true (Some $2) }
+  | TILDELBRACKET effect_constructors RBRACKETTILDEGREATER
+      { mkarrow true true (Some (mkeffect $2 None)) }
+  | TILDELBRACKET effect_constructors  RBRACKETTILDEGREATERGREATER
+      { mkarrow false true (Some (mkeffect $2 None)) }
 ;
 
 effect_constructors:
@@ -2151,7 +2151,7 @@ effect_constructor:
   | ident COLON core_type_list MINUSGREATER simple_core_type attributes
       { mkeconstructor $1 $3 (Some $5) ~attrs:$6 }
   | ident COLON simple_core_type attributes
-      { mkeconstructor $1 [] (some $3) ~attrs:$4 }
+      { mkeconstructor $1 [] (Some $3) ~attrs:$4 }
 ;
 
 effect_row:
@@ -2417,10 +2417,7 @@ type_longident:
     LIDENT                                      { Lident $1 }
   | mod_ext_longident DOT LIDENT                { Ldot($1, $3) }
 ;
-effect_longident:
-    LIDENT                                      { Lident $1 }
-  | mod_ext_longident DOT LIDENT                { Ldot($1, $3) }
-;
+
 mod_longident:
     UIDENT                                      { Lident $1 }
   | mod_longident DOT UIDENT                    { Ldot($1, $3) }

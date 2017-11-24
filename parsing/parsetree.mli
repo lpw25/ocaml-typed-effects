@@ -139,8 +139,8 @@ and effect_type =
   {
     peft_io: bool;
     peft_tilde: bool;
-    peft_row: effect_row option;
-    peft_loc : Location.t;
+    peft_row:  effect_row option;
+    peft_loc: Location.t;
   }
 
 and effect_row =
