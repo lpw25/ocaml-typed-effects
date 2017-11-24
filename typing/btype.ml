@@ -452,7 +452,17 @@ let rec copy_type_desc ?(keep_names=false) f = function
       let tyl = List.map (fun x -> norm_univar (f x)) tyl in
       Tpoly (f ty, tyl)
   | Tpackage (p, n, l)  -> Tpackage (p, n, List.map f l)
-  | Teffect (p, ty)    -> Teffect (p, f ty)
+  | Teffect (p, ty)    ->
+     let ec =
+       match p with
+       | Estate { ec_region } ->
+          Estate { ec_region = f ec_region }
+       | Eordinary { ec_name; ec_args; ec_res } ->
+          let ec_args = List.map f ec_args in
+          let ec_res = Misc.may_map f ec_res in
+          Eordinary { ec_name; ec_args; ec_res }
+     in
+     Teffect (ec, f ty)
   | Tenil               -> Tenil
 
 (* Utilities for copying *)
