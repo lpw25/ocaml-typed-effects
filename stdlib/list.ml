@@ -28,7 +28,6 @@ let tl = function
   | a::l -> l
 
 let nth l n =
-  let open Int_compare in
   if n < 0 then invalid_arg "List.nth" else
   let rec nth_aux l n =
     match l with
@@ -208,7 +207,6 @@ let rec combine l1 l2 =
 (** sorting *)
 
 let rec merge cmp l1 l2 =
-  let open Int_compare in
   match l1, l2 with
   | [], l2 -> l2
   | l1, [] -> l1
@@ -219,7 +217,6 @@ let rec merge cmp l1 l2 =
 ;;
 
 let rec chop k l =
-  let open Int_compare in
   if k = 0 then l else begin
     match l with
     | x::t -> chop (k-1) t
@@ -228,7 +225,6 @@ let rec chop k l =
 ;;
 
 let stable_sort cmp l =
-  let open Int_compare in
   let rec rev_merge l1 l2 accu =
     match l1, l2 with
     | [], l2 -> rev_append l2 accu
@@ -333,7 +329,6 @@ let stable_sort cmp l =
 (** sorting + removing duplicates *)
 
 let sort_uniq cmp l =
-  let open Int_compare in
   let rec rev_merge l1 l2 accu =
     match l1, l2 with
     | [], l2 -> rev_append l2 accu

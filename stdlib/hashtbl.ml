@@ -14,9 +14,9 @@
 (* Hash tables *)
 
 external seeded_hash_param :
-  int ->> int ->> int ->> 'a -> int = "caml_hash" "noalloc"
+  int -> int -> int -> 'a -> int = "caml_hash" "noalloc"
 external old_hash_param :
-  int ->> int ->> 'a -> int = "caml_hash_univ_param" "noalloc"
+  int -> int -> 'a -> int = "caml_hash_univ_param" "noalloc"
 
 let hash x = seeded_hash_param 10 100 0 x
 let hash_param n1 n2 x = seeded_hash_param n1 n2 0 x
@@ -112,14 +112,14 @@ let add h key info =
   let bucket = Cons(key, info, h.data.(i)) in
   h.data.(i) <- bucket;
   h.size <- h.size + 1;
-  if Int_compare.(>) h.size (Array.length h.data lsl 1) then resize key_index h
+  if h.size > Array.length h.data lsl 1 then resize key_index h
 
 let remove h key =
   let rec remove_bucket = function
     | Empty ->
         Empty
     | Cons(k, i, next) ->
-        if Int_compare.(=) (compare k key) 0
+        if compare k key = 0
         then begin h.size <- h.size - 1; next end
         else Cons(k, i, remove_bucket next) in
   let i = key_index h key in
@@ -135,23 +135,22 @@ let find h key =
   match h.data.(key_index h key) with
   | Empty -> raise Not_found
   | Cons(k1, d1, rest1) ->
-      if Int_compare.(=) (compare key k1) 0 then d1 else
+      if compare key k1 = 0 then d1 else
       match rest1 with
       | Empty -> raise Not_found
       | Cons(k2, d2, rest2) ->
-          if Int_compare.(=) (compare key k2) 0 then d2 else
+          if compare key k2 = 0 then d2 else
           match rest2 with
           | Empty -> raise Not_found
           | Cons(k3, d3, rest3) ->
-              if Int_compare.(=) (compare key k3) 0 then d3
-              else find_rec key rest3
+              if compare key k3 = 0 then d3 else find_rec key rest3
 
 let find_all h key =
   let rec find_in_bucket = function
   | Empty ->
       []
   | Cons(k, d, rest) ->
-      if Int_compare.(=) (compare k key) 0
+      if compare k key = 0
       then d :: find_in_bucket rest
       else find_in_bucket rest in
   find_in_bucket h.data.(key_index h key)
@@ -161,7 +160,7 @@ let replace h key info =
     | Empty ->
         raise Not_found
     | Cons(k, i, next) ->
-        if Int_compare.(=) (compare k key) 0
+        if compare k key = 0
         then Cons(key, info, next)
         else Cons(k, i, replace_bucket next) in
   let i = key_index h key in
@@ -178,7 +177,7 @@ let mem h key =
   | Empty ->
       false
   | Cons(k, d, rest) ->
-      Int_compare.(=) (compare k key) 0 || mem_in_bucket rest in
+      compare k key = 0 || mem_in_bucket rest in
   mem_in_bucket h.data.(key_index h key)
 
 let iter f h =
@@ -255,14 +254,14 @@ module type S =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy: 'a t -> 'a t
-    val add: 'a t ->> key ->> 'a -> unit
-    val remove: 'a t ->> key -> unit
-    val find: 'a t ->> key -> 'a
-    val find_all: 'a t ->> key -> 'a list
-    val replace : 'a t ->> key ->> 'a -> unit
-    val mem : 'a t ->> key -> bool
-    val iter: (key ~> 'a ~> unit) ->> 'a t ~> unit
-    val fold: (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
+    val add: 'a t -> key -> 'a -> unit
+    val remove: 'a t -> key -> unit
+    val find: 'a t -> key -> 'a
+    val find_all: 'a t -> key -> 'a list
+    val replace : 'a t -> key -> 'a -> unit
+    val mem : 'a t -> key -> bool
+    val iter: (key -> 'a -> unit) -> 'a t -> unit
+    val fold: (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
     val length: 'a t -> int
     val stats: 'a t -> statistics
   end
@@ -275,14 +274,14 @@ module type SeededS =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy : 'a t -> 'a t
-    val add : 'a t ->> key ->> 'a -> unit
-    val remove : 'a t ->> key -> unit
-    val find : 'a t ->> key -> 'a
-    val find_all : 'a t ->> key -> 'a list
-    val replace : 'a t ->> key ->> 'a -> unit
-    val mem : 'a t ->> key -> bool
-    val iter : (key ~> 'a ~> unit) ->> 'a t ~> unit
-    val fold : (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
+    val add : 'a t -> key -> 'a -> unit
+    val remove : 'a t -> key -> unit
+    val find : 'a t -> key -> 'a
+    val find_all : 'a t -> key -> 'a list
+    val replace : 'a t -> key -> 'a -> unit
+    val mem : 'a t -> key -> bool
+    val iter : (key -> 'a -> unit) -> 'a t -> unit
+    val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
     val length : 'a t -> int
     val stats: 'a t -> statistics
   end
