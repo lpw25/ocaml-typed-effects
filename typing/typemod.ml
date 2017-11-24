@@ -416,10 +416,10 @@ and approx_sig env ssg =
                  Sig_type(i2, d2, rs);
                  Sig_type(i3, d3, rs)])
               decls [rem])
-      | Psig_effect seff ->
-          let eff = Typedecl.approx_effect_decl in
-          let (id, newenv) = Env.enter_effect seff.peff_name.txt eff env in
-          Sig_effect(id, eff) :: approx_sig newenv srem
+      (* | Psig_effect seff ->
+       *     let eff = Typedecl.approx_effect_decl in
+       *     let (id, newenv) = Env.enter_effect seff.peff_name.txt eff env in
+       *     Sig_effect(id, eff) :: approx_sig newenv srem *)
       | _ ->
           approx_sig env srem
 
@@ -462,8 +462,8 @@ let check_sig_item type_names effect_names module_names modtype_names loc =
   function
   | Sig_type(id, _, _) ->
       check "type" loc type_names (Ident.name id)
-  | Sig_effect(id, _) ->
-      check "effect" loc effect_names (Ident.name id)
+  (* | Sig_effect(id, _) ->
+   *     check "effect" loc effect_names (Ident.name id) *)
   | Sig_module(id, _, _) ->
       check "module" loc module_names (Ident.name id)
   | Sig_modtype(id, _) ->
@@ -628,13 +628,13 @@ and transl_signature env sg =
             (if shadowed then rem else
                Sig_typext(ext.ext_id, ext.ext_type, Text_exception) :: rem),
             final_env
-        | Psig_effect seff ->
-            check_name "effect" effect_names seff.peff_name;
-            let (teff, newenv) = Typedecl.transl_effect_decl env false seff in
-            let (trem, rem, final_env) = transl_sig newenv srem in
-            mksig (Tsig_effect teff) env loc :: trem,
-            Sig_effect(teff.eff_id, teff.eff_type) :: rem,
-            final_env
+        (* | Psig_effect seff ->
+         *     check_name "effect" effect_names seff.peff_name;
+         *     let (teff, newenv) = Typedecl.transl_effect_decl env false seff in
+         *     let (trem, rem, final_env) = transl_sig newenv srem in
+         *     mksig (Tsig_effect teff) env loc :: trem,
+         *     Sig_effect(teff.eff_id, teff.eff_type) :: rem,
+         *     final_env *)
         | Psig_module pmd ->
             check_name "module" module_names pmd.pmd_name;
             let tmty = transl_modtype env pmd.pmd_type in
@@ -1147,7 +1147,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
       let eff =
-        Expected (Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil)))
+        Expected (Ctype.instance_def Predef.type_io_gen)
       in
       let body = type_module sttn funct_body None newenv eff sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
@@ -1161,7 +1161,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
         | Toplevel _ -> ()
         | Expected eff ->
             let io =
-              Ctype.instance_def (Predef.effect_io (Ctype.newty Tenil))
+              Ctype.instance_def Predef.type_io_gen
             in
             try
               Ctype.unify env io eff
@@ -1316,12 +1316,12 @@ and type_structure ?(toplevel = false) funct_body anchor eff env sstr scope =
         Tstr_exception ext,
         [Sig_typext(ext.ext_id, ext.ext_type, Text_exception)],
         newenv
-    | Pstr_effect seff ->
-        check_name "effect" effect_names seff.peff_name;
-        let (teff, newenv) = Typedecl.transl_effect_decl env funct_body seff in
-        Tstr_effect teff,
-        [Sig_effect(teff.eff_id, teff.eff_type)],
-        newenv
+    (* | Pstr_effect seff ->
+     *     check_name "effect" effect_names seff.peff_name;
+     *     let (teff, newenv) = Typedecl.transl_effect_decl env funct_body seff in
+     *     Tstr_effect teff,
+     *     [Sig_effect(teff.eff_id, teff.eff_type)],
+     *     newenv *)
     | Pstr_module {pmb_name = name; pmb_expr = smodl; pmb_attributes = attrs;
                    pmb_loc;
                   } ->
@@ -1482,7 +1482,7 @@ and type_structure ?(toplevel = false) funct_body anchor eff env sstr scope =
                                        Mty_alias (Pdot(p,Ident.name id,n))},
                                   rs)
                   | Sig_value (_, {val_kind=Val_reg})
-                  | Sig_typext _ | Sig_class _ | Sig_effect _ as it ->
+                  | Sig_typext _ | Sig_class _ (* | Sig_effect _ *) as it ->
                       incr pos; it
                   | Sig_value _ | Sig_type _ | Sig_modtype _
                   | Sig_class_type _ as it ->

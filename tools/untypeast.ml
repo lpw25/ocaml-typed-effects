@@ -60,8 +60,8 @@ and untype_structure_item item =
         Pstr_typext (untype_type_extension tyext)
     | Tstr_exception ext ->
         Pstr_exception (untype_extension_constructor ext)
-    | Tstr_effect eff ->
-        Pstr_effect (untype_effect_declaration eff)
+    (* | Tstr_effect eff ->
+     *     Pstr_effect (untype_effect_declaration eff) *)
     | Tstr_module mb ->
         Pstr_module (untype_module_binding mb)
     | Tstr_recmodule list ->
@@ -178,26 +178,26 @@ and untype_extension_constructor ext =
     pext_attributes = ext.ext_attributes;
   }
 
-and untype_effect_declaration eff =
-  {
-    peff_name = eff.eff_name;
-    peff_kind = untype_effect_kind eff.eff_kind;
-    peff_manifest = Misc.may_map fst eff.eff_manifest;
-    peff_loc = eff.eff_loc;
-    peff_attributes = eff.eff_attributes;
-  }
-
-and untype_effect_kind = function
-  | Teff_abstract -> Peff_abstract
-  | Teff_variant ecs -> Peff_variant (List.map untype_effect_constructor ecs)
+(* and untype_effect_declaration eff =
+ *   {
+ *     peff_name = eff.eff_name;
+ *     peff_kind = untype_effect_kind eff.eff_kind;
+ *     peff_manifest = Misc.may_map fst eff.eff_manifest;
+ *     peff_loc = eff.eff_loc;
+ *     peff_attributes = eff.eff_attributes;
+ *   }
+ * 
+ * and untype_effect_kind = function
+ *   | Teff_abstract -> Peff_abstract
+ *   | Teff_variant ecs -> Peff_variant (List.map untype_effect_constructor ecs) *)
 
 and untype_effect_constructor ec =
   {
-    pec_name = ec.ec_name;
-    pec_args = List.map untype_core_type ec.ec_args;
-    pec_res = Misc.may_map untype_core_type ec.ec_res;
-    pec_loc = ec.ec_loc;
-    pec_attributes = ec.ec_attributes;
+    peff_label = ec.ec_name;
+    peff_args = List.map untype_core_type ec.ec_args;
+    peff_res = Misc.may_map untype_core_type ec.ec_res;
+    (* pec_loc = ec.ec_loc; *)
+    peff_attributes = ec.ec_attributes;
   }
 
 and untype_pattern pat =
@@ -245,20 +245,13 @@ and untype_pattern pat =
     | Tpat_or (p1, p2, _) -> Ppat_or (untype_pattern p1, untype_pattern p2)
     | Tpat_lazy p -> Ppat_lazy (untype_pattern p)
     | Tpat_exception p -> Ppat_exception (untype_pattern p)
-    | Tpat_effect(lid, _, args, cont) ->
-        let args =
-          match args with
-          | [] -> None
-          | [arg] -> Some (untype_pattern arg)
-          | args ->
-                Some (Pat.tuple ~loc:pat.pat_loc
-                        (List.map untype_pattern args))
-        in
+    | Tpat_effect(lid, args, cont) ->
+        let args = List.map untype_pattern args in
         let cont =
           match cont with
           | None -> None
-          | Some None -> Some (Pat.any ())
-          | Some (Some(_, s)) -> Some (Pat.var s)
+          | Some _ -> assert false (* Some (Pat.any ()) *) (* TODO: FIXME *)
+          (* | Some (Some(_, s)) -> Some (Pat.var s) *)
         in
           Ppat_effect(lid, args, cont)
   in
@@ -360,15 +353,8 @@ and untype_expression exp =
         Pexp_for (name,
           untype_expression exp1, untype_expression exp2,
           dir, untype_expression exp3)
-    | Texp_perform (lid, _, args) ->
-        Pexp_perform (lid,
-          (match args with
-              [] -> None
-          | [ arg ] -> Some (untype_expression arg)
-          | args ->
-              Some
-                (Exp.tuple ~loc:exp.exp_loc (List.map untype_expression args))
-          ))
+    | Texp_perform (lbl, args) ->
+        Pexp_perform (lbl, List.map untype_expression args)
     | Texp_send (exp, meth, _) ->
         Pexp_send (untype_expression exp, match meth with
             Tmeth_name name -> name
@@ -414,8 +400,8 @@ and untype_signature_item item =
         Psig_typext (untype_type_extension tyext)
     | Tsig_exception ext ->
         Psig_exception (untype_extension_constructor ext)
-    | Tsig_effect eff ->
-        Psig_effect (untype_effect_declaration eff)
+    (* | Tsig_effect eff ->
+     *     Psig_effect (untype_effect_declaration eff) *)
     | Tsig_module md ->
         Psig_module {pmd_name = md.md_name;
                      pmd_type = untype_module_type md.md_type;
@@ -646,19 +632,13 @@ and untype_row_field rf =
   | Tinherit ct -> Rinherit (untype_core_type ct)
 
 and untype_effect_row efr =
-  { pefr_effects = List.map fst efr.efr_effects;
-    pefr_row = Misc.may_map untype_core_type efr.efr_row; }
+  { pefr_effects = List.map untype_effect_constructor efr.efr_effects;
+    pefr_next = Misc.may_map untype_core_type efr.efr_next; }
 
 and untype_effect_type eft =
-  let desc =
-    match eft.eft_desc with
-    | Teft_io -> Peft_io
-    | Teft_pure -> Peft_pure
-    | Teft_io_tilde -> Peft_io_tilde
-    | Teft_pure_tilde -> Peft_pure_tilde
-    | Teft_row efr -> Peft_row (untype_effect_row efr)
-  in
-  { peft_desc = desc;
+  { peft_io = eft.eft_io;
+    peft_tilde = eft.eft_tilde;
+    peft_row = Misc.may_map untype_effect_row eft.eft_row;
     peft_loc = eft.eft_loc; }
 
 and is_self_pat = function

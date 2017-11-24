@@ -27,7 +27,7 @@ type error =
   | Recursive_abbrev of string
   | Cycle_in_def of string * type_expr
   | Definition_mismatch of type_expr * Includecore.type_mismatch list
-  | Effect_definition_mismatch of Path.t * Includecore.effect_mismatch list
+  (* | Effect_definition_mismatch of Path.t * Includecore.effect_mismatch list *)
   | Constraint_failed of type_expr * type_expr
   | Inconsistent_constraint of Env.t * (type_expr * type_expr) list
   | Type_clash of Env.t * (type_expr * type_expr) list
@@ -46,7 +46,7 @@ type error =
   | Unavailable_effect of Path.t
   | Bad_fixed_type of string
   | Unbound_type_var_ext of type_expr * extension_constructor
-  | Unbound_type_var_eff of type_expr * effect_declaration
+  (* | Unbound_type_var_eff of type_expr * effect_declaration *)
   | Varying_anonymous
   | Not_allowed_in_functor_body
   | Effect_type_with_definition
@@ -365,15 +365,15 @@ let generalize_decl decl =
   | Some ty -> Ctype.generalize ty
   end
 
-let generalize_effect_decl eff =
-  match eff.Types.eff_kind with
-  | Eff_abstract -> ()
-  | Eff_variant ecs ->
-      List.iter
-        (fun ec ->
-          List.iter Ctype.generalize ec.Types.ec_args;
-          may Ctype.generalize ec.Types.ec_res)
-        ecs
+(* let generalize_effect_decl eff =
+ *   match eff.Types.eff_kind with
+ *   | Eff_abstract -> ()
+ *   | Eff_variant ecs ->
+ *       List.iter
+ *         (fun ec ->
+ *           List.iter Ctype.generalize ec.Types.ec_args;
+ *           may Ctype.generalize ec.Types.ec_res)
+ *         ecs *)
 
 (* Check that all constraints are enforced *)
 
@@ -1362,112 +1362,112 @@ let transl_exception env sext =
     ext, newenv
 
 (* Enter declared effects into the environment as abstract effects *)
-let enter_effect env seff man =
-  let eff =
-    { Types.eff_kind = Eff_abstract;
-      eff_manifest = man;
-      eff_loc = seff.peff_loc;
-      eff_attributes = seff.peff_attributes; }
-  in
-  Env.enter_effect seff.peff_name.txt eff env
-
-let check_effect_coherence env loc id eff =
-  match eff with
-  | { Types.eff_kind = Eff_variant _; eff_manifest = Some path } -> begin
-      try
-        let eff' = Env.find_effect path env in
-        let err =
-          Includecore.effect_declarations env
-            (Path.last path) eff' id
-            (Subst.effect_declaration
-               (Subst.add_effect id path Subst.identity) eff)
-        in
-        if err <> [] then
-          raise(Error(loc, Effect_definition_mismatch (path, err)))
-      with Not_found ->
-        raise(Error(loc, Unavailable_effect path))
-    end
-  | _ -> ()
+(* let enter_effect env seff man =
+ *   let eff =
+ *     { Types.eff_kind = Eff_abstract;
+ *       eff_manifest = man;
+ *       eff_loc = seff.peff_loc;
+ *       eff_attributes = seff.peff_attributes; }
+ *   in
+ *   Env.enter_effect seff.peff_name.txt eff env
+ * 
+ * let check_effect_coherence env loc id eff =
+ *   match eff with
+ *   | { Types.eff_kind = Eff_variant _; eff_manifest = Some path } -> begin
+ *       try
+ *         let eff' = Env.find_effect path env in
+ *         let err =
+ *           Includecore.effect_declarations env
+ *             (Path.last path) eff' id
+ *             (Subst.effect_declaration
+ *                (Subst.add_effect id path Subst.identity) eff)
+ *         in
+ *         if err <> [] then
+ *           raise(Error(loc, Effect_definition_mismatch (path, err)))
+ *       with Not_found ->
+ *         raise(Error(loc, Unavailable_effect path))
+ *     end
+ *   | _ -> () *)
 
 (* Translate an effect declaration *)
-let transl_effect_decl env funct_body seff =
-  reset_type_variables();
-  Ctype.begin_def ();
-  let (tman, man) =
-    match seff.peff_manifest with
-    | None -> None, None
-    | Some lid ->
-        let p, _ = find_effect env lid.loc lid.txt in
-        Some(lid, p), Some p
-  in
-  let id, temp_env = enter_effect env seff man in
-  let (tkind, kind) =
-    match seff.peff_kind with
-      | Peff_abstract -> Teff_abstract, Eff_abstract
-      | Peff_variant secs ->
-        if funct_body && seff.peff_manifest = None then
-          raise (Error (seff.peff_loc, Not_allowed_in_functor_body));
-        if secs = [] then
-          Syntaxerr.ill_formed_ast seff.peff_loc
-            "Variant types cannot be empty.";
-        let all_constrs = ref StringSet.empty in
-        List.iter
-          (fun {pec_name = {txt = name}} ->
-            if StringSet.mem name !all_constrs then
-              raise(Error(seff.peff_loc, Duplicate_constructor name));
-            all_constrs := StringSet.add name !all_constrs)
-          secs;
-        let make_cstr sec =
-          let name = Ident.create sec.pec_name.txt in
-          let targs, tret_type, args, ret_type =
-            make_constructor temp_env None sec.pec_args sec.pec_res
-          in
-          let tec =
-            { ec_id = name;
-              ec_name = sec.pec_name;
-              ec_args = targs;
-              ec_res = tret_type;
-              ec_loc = sec.pec_loc;
-              ec_attributes = sec.pec_attributes }
-          in
-          let ec =
-            { Types.ec_id = name;
-              ec_args = args;
-              ec_res = ret_type;
-              ec_loc = sec.pec_loc;
-              ec_attributes = sec.pec_attributes }
-          in
-            tec, ec
-        in
-        let tecs, ecs = List.split (List.map make_cstr secs) in
-          Teff_variant tecs, Eff_variant ecs
-  in
-  let eff =
-    { Types.eff_kind = kind;
-      eff_manifest = man;
-      eff_loc = seff.peff_loc;
-      eff_attributes = seff.peff_attributes; }
-  in
-  Ctype.end_def();
-  generalize_effect_decl eff;
-  let newenv = Env.add_effect id eff env in
-  let teff =
-    { Typedtree.eff_id = id;
-      eff_name = seff.peff_name;
-      eff_type = eff;
-      eff_loc = seff.peff_loc;
-      eff_manifest = tman;
-      eff_kind = tkind;
-      eff_attributes = seff.peff_attributes; }
-  in
-  (* Check that all type variable are closed *)
-  begin match Ctype.closed_effect_decl eff with
-  | Some ty -> raise(Error(seff.peff_loc, Unbound_type_var_eff(ty, eff)))
-  | None   -> ()
-  end;
-  (* Check re-exportation *)
-  check_effect_coherence newenv seff.peff_loc id eff;
-  (teff, newenv)
+(* let transl_effect_decl env funct_body seff =
+ *   reset_type_variables();
+ *   Ctype.begin_def ();
+ *   let (tman, man) =
+ *     match seff.peff_manifest with
+ *     | None -> None, None
+ *     | Some lid ->
+ *         let p, _ = find_effect env lid.loc lid.txt in
+ *         Some(lid, p), Some p
+ *   in
+ *   let id, temp_env = enter_effect env seff man in
+ *   let (tkind, kind) =
+ *     match seff.peff_kind with
+ *       | Peff_abstract -> Teff_abstract, Eff_abstract
+ *       | Peff_variant secs ->
+ *         if funct_body && seff.peff_manifest = None then
+ *           raise (Error (seff.peff_loc, Not_allowed_in_functor_body));
+ *         if secs = [] then
+ *           Syntaxerr.ill_formed_ast seff.peff_loc
+ *             "Variant types cannot be empty.";
+ *         let all_constrs = ref StringSet.empty in
+ *         List.iter
+ *           (fun {pec_name = {txt = name}} ->
+ *             if StringSet.mem name !all_constrs then
+ *               raise(Error(seff.peff_loc, Duplicate_constructor name));
+ *             all_constrs := StringSet.add name !all_constrs)
+ *           secs;
+ *         let make_cstr sec =
+ *           let name = Ident.create sec.pec_name.txt in
+ *           let targs, tret_type, args, ret_type =
+ *             make_constructor temp_env None sec.pec_args sec.pec_res
+ *           in
+ *           let tec =
+ *             { ec_id = name;
+ *               ec_name = sec.pec_name;
+ *               ec_args = targs;
+ *               ec_res = tret_type;
+ *               ec_loc = sec.pec_loc;
+ *               ec_attributes = sec.pec_attributes }
+ *           in
+ *           let ec =
+ *             { Types.ec_id = name;
+ *               ec_args = args;
+ *               ec_res = ret_type;
+ *               ec_loc = sec.pec_loc;
+ *               ec_attributes = sec.pec_attributes }
+ *           in
+ *             tec, ec
+ *         in
+ *         let tecs, ecs = List.split (List.map make_cstr secs) in
+ *           Teff_variant tecs, Eff_variant ecs
+ *   in
+ *   let eff =
+ *     { Types.eff_kind = kind;
+ *       eff_manifest = man;
+ *       eff_loc = seff.peff_loc;
+ *       eff_attributes = seff.peff_attributes; }
+ *   in
+ *   Ctype.end_def();
+ *   generalize_effect_decl eff;
+ *   let newenv = Env.add_effect id eff env in
+ *   let teff =
+ *     { Typedtree.eff_id = id;
+ *       eff_name = seff.peff_name;
+ *       eff_type = eff;
+ *       eff_loc = seff.peff_loc;
+ *       eff_manifest = tman;
+ *       eff_kind = tkind;
+ *       eff_attributes = seff.peff_attributes; }
+ *   in
+ *   (\* Check that all type variable are closed *\)
+ *   begin match Ctype.closed_effect_decl eff with
+ *   | Some ty -> raise(Error(seff.peff_loc, Unbound_type_var_eff(ty, eff)))
+ *   | None   -> ()
+ *   end;
+ *   (\* Check re-exportation *\)
+ *   check_effect_coherence newenv seff.peff_loc id eff;
+ *   (teff, newenv) *)
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
@@ -1626,11 +1626,11 @@ let approx_type_decl env sdecl_list =
 
 (* Approximate a type declaration: just make all types abstract *)
 
-let approx_effect_decl =
-  { eff_kind = Eff_abstract;
-    eff_manifest = None;
-    eff_loc = Location.none;
-    eff_attributes = []; }
+(* let approx_effect_decl =
+ *   { eff_kind = Eff_abstract;
+ *     eff_manifest = None;
+ *     eff_loc = Location.none;
+ *     eff_attributes = []; } *)
 
 (* Variant of check_abbrev_recursion to check the well-formedness
    conditions on type abbreviations defined within recursive modules. *)
@@ -1704,12 +1704,12 @@ let report_error ppf = function
         Printtyp.type_expr ty
         (Includecore.report_type_mismatch "the original" "this" "definition")
         errs
-  | Effect_definition_mismatch (p, errs) ->
-      fprintf ppf "@[<v>@[<hov>%s@ %s@;<1 2>%a@]%a@]"
-        "This effect definition" "does not match that of effect"
-        Printtyp.path p
-        (Includecore.report_effect_mismatch "the original" "this" "definition")
-        errs
+  (* | Effect_definition_mismatch (p, errs) ->
+   *     fprintf ppf "@[<v>@[<hov>%s@ %s@;<1 2>%a@]%a@]"
+   *       "This effect definition" "does not match that of effect"
+   *       Printtyp.path p
+   *       (Includecore.report_effect_mismatch "the original" "this" "definition")
+   *       errs *)
   | Constraint_failed (ty, ty') ->
       Printtyp.reset_and_mark_loops ty;
       Printtyp.mark_loops ty';
@@ -1757,16 +1757,16 @@ let report_error ppf = function
   | Unbound_type_var_ext (ty, ext) ->
       fprintf ppf "A type variable is unbound in this extension constructor";
       explain_unbound ppf ty ext.ext_args (fun c -> c) "type" (fun _ -> "")
-  | Unbound_type_var_eff (ty, eff) ->
-      fprintf ppf "A type variable is unbound in this effect declaration";
-      let ty = Ctype.repr ty in
-      begin match eff.eff_kind with
-      | Eff_variant ecs ->
-          explain_unbound ppf ty ecs (fun ec ->
-            Btype.newgenty (Ttuple ec.Types.ec_args))
-            "case" (fun ec -> Ident.name ec.Types.ec_id ^ " of ")
-      | _ -> ()
-      end
+  (* | Unbound_type_var_eff (ty, eff) ->
+   *     fprintf ppf "A type variable is unbound in this effect declaration";
+   *     let ty = Ctype.repr ty in
+   *     begin match eff.eff_kind with
+   *     | Eff_variant ecs ->
+   *         explain_unbound ppf ty ecs (fun ec ->
+   *           Btype.newgenty (Ttuple ec.Types.ec_args))
+   *           "case" (fun ec -> Ident.name ec.Types.ec_id ^ " of ")
+   *     | _ -> ()
+   *     end *)
   | Not_open_type path ->
       fprintf ppf "@[%s@ %a@]"
         "Cannot extend type definition"

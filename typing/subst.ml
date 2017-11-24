@@ -198,7 +198,7 @@ let rec typexp s ty =
       | Tfield(label, kind, t1, t2) when field_kind_repr kind = Fabsent ->
           Tlink (typexp s t2)
       | Teffect(p, t1) ->
-          Teffect(effect_path s p, typexp s t1)
+          Teffect(p, typexp s t1)
       | _ -> copy_type_desc (typexp s) desc
       end;
     ty'
@@ -264,37 +264,37 @@ let type_declaration s decl =
   cleanup_types ();
   decl
 
-let effect_declaration s eff =
-  let eff =
-    { eff_kind =
-        begin match eff.eff_kind with
-        | Eff_abstract -> Eff_abstract
-        | Eff_variant ecs ->
-            Eff_variant
-              (List.map
-                 (fun ec ->
-                    {
-                      ec_id = ec.ec_id;
-                      ec_args = List.map (typexp s) ec.ec_args;
-                      ec_res = may_map (typexp s) ec.ec_res;
-                      ec_loc = loc s ec.ec_loc;
-                      ec_attributes = attrs s ec.ec_attributes;
-                    }
-                 )
-                 ecs)
-        end;
-      eff_manifest =
-        begin
-          match eff.eff_manifest with
-            None -> None
-          | Some p -> Some(effect_path s p)
-        end;
-      eff_loc = loc s eff.eff_loc;
-      eff_attributes = attrs s eff.eff_attributes;
-    }
-  in
-  cleanup_types ();
-  eff
+(* let effect_declaration s eff =
+ *   let eff =
+ *     { eff_kind =
+ *         begin match eff.eff_kind with
+ *         | Eff_abstract -> Eff_abstract
+ *         | Eff_variant ecs ->
+ *             Eff_variant
+ *               (List.map
+ *                  (fun ec ->
+ *                     {
+ *                       ec_id = ec.ec_id;
+ *                       ec_args = List.map (typexp s) ec.ec_args;
+ *                       ec_res = may_map (typexp s) ec.ec_res;
+ *                       ec_loc = loc s ec.ec_loc;
+ *                       ec_attributes = attrs s ec.ec_attributes;
+ *                     }
+ *                  )
+ *                  ecs)
+ *         end;
+ *       eff_manifest =
+ *         begin
+ *           match eff.eff_manifest with
+ *             None -> None
+ *           | Some p -> Some(effect_path s p)
+ *         end;
+ *       eff_loc = loc s eff.eff_loc;
+ *       eff_attributes = attrs s eff.eff_attributes;
+ *     }
+ *   in
+ *   cleanup_types ();
+ *   eff *)
 
 let class_signature s sign =
   { csig_self = typexp s sign.csig_self;
@@ -378,9 +378,9 @@ let rec rename_bound_idents s idents = function
   | Sig_type(id, d, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_type id (Pident id') s) (id' :: idents) sg
-  | Sig_effect(id, e) :: sg ->
-      let id' = Ident.rename id in
-      rename_bound_idents (add_effect id (Pident id') s) (id' :: idents) sg
+  (* | Sig_effect(id, e) :: sg ->
+   *     let id' = Ident.rename id in
+   *     rename_bound_idents (add_effect id (Pident id') s) (id' :: idents) sg *)
   | Sig_module(id, mty, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_module id (Pident id') s) (id' :: idents) sg
@@ -426,8 +426,8 @@ and signature_component s comp newid =
       Sig_value(newid, value_description s d)
   | Sig_type(id, d, rs) ->
       Sig_type(newid, type_declaration s d, rs)
-  | Sig_effect(id, e) ->
-      Sig_effect(newid, effect_declaration s e)
+  (* | Sig_effect(id, e) ->
+   *     Sig_effect(newid, effect_declaration s e) *)
   | Sig_typext(id, ext, es) ->
       Sig_typext(newid, extension_constructor s ext, es)
   | Sig_module(id, d, rs) ->

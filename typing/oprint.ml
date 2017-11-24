@@ -469,8 +469,8 @@ and print_out_sig_item ppf =
                      | Orec_first -> "module rec"
                      | Orec_next -> "and")
         name !out_module_type mty
-  | Osig_effect (name, eff) ->
-      fprintf ppf "@[<2>effect %s%a@]" name print_out_effect_decl eff
+  (* | Osig_effect (name, eff) ->
+   *     fprintf ppf "@[<2>effect %s%a@]" name print_out_effect_decl eff *)
   | Osig_type(td, rs) ->
         print_out_type_decl
           (match rs with
@@ -611,20 +611,20 @@ and print_out_type_extension ppf te =
     (print_list print_out_constr (fun ppf -> fprintf ppf "@ | "))
     te.otyext_constructors
 
-and print_out_effect_decl ppf eff =
-  let print_out_manifest ppf = function
-    | None -> ()
-    | Some id -> fprintf ppf " =@ %a" print_ident id
-  in
-  let print_out_ekind ppf = function
-  | Oeff_abstract -> ()
-  | Oeff_variant ecs ->
-      fprintf ppf " =@;<1 2>%a"
-        (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) ecs
-  in
-  fprintf ppf "@[<hv 2>%a%a@]"
-    print_out_manifest eff.oeff_manifest
-    print_out_ekind eff.oeff_kind
+(* and print_out_effect_decl ppf eff =
+ *   let print_out_manifest ppf = function
+ *     | None -> ()
+ *     | Some id -> fprintf ppf " =@ %a" print_ident id
+ *   in
+ *   let print_out_ekind ppf = function
+ *   | Oeff_abstract -> ()
+ *   | Oeff_variant ecs ->
+ *       fprintf ppf " =@;<1 2>%a"
+ *         (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) ecs
+ *   in
+ *   fprintf ppf "@[<hv 2>%a%a@]"
+ *     print_out_manifest eff.oeff_manifest
+ *     print_out_ekind eff.oeff_kind *)
 
 let _ = out_module_type := print_out_module_type
 let _ = out_signature := print_out_signature

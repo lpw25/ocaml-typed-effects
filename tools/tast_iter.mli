@@ -29,7 +29,7 @@ class iter: object
   method core_type: core_type -> unit
   method expression: expression -> unit
   method extension_constructor: extension_constructor -> unit
-  method effect_declaration: effect_declaration -> unit
+  (* method effect_declaration: effect_declaration -> unit *)
   method effect_row: effect_row -> unit
   method effect_type: effect_type -> unit
   method module_binding: module_binding -> unit
@@ -69,7 +69,7 @@ val class_type_field: iter -> class_type_field -> unit
 val core_type: iter -> core_type -> unit
 val expression: iter -> expression -> unit
 val extension_constructor: iter -> extension_constructor -> unit
-val effect_declaration: iter -> effect_declaration -> unit
+(* val effect_declaration: iter -> effect_declaration -> unit *)
 val module_binding: iter -> module_binding -> unit
 val module_expr: iter -> module_expr -> unit
 val module_type: iter -> module_type -> unit

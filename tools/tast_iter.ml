@@ -25,7 +25,7 @@ let structure_item sub x =
   | Tstr_type list -> List.iter (sub # type_declaration) list
   | Tstr_typext te -> sub # type_extension te
   | Tstr_exception ext -> sub # extension_constructor ext
-  | Tstr_effect ext -> sub # effect_declaration ext
+  (* | Tstr_effect ext -> sub # effect_declaration ext *)
   | Tstr_module mb -> sub # module_binding mb
   | Tstr_recmodule list -> List.iter (sub # module_binding) list
   | Tstr_modtype mtd -> opt (sub # module_type) mtd.mtd_type
@@ -71,16 +71,16 @@ let extension_constructor sub ext =
       opt (sub # core_type) cto
   | Text_rebind _ -> ()
 
-let effect_constructor sub ec =
-  List.iter (sub # core_type) ec.ec_args;
-  opt (sub # core_type) ec.ec_res
+(* let effect_constructor sub ec =
+ *   List.iter (sub # core_type) ec.ec_args;
+ *   opt (sub # core_type) ec.ec_res *)
 
-let effect_kind sub = function
-  | Teff_abstract -> ()
-  | Teff_variant ecs -> List.iter (effect_constructor sub) ecs
-
-let effect_declaration sub eff =
-  effect_kind sub eff.eff_kind
+(* let effect_kind sub = function
+ *   | Teff_abstract -> ()
+ *   | Teff_variant ecs -> List.iter (effect_constructor sub) ecs
+ * 
+ * let effect_declaration sub eff =
+ *   effect_kind sub eff.eff_kind *)
 
 let pattern sub pat =
   let extra = function
@@ -102,7 +102,7 @@ let pattern sub pat =
   | Tpat_alias (p, _, _)
   | Tpat_lazy p -> sub # pattern p
   | Tpat_exception p -> sub # pattern p
-  | Tpat_effect (_, _, l, _) -> List.iter (sub # pattern) l
+  | Tpat_effect (_, args, _) -> List.iter (sub # pattern) args
 
 let expression sub exp =
   let extra = function
@@ -162,7 +162,7 @@ let expression sub exp =
       sub # expression exp1;
       sub # expression exp2;
       sub # expression exp3
-  | Texp_perform (_, _, args) ->
+  | Texp_perform (_, args) ->
       List.iter (sub # expression) args
   | Texp_send (exp, _meth, expo) ->
       sub # expression exp;
@@ -200,8 +200,8 @@ let signature_item sub item =
       sub # type_extension te
   | Tsig_exception ext ->
       sub # extension_constructor ext
-  | Tsig_effect eff ->
-      sub # effect_declaration eff
+  (* | Tsig_effect eff ->
+   *     sub # effect_declaration eff *)
   | Tsig_module md ->
       sub # module_type md.md_type
   | Tsig_recmodule list ->
@@ -334,12 +334,10 @@ let core_type sub ct =
   | Ttyp_package pack -> sub # package_type pack
 
 let effect_type sub eft =
-  match eft.eft_desc with
-  | Teft_io | Teft_pure | Teft_io_tilde | Teft_pure_tilde -> ()
-  | Teft_row efr -> sub # effect_row efr
+  Misc.may (sub # effect_row) eft.eft_row
 
 let effect_row sub efr =
-  opt (sub # core_type) efr.efr_row
+  opt (sub # core_type) efr.efr_next
 
 let class_structure sub cs =
   sub # pattern cs.cstr_self;
@@ -400,7 +398,7 @@ class iter = object(this)
   method core_type = core_type this
   method expression = expression this
   method extension_constructor = extension_constructor this
-  method effect_declaration = effect_declaration this
+  (* method effect_declaration = effect_declaration this *)
   method effect_row = effect_row this
   method effect_type = effect_type this
   method module_binding = module_binding this

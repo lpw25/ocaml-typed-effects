@@ -77,13 +77,13 @@ and out_arrow =
   | Oarr_pure_tilde
   | Oarr_row of out_ident list * out_type option
 
-type out_effect =
-  { oeff_manifest: out_ident option;
-    oeff_kind: out_effect_kind; }
-
-and out_effect_kind =
-  | Oeff_abstract
-  | Oeff_variant of (string * out_type list * out_type option) list
+(* type out_effect =
+ *   { oeff_manifest: out_ident option;
+ *     oeff_kind: out_effect_kind; }
+ * 
+ * and out_effect_kind =
+ *   | Oeff_abstract
+ *   | Oeff_variant of (string * out_type list * out_type option) list *)
 
 type out_class_type =
   | Octy_constr of out_ident * out_type list
@@ -110,7 +110,7 @@ and out_sig_item =
   | Osig_typext of out_extension_constructor * out_ext_status
   | Osig_modtype of string * out_module_type
   | Osig_module of string * out_module_type * out_rec_status
-  | Osig_effect of string * out_effect
+  (* | Osig_effect of string * out_effect *)
   | Osig_type of out_type_decl * out_rec_status
   | Osig_value of string * out_type * string list
 and out_type_decl =

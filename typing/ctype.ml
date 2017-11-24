@@ -316,30 +316,63 @@ let flatten_expanded_effects env ty =
   flatten [] ty
 
 
-let rec expand_effect env p =
-  match Env.find_effect_expansion p env with
-  | p -> expand_effect env p
-  | exception Not_found -> p
+(* let rec expand_effect env p =
+ *   match Env.find_effect_expansion p env with
+ *   | p -> expand_effect env p
+ *   | exception Not_found -> p *)
 
-let equal_effect env p1 p2 =
-  if Path.same p1 p2 then true
-  else begin
-    let p1 = expand_effect env p1 in
-    let p2 = expand_effect env p2 in
-    Path.same p1 p2
-  end
+(* let equal_effect_constructor env ec1 ec2 =
+ *   (\* Definition: Effect constructor equality.
+ *      Suppose ec1 and ec2 are effect constructors then whenever
+ *           i) ec1.ec_label = ec2.ec_label,
+ *          ii) |ec1.ec_args| = |ec2.ec_args|, and
+ *         iii) ec1.ec_args is point-wise equal to ec2.ec_args
+ *          iv) ec1.res_type = ec2.res_type
+ *      we say that ec1 = ec2.
+ *    *\)
+ *   match ec1, ec2 with
+ *   | Estate { ec_region = r1 }, Estate { ec_region = r2 } ->
+ *      TypeOps.equal r1 r2
+ *   | Eordinary ec1, Eordinary ec2 ->
+ *      begin match ec1.res_type, ec2.res_type with
+ *      | Some ty1, Some ty2 when eqtype 
+ *      ec1.ec_name = ec2.ec_name
+ *      && List.length (ec1.ec_args) = List.length (ec2.ec_args)
+ *      && (List.fold_left2 (\* We could potentially short circuit evaluation here *\)
+ *            (fun acc x1 x2 ->
+ *              TypeOps.equal x1 x2 && acc)
+ *            true ec1.ec_args ec2.ec_args)
+ *   | _, _ -> false
+ * 
+ * let equal_effect env eff eff' = (\* TODO: handle effect aliases *\)
+ *   equal_effect_constructor env eff eff'
+ * 
+ *   (\* if String.compare p1 p2 = 0 then true
+ *    * else begin
+ *    *   let p1 = expand_effect env p1 in
+ *    *   let p2 = expand_effect env p2 in
+ *    *   Path.same p1 p2
+ *    * end *\) *)
 
-let diff_effects env effs1 effs2  =
+
+let diff_effects _env effs1 effs2  =
+  let equal_effect_constr ec1 ec2 =
+    match ec1, ec2 with
+    | Estate _, Estate _ -> true
+    | Eordinary { ec_name = name1 }, Eordinary { ec_name = name2 } ->
+       name1 = name2
+    | _, _ -> false
+  in
   let rec remove_one p = function
     | [] -> assert false
     | p' :: rest ->
-        if equal_effect env p p' then rest
+        if equal_effect_constr p p' then rest
         else p' :: remove_one p rest
   in
   let rec remove_common effs diff = function
     | [] -> effs, List.rev diff
     | p :: rest ->
-       if List.exists (equal_effect env p) effs then
+       if List.exists (equal_effect_constr p) effs then
          remove_common (remove_one p effs) diff rest
        else remove_common effs (p :: diff) rest
   in
@@ -349,10 +382,6 @@ let build_effects level effs rest =
   List.fold_right
     (fun p ty -> newty2 level (Teffect(p, ty)))
     effs rest
-
-let equal_effect_constructor env ecstr1 ecstr2 =
-  ecstr1.ecstr_pos = ecstr2.ecstr_pos
-  && equal_effect env ecstr1.ecstr_eff_path ecstr2.ecstr_eff_path
 
                   (**********************************************)
                   (*  Miscellaneous operations on object types  *)
@@ -537,252 +566,6 @@ let rec filter_row_fields erase = function
       | Reither(_,_,false,e) when erase -> set_row_field e Rabsent; fi
       | _ -> p :: fi
 
-                    (**************************************)
-                    (*  Check genericity of type schemes  *)
-                    (**************************************)
-
-
-exception Non_closed
-
-let rec closed_schema_rec ty =
-  let ty = repr ty in
-  if ty.level >= lowest_level then begin
-    let level = ty.level in
-    ty.level <- pivot_level - level;
-    match ty.desc with
-    | Tvar(_, Stype) when level <> generic_level ->
-        raise Non_closed
-    | Tvar(_, Seffect) when level <> generic_level ->
-        (* TODO: Remove this hack (or at least give a warning) *)
-        let eff =
-          newty2 ty.level (Teffect(Predef.path_io, newty2 ty.level Tenil))
-        in
-        link_type ty eff
-    | Tfield(_, kind, t1, t2) ->
-        if field_kind_repr kind = Fpresent then
-          closed_schema_rec t1;
-        closed_schema_rec t2
-    | Tvariant row ->
-        let row = row_repr row in
-        iter_row closed_schema_rec row;
-        if not (static_row row) then closed_schema_rec row.row_more
-    | _ ->
-        iter_type_expr closed_schema_rec ty
-  end
-
-(* Return whether all variables of type [ty] are generic. *)
-let closed_schema ty =
-  try
-    closed_schema_rec ty;
-    unmark_type ty;
-    true
-  with Non_closed ->
-    unmark_type ty;
-    false
-
-exception Non_closed of type_expr * bool
-
-let free_variables = ref []
-let really_closed = ref None
-
-let rec free_vars_rec real ty =
-  let ty = repr ty in
-  if ty.level >= lowest_level then begin
-    ty.level <- pivot_level - ty.level;
-    begin match ty.desc, !really_closed with
-      Tvar _, _ ->
-        free_variables := (ty, real) :: !free_variables
-    | Tconstr (path, tl, _, _), Some env ->
-        begin try
-          let (_, body, _) = Env.find_type_expansion path env in
-          if (repr body).level <> generic_level then
-            free_variables := (ty, real) :: !free_variables
-        with Not_found -> ()
-        end;
-        List.iter (free_vars_rec true) tl
-(* Do not count "virtual" free variables
-    | Tobject(ty, {contents = Some (_, p)}) ->
-        free_vars_rec false ty; List.iter (free_vars_rec true) p
-*)
-    | Tobject (ty, _), _ ->
-        free_vars_rec false ty
-    | Tfield (_, _, ty1, ty2), _ ->
-        free_vars_rec true ty1; free_vars_rec false ty2
-    | Tvariant row, _ ->
-        let row = row_repr row in
-        iter_row (free_vars_rec true) row;
-        if not (static_row row) then free_vars_rec false row.row_more
-    | _    ->
-        iter_type_expr (free_vars_rec true) ty
-    end;
-  end
-
-let free_vars ?env ty =
-  free_variables := [];
-  really_closed := env;
-  free_vars_rec true ty;
-  let res = !free_variables in
-  free_variables := [];
-  really_closed := None;
-  res
-
-let free_variables ?env ty =
-  let tl = List.map fst (free_vars ?env ty) in
-  unmark_type ty;
-  tl
-
-let closed_type ty =
-  match free_vars ty with
-      []           -> ()
-  | (v, real) :: _ -> raise (Non_closed (v, real))
-
-let closed_parameterized_type params ty =
-  List.iter mark_type params;
-  let ok =
-    try closed_type ty; true with Non_closed _ -> false in
-  List.iter unmark_type params;
-  unmark_type ty;
-  ok
-
-let closed_type_decl decl =
-  try
-    List.iter mark_type decl.type_params;
-    begin match decl.type_kind with
-      Type_abstract ->
-        ()
-    | Type_variant v ->
-        List.iter
-          (fun {cd_args; cd_res; _} ->
-            match cd_res with
-            | Some _ -> ()
-            | None -> List.iter closed_type cd_args)
-          v
-    | Type_record(r, rep) ->
-        List.iter (fun l -> closed_type l.ld_type) r
-    | Type_open -> ()
-    end;
-    begin match decl.type_manifest with
-      None    -> ()
-    | Some ty -> closed_type ty
-    end;
-    unmark_type_decl decl;
-    None
-  with Non_closed (ty, _) ->
-    unmark_type_decl decl;
-    Some ty
-
-let closed_extension_constructor ext =
-  try
-    List.iter mark_type ext.ext_type_params;
-    begin match ext.ext_ret_type with
-    | Some _ -> ()
-    | None -> List.iter closed_type ext.ext_args
-    end;
-    unmark_extension_constructor ext;
-    None
-  with Non_closed (ty, _) ->
-    unmark_extension_constructor ext;
-    Some ty
-
-let closed_effect_decl eff =
-  try
-    begin match eff.eff_kind with
-    | Eff_abstract -> ()
-    | Eff_variant ecs ->
-        List.iter
-          (fun {ec_args; ec_res; _} ->
-            match ec_res with
-            | Some _ -> ()
-            | None -> List.iter closed_type ec_args)
-          ecs
-    end;
-    unmark_effect_decl eff;
-    None
-  with Non_closed (ty, _) ->
-    unmark_effect_decl eff;
-    Some ty
-
-let is_evar ty =
-  let ty = repr ty in
-  match ty.desc with
-  | Tvar(_, Seffect) -> true
-  | _ -> false
-
-let rec mem_close_pure_visited ty pure = function
-  | [] -> false
-  | (ty', pure') :: rest ->
-      if ty == ty' && pure = pure' then true
-      else mem_close_pure_visited ty pure rest
-
-let rec close_pure_evars env visited evars pure ty =
-  let ty = repr ty in
-  if mem_close_pure_visited ty pure !visited then ()
-  else begin
-    visited := (ty, pure) :: !visited;
-    match ty.desc with
-    | Tvar(_, Seffect) ->
-        if pure && List.memq ty evars then begin
-          link_type ty (newty2 ty.level Tenil)
-        end
-    | Teffect(p, ty) ->
-        if equal_effect env Predef.path_io p then
-          close_pure_evars env visited evars true ty
-        else
-          close_pure_evars env visited evars pure ty
-    | _    ->
-        iter_type_expr (close_pure_evars env visited evars pure) ty
-  end
-
-(* TODO: Can we do better than this hack? *)
-let close_type env ty =
-  let vars = free_vars ty in
-  let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
-  if List.length evars > 0 then
-    close_pure_evars env (ref []) (List.map fst evars) false ty;
-  List.iter
-    (fun (v, _) ->
-      if is_evar v then begin
-        let eff =
-          newty2 v.level (Teffect(Predef.path_io, newty2 v.level Tenil))
-        in
-          link_type v eff
-      end)
-    evars;
-  List.iter (fun (v, real) -> raise (Non_closed (v, real))) others
-
-type closed_class_failure =
-    CC_Method of type_expr * bool * string * type_expr
-  | CC_Value of type_expr * bool * string * type_expr
-
-exception Failure of closed_class_failure
-
-let closed_class env params sign =
-  let ty = object_fields (repr sign.csig_self) in
-  let (fields, rest) = flatten_fields ty in
-  List.iter mark_type params;
-  mark_type rest;
-  List.iter
-    (fun (lab, _, ty) -> if lab = dummy_method then mark_type ty)
-    fields;
-  try
-    mark_type_node (repr sign.csig_self);
-    List.iter
-      (fun (lab, kind, ty) ->
-        if field_kind_repr kind = Fpresent then
-        try close_type env ty with Non_closed (ty0, real) ->
-          raise (Failure (CC_Method (ty0, real, lab, ty))))
-      fields;
-    mark_type_params (repr sign.csig_self);
-    List.iter unmark_type params;
-    unmark_class_signature sign;
-    None
-  with Failure reason ->
-    mark_type_params (repr sign.csig_self);
-    List.iter unmark_type params;
-    unmark_class_signature sign;
-    Some reason
-
-
                             (**********************)
                             (*  Type duplication  *)
                             (**********************)
@@ -961,12 +744,14 @@ let rec update_level env level ty =
     | Tfield(lab, _, ty1, _)
       when lab = dummy_method && (repr ty1).level > level ->
         raise (Unify [(ty1, newvar2 (type_sort ty) level)])
-    | Teffect(p, ty1) when level < get_level env p ->
-        let p' = expand_effect env p in
-        if Path.same p p' then
-          raise (Unify [(ty, newvar2 (type_sort ty) level)]);
-        log_type ty; ty.desc <- Teffect(p', ty1);
-        update_level env level ty
+    (* | Teffect(p, ty1) when level < get_level env p ->
+     * (\* TODO: Fix this case *\)
+     *     (\* let p' = expand_effect env p in *\)
+     *     (\* if equal_effect_constructor env p p' then
+     *      *   raise (Unify [(ty, newvar2 (type_sort ty) level)]);
+     *      * log_type ty; ty.desc <- Teffect(p', ty1);
+     *      * update_level env level ty *\)
+     *    assert false *)
     | _ ->
         set_level ty level;
         (* XXX what about abbreviations in Tconstr ? *)
@@ -1377,16 +1162,16 @@ let instance_constructor ?in_pattern cstr =
   cleanup_types ();
   (ty_args, ty_res)
 
-let instance_effect_constructor ?in_pattern ecstr =
-  begin match in_pattern with
-  | None -> ()
-  | Some (env, newtype_lev) ->
-      List.iter (process_existential env newtype_lev) ecstr.ecstr_existentials
-  end;
-  let ty_res = Misc.may_map (fun ty -> copy ty) ecstr.ecstr_res in
-  let ty_args = List.map simple_copy ecstr.ecstr_args in
-  cleanup_types ();
-  (ty_args, ty_res)
+(* let instance_effect_constructor ?in_pattern ecstr =
+ *   begin match in_pattern with
+ *   | None -> ()
+ *   | Some (env, newtype_lev) ->
+ *       List.iter (process_existential env newtype_lev) ecstr.ecstr_existentials
+ *   end;
+ *   let ty_res = Misc.may_map (fun ty -> copy ty) ecstr.ecstr_res in
+ *   let ty_args = List.map simple_copy ecstr.ecstr_args in
+ *   cleanup_types ();
+ *   (ty_args, ty_res) *)
 
 let instance_parameterized_type ?keep_names sch_args sch =
   let ty_args = List.map (fun t -> copy ?keep_names t) sch_args in
@@ -1582,6 +1367,253 @@ let apply env params body args =
     subst env generic_level Public (ref Mnil) None params args body
   with
     Unify _ -> raise Cannot_apply
+
+
+                    (**************************************)
+                    (*  Check genericity of type schemes  *)
+                    (**************************************)
+
+
+exception Non_closed
+
+let rec closed_schema_rec ty =
+  let ty = repr ty in
+  if ty.level >= lowest_level then begin
+    let level = ty.level in
+    ty.level <- pivot_level - level;
+    match ty.desc with
+    | Tvar(_, Stype) when level <> generic_level ->
+        raise Non_closed
+    | Tvar(_, Seffect) when level <> generic_level ->
+        (* TODO: Remove this hack (or at least give a warning) *)
+       let eff = instance_def (Predef.type_io ty.level) in
+       link_type ty eff
+    | Tfield(_, kind, t1, t2) ->
+        if field_kind_repr kind = Fpresent then
+          closed_schema_rec t1;
+        closed_schema_rec t2
+    | Tvariant row ->
+        let row = row_repr row in
+        iter_row closed_schema_rec row;
+        if not (static_row row) then closed_schema_rec row.row_more
+    | _ ->
+        iter_type_expr closed_schema_rec ty
+  end
+
+(* Return whether all variables of type [ty] are generic. *)
+let closed_schema ty =
+  try
+    closed_schema_rec ty;
+    unmark_type ty;
+    true
+  with Non_closed ->
+    unmark_type ty;
+    false
+
+exception Non_closed of type_expr * bool
+
+let free_variables = ref []
+let really_closed = ref None
+
+let rec free_vars_rec real ty =
+  let ty = repr ty in
+  if ty.level >= lowest_level then begin
+    ty.level <- pivot_level - ty.level;
+    begin match ty.desc, !really_closed with
+      Tvar _, _ ->
+        free_variables := (ty, real) :: !free_variables
+    | Tconstr (path, tl, _, _), Some env ->
+        begin try
+          let (_, body, _) = Env.find_type_expansion path env in
+          if (repr body).level <> generic_level then
+            free_variables := (ty, real) :: !free_variables
+        with Not_found -> ()
+        end;
+        List.iter (free_vars_rec true) tl
+(* Do not count "virtual" free variables
+    | Tobject(ty, {contents = Some (_, p)}) ->
+        free_vars_rec false ty; List.iter (free_vars_rec true) p
+*)
+    | Tobject (ty, _), _ ->
+        free_vars_rec false ty
+    | Tfield (_, _, ty1, ty2), _ ->
+        free_vars_rec true ty1; free_vars_rec false ty2
+    | Tvariant row, _ ->
+        let row = row_repr row in
+        iter_row (free_vars_rec true) row;
+        if not (static_row row) then free_vars_rec false row.row_more
+    | _    ->
+        iter_type_expr (free_vars_rec true) ty
+    end;
+  end
+
+let free_vars ?env ty =
+  free_variables := [];
+  really_closed := env;
+  free_vars_rec true ty;
+  let res = !free_variables in
+  free_variables := [];
+  really_closed := None;
+  res
+
+let free_variables ?env ty =
+  let tl = List.map fst (free_vars ?env ty) in
+  unmark_type ty;
+  tl
+
+let closed_type ty =
+  match free_vars ty with
+      []           -> ()
+  | (v, real) :: _ -> raise (Non_closed (v, real))
+
+let closed_parameterized_type params ty =
+  List.iter mark_type params;
+  let ok =
+    try closed_type ty; true with Non_closed _ -> false in
+  List.iter unmark_type params;
+  unmark_type ty;
+  ok
+
+let closed_type_decl decl =
+  try
+    List.iter mark_type decl.type_params;
+    begin match decl.type_kind with
+      Type_abstract ->
+        ()
+    | Type_variant v ->
+        List.iter
+          (fun {cd_args; cd_res; _} ->
+            match cd_res with
+            | Some _ -> ()
+            | None -> List.iter closed_type cd_args)
+          v
+    | Type_record(r, rep) ->
+        List.iter (fun l -> closed_type l.ld_type) r
+    | Type_open -> ()
+    end;
+    begin match decl.type_manifest with
+      None    -> ()
+    | Some ty -> closed_type ty
+    end;
+    unmark_type_decl decl;
+    None
+  with Non_closed (ty, _) ->
+    unmark_type_decl decl;
+    Some ty
+
+let closed_extension_constructor ext =
+  try
+    List.iter mark_type ext.ext_type_params;
+    begin match ext.ext_ret_type with
+    | Some _ -> ()
+    | None -> List.iter closed_type ext.ext_args
+    end;
+    unmark_extension_constructor ext;
+    None
+  with Non_closed (ty, _) ->
+    unmark_extension_constructor ext;
+    Some ty
+
+(* let closed_effect_decl eff =
+ *   try
+ *     begin match eff.eff_kind with
+ *     | Eff_abstract -> ()
+ *     | Eff_variant ecs ->
+ *         List.iter
+ *           (fun {ec_args; ec_res; _} ->
+ *             match ec_res with
+ *             | Some _ -> ()
+ *             | None -> List.iter closed_type ec_args)
+ *           ecs
+ *     end;
+ *     unmark_effect_decl eff;
+ *     None
+ *   with Non_closed (ty, _) ->
+ *     unmark_effect_decl eff;
+ *     Some ty *)
+
+let is_evar ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tvar(_, Seffect) -> true
+  | _ -> false
+
+let rec mem_close_pure_visited ty pure = function
+  | [] -> false
+  | (ty', pure') :: rest ->
+      if ty == ty' && pure = pure' then true
+      else mem_close_pure_visited ty pure rest
+
+let rec close_pure_evars env visited evars pure ty =
+  let ty = repr ty in
+  if mem_close_pure_visited ty pure !visited then ()
+  else begin
+    visited := (ty, pure) :: !visited;
+    match ty.desc with
+    | Tvar(_, Seffect) ->
+        if pure && List.memq ty evars then begin
+          link_type ty (newty2 ty.level Tenil)
+        end
+    | Teffect(p, ty) ->
+       begin match p with
+       | Eordinary { ec_args; ec_res; _ } ->
+          List.iter (close_pure_evars env visited evars pure) ec_args;
+          Misc.may (close_pure_evars env visited evars pure) ec_res;
+          close_pure_evars env visited evars pure ty
+       | Estate { ec_region } ->
+          close_pure_evars env visited evars pure ec_region;
+          close_pure_evars env visited evars true ty
+       end
+    | _    ->
+        iter_type_expr (close_pure_evars env visited evars pure) ty
+  end
+
+let close_type env ty =
+  let vars = free_vars ty in
+  let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
+  if List.length evars > 0 then
+    close_pure_evars env (ref []) (List.map fst evars) false ty;
+  List.iter
+    (fun (v, _) ->
+      (* TODO unify free vars in the region with global *)
+      if is_evar v then begin
+          let eff = instance_def (Predef.type_io v.level) in
+          link_type v eff
+      end)
+    evars;
+  List.iter (fun (v, real) -> raise (Non_closed (v, real))) others
+
+type closed_class_failure =
+    CC_Method of type_expr * bool * string * type_expr
+  | CC_Value of type_expr * bool * string * type_expr
+
+exception Failure of closed_class_failure
+
+let closed_class env params sign =
+  let ty = object_fields (repr sign.csig_self) in
+  let (fields, rest) = flatten_fields ty in
+  List.iter mark_type params;
+  mark_type rest;
+  List.iter
+    (fun (lab, _, ty) -> if lab = dummy_method then mark_type ty)
+    fields;
+  try
+    mark_type_node (repr sign.csig_self);
+    List.iter
+      (fun (lab, kind, ty) ->
+        if field_kind_repr kind = Fpresent then
+        try close_type env ty with Non_closed (ty0, real) ->
+          raise (Failure (CC_Method (ty0, real, lab, ty))))
+      fields;
+    mark_type_params (repr sign.csig_self);
+    List.iter unmark_type params;
+    unmark_class_signature sign;
+    None
+  with Failure reason ->
+    mark_type_params (repr sign.csig_self);
+    List.iter unmark_type params;
+    unmark_class_signature sign;
+    Some reason
 
 
                               (****************************)
@@ -4820,7 +4852,6 @@ let normalize_type env ty =
                               (* Checking default handlers *)
                               (*****************************)
 
-exception No_default_handler of Path.t * Location.t * string
 exception Unknown_effects of type_expr * Location.t * string
 
 let new_toplevel_expectation () =
@@ -4934,10 +4965,10 @@ let rec nondep_type_rec env id ty =
                 Tvariant {row with row_name = None}
             | _ -> Tvariant row
           end
-      | Teffect(p, ty1) when Path.isfree id p ->
-          let p' = expand_effect env p in
-          if Path.isfree id p' then raise Not_found;
-          Teffect (p', nondep_type_rec env id ty1)
+      (* | Teffect(p, ty1) ->
+       *     let p' = expand_effect env p in
+       *     if Path.isfree id p' then raise Not_found;
+       *     Teffect (p', nondep_type_rec env id ty1) *)
       | _ -> copy_type_desc (nondep_type_rec env id) ty.desc
       end;
     ty'
@@ -5059,42 +5090,42 @@ let nondep_extension_constructor env mid ext =
     clear_hash ();
     raise Not_found
 
-let nondep_effect_decl env mid is_covariant eff =
-  try
-    let ek =
-      try match eff.eff_kind with
-      | Eff_abstract -> Eff_abstract
-      | Eff_variant ecs ->
-          Eff_variant
-            (List.map
-               (fun ec ->
-                 {ec with
-                  ec_args = List.map (nondep_type_rec env mid) ec.ec_args;
-                  ec_res = may_map (nondep_type_rec env mid) ec.ec_res;
-                 }
-               )
-               ecs)
-      with Not_found when is_covariant -> Eff_abstract
-    and em =
-      try match eff.eff_manifest with
-      | None -> None
-      | Some p ->
-          if Path.isfree mid p then
-            let p' = expand_effect env p in
-            if Path.isfree mid p' then raise Not_found
-            else Some p'
-          else Some p
-      with Not_found when is_covariant -> None
-    in
-    clear_hash ();
-    { eff_kind = ek;
-      eff_manifest = em;
-      eff_loc = eff.eff_loc;
-      eff_attributes = eff.eff_attributes;
-    }
-  with Not_found ->
-    clear_hash ();
-    raise Not_found
+(* let nondep_effect_decl env mid is_covariant eff =
+ *   try
+ *     let ek =
+ *       try match eff.eff_kind with
+ *       | Eff_abstract -> Eff_abstract
+ *       | Eff_variant ecs ->
+ *           Eff_variant
+ *             (List.map
+ *                (fun ec ->
+ *                  {ec with
+ *                   ec_args = List.map (nondep_type_rec env mid) ec.ec_args;
+ *                   ec_res = may_map (nondep_type_rec env mid) ec.ec_res;
+ *                  }
+ *                )
+ *                ecs)
+ *       with Not_found when is_covariant -> Eff_abstract
+ *     and em =
+ *       try match eff.eff_manifest with
+ *       | None -> None
+ *       | Some p ->
+ *           if Path.isfree mid p then
+ *             let p' = expand_effect env p in
+ *             if Path.isfree mid p' then raise Not_found
+ *             else Some p'
+ *           else Some p
+ *       with Not_found when is_covariant -> None
+ *     in
+ *     clear_hash ();
+ *     { eff_kind = ek;
+ *       eff_manifest = em;
+ *       eff_loc = eff.eff_loc;
+ *       eff_attributes = eff.eff_attributes;
+ *     }
+ *   with Not_found ->
+ *     clear_hash ();
+ *     raise Not_found *)
 
 (* Preserve sharing inside class types. *)
 let nondep_class_signature env id sign =

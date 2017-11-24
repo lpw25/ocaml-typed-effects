@@ -67,13 +67,14 @@ and add_package_type bv (lid, l) =
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
 
 and add_effect_type bv eft =
-  match eft.peft_desc with
-  | Peft_io | Peft_pure | Peft_io_tilde | Peft_pure_tilde -> ()
-  | Peft_row efr -> add_effect_row bv efr
+  if eft.peft_io || eft.peft_tilde then ()
+  else match eft.peft_row with
+       | None -> ()
+       | Some efr -> add_effect_row bv efr
 
 and add_effect_row bv efr =
-  List.iter (add bv) efr.pefr_effects;
-  add_opt add_type bv efr.pefr_row
+  (* List.iter (add bv) efr.pefr_effects; *) (* TODO: FIXME *)
+  add_opt add_type bv efr.pefr_next
 
 let add_constructor_decl bv pcd =
   List.iter (add_type bv) pcd.pcd_args; Misc.may (add_type bv) pcd.pcd_res
@@ -98,16 +99,16 @@ let add_extension_constructor bv ext =
         List.iter (add_type bv) args; Misc.may (add_type bv) rty
     | Pext_rebind lid -> add bv lid
 
-let add_effect_constructor bv ec =
-  List.iter (add_type bv) ec.pec_args;
-  add_opt add_type bv ec.pec_res
+(* let add_effect_constructor bv ec =
+ *   List.iter (add_type bv) ec.pec_args;
+ *   add_opt add_type bv ec.pec_res *)
 
-let add_effect_declaration bv eff =
-  add_opt add bv eff.peff_manifest;
-  match eff.peff_kind with
-  | Peff_abstract -> ()
-  | Peff_variant ecs ->
-      List.iter (add_effect_constructor bv) ecs
+(* let add_effect_declaration bv eff =
+ *   add_opt add bv eff.peff_manifest;
+ *   match eff.peff_kind with
+ *   | Peff_abstract -> ()
+ *   | Peff_variant ecs ->
+ *       List.iter (add_effect_constructor bv) ecs *)
 
 let add_type_extension bv te =
   add bv te.ptyext_path;
@@ -159,8 +160,8 @@ let rec add_pattern bv pat =
   | Ppat_lazy p -> add_pattern bv p
   | Ppat_unpack id -> pattern_bv := StringSet.add id.txt !pattern_bv
   | Ppat_exception p -> add_pattern bv p
-  | Ppat_effect(li, p1, p2) ->
-      add bv li; add_opt add_pattern bv p1; add_opt add_pattern bv p2
+  | Ppat_effect(_li, p1, p2) ->
+      (* add bv li; *) List.iter (add_pattern bv) p1; add_opt add_pattern bv p2
   | Ppat_extension _ -> ()
 
 let add_pattern bv pat =
@@ -204,7 +205,7 @@ let rec add_expr bv exp =
   | Pexp_constraint(e1, ty2) ->
       add_expr bv e1;
       add_type bv ty2
-  | Pexp_perform(c, opte) -> add bv c; add_opt add_expr bv opte
+  | Pexp_perform(_l, es) -> List.iter (add_expr bv) es
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e
@@ -270,8 +271,8 @@ and add_sig_item bv item =
       add_type_extension bv te; bv
   | Psig_exception pext ->
       add_extension_constructor bv pext; bv
-  | Psig_effect peff ->
-      add_effect_declaration bv peff; bv
+  (* | Psig_effect peff ->
+   *     add_effect_declaration bv peff; bv *)
   | Psig_module pmd ->
       add_modtype bv pmd.pmd_type; StringSet.add pmd.pmd_name.txt bv
   | Psig_recmodule decls ->
@@ -332,8 +333,8 @@ and add_struct_item bv item =
       bv
   | Pstr_exception pext ->
       add_extension_constructor bv pext; bv
-  | Pstr_effect peff ->
-      add_effect_declaration bv peff; bv
+  (* | Pstr_effect peff ->
+   *     add_effect_declaration bv peff; bv *)
   | Pstr_module x ->
       add_module bv x.pmb_expr; StringSet.add x.pmb_name.txt bv
   | Pstr_recmodule bindings ->

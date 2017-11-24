@@ -211,26 +211,18 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  match x.eft_desc with
-  | Teft_io ->
-      line i ppf "Peft_io\n"
-  | Teft_pure ->
-      line i ppf "Peft_pure\n"
-  | Teft_io_tilde ->
-      line i ppf "Peft_io_tilde\n"
-  | Teft_pure_tilde ->
-      line i ppf "Peft_pure_tilde\n"
-  | Teft_row efr ->
-      line i ppf "Peft_row\n";
-      effect_row (i+1) ppf efr
+  line i ppf "Peft_io = %b\n" x.eft_io;
+  line i ppf "Peft_tilde = %b\n" x.eft_tilde;
+  line i ppf "Peft_row\n";
+  option (i+1) effect_row ppf x.eft_row
 
 and effect_row i ppf x =
   line i ppf "effect_row\n";
   let i = i+1 in
   line i ppf "pefr_constrs =\n";
-  list (i+1) longident_x_path ppf x.efr_effects;
-  line i ppf "pefr_row =\n";
-  option (i+1) core_type ppf x.efr_row
+  list (i+1) effect_constructor ppf x.efr_effects;
+  line i ppf "pefr_next =\n";
+  option (i+1) core_type ppf x.efr_next
 
 and pattern i ppf x =
   line i ppf "pattern %a\n" fmt_location x.pat_loc;
@@ -283,9 +275,10 @@ and pattern i ppf x =
   | Tpat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p;
-  | Tpat_effect (li, _, po, _) ->
-      line i ppf "Ppat_effect %a\n" fmt_longident li;
-      list i pattern ppf po
+  | Tpat_effect (lbl, po, pk) ->
+      line i ppf "Ppat_effect %s\n" lbl;
+      list i pattern ppf po;
+      option i pattern ppf pk
 
 and expression_extra i ppf x attrs =
   match x with
@@ -383,8 +376,8 @@ and expression i ppf x =
       expression i ppf e1;
       expression i ppf e2;
       expression i ppf e3;
-  | Texp_perform (li, _, eo) ->
-      line i ppf "Pexp_perform %a\n" fmt_longident li;
+  | Texp_perform (lbl, eo) ->
+      line i ppf "Pexp_perform %s\n" lbl;
       list i expression ppf eo;
   | Texp_send (e, Tmeth_name s, eo) ->
       line i ppf "Pexp_send \"%s\"\n" s;
@@ -482,26 +475,26 @@ and extension_constructor_kind i ppf x =
         line i ppf "Pext_rebind\n";
         line (i+1) ppf "%a\n" fmt_path p;
 
-and effect_declaration i ppf x =
-  line i ppf "effect_declaration %a %a\n" fmt_ident x.eff_id fmt_location x.eff_loc;
-  attributes i ppf x.eff_attributes;
-  let i = i+1 in
-  line i ppf "peff_kind =\n";
-  effect_kind (i+1) ppf x.eff_kind;
-  line i ppf "peff_manifest =\n";
-  option (i+1) longident_x_path ppf x.eff_manifest;
+(* and effect_declaration i ppf x =
+ *   line i ppf "effect_declaration %a %a\n" fmt_ident x.eff_id fmt_location x.eff_loc;
+ *   attributes i ppf x.eff_attributes;
+ *   let i = i+1 in
+ *   line i ppf "peff_kind =\n";
+ *   effect_kind (i+1) ppf x.eff_kind;
+ *   line i ppf "peff_manifest =\n";
+ *   option (i+1) longident_x_path ppf x.eff_manifest; *)
 
-and effect_kind i ppf x =
-  match x with
-  | Teff_abstract ->
-      line i ppf "Peff_abstract\n"
-  | Teff_variant l ->
-      line i ppf "Peff_variant\n";
-      list (i+1) effect_constructor ppf l;
+(* and effect_kind i ppf x =
+ *   match x with
+ *   | Teff_abstract ->
+ *       line i ppf "Peff_abstract\n"
+ *   | Teff_variant l ->
+ *       line i ppf "Peff_variant\n";
+ *       list (i+1) effect_constructor ppf l; *)
 
 and effect_constructor i ppf x =
   line i ppf "%a\n" fmt_location x.ec_loc;
-  line (i+1) ppf "%a\n" fmt_ident x.ec_id;
+  label (i+1) ppf x.ec_name;
   attributes i ppf x.ec_attributes;
   list (i+1) core_type ppf x.ec_args;
   option (i+1) core_type ppf x.ec_res
@@ -691,9 +684,9 @@ and signature_item i ppf x =
   | Tsig_exception ext ->
       line i ppf "Psig_exception\n";
       extension_constructor i ppf ext
-  | Tsig_effect eff ->
-      line i ppf "Psig_effect\n";
-      effect_declaration i ppf eff
+  (* | Tsig_effect eff ->
+   *     line i ppf "Psig_effect\n";
+   *     effect_declaration i ppf eff *)
   | Tsig_module md ->
       line i ppf "Psig_module \"%a\"\n" fmt_ident md.md_id;
       attributes i ppf md.md_attributes;
@@ -800,9 +793,9 @@ and structure_item i ppf x =
   | Tstr_exception ext ->
       line i ppf "Pstr_exception\n";
       extension_constructor i ppf ext;
-  | Tstr_effect eff ->
-      line i ppf "Pstr_effect\n";
-      effect_declaration i ppf eff;
+  (* | Tstr_effect eff ->
+   *     line i ppf "Pstr_effect\n";
+   *     effect_declaration i ppf eff; *)
   | Tstr_module x ->
       line i ppf "Pstr_module\n";
       module_binding i ppf x

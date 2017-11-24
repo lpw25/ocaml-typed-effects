@@ -53,9 +53,7 @@ and pattern_desc =
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
   | Tpat_exception of pattern
-  | Tpat_effect of
-      Longident.t loc * effect_constructor_description
-      * pattern list * (Ident.t * string loc) option option
+  | Tpat_effect of label * pattern list * pattern option
 
 and expression =
   { exp_desc: expression_desc;
@@ -98,8 +96,7 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
-  | Texp_perform of
-      Longident.t loc * effect_constructor_description * expression list
+  | Texp_perform of label * expression list
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -218,7 +215,7 @@ and structure_item_desc =
   | Tstr_type of type_declaration list
   | Tstr_typext of type_extension
   | Tstr_exception of extension_constructor
-  | Tstr_effect of effect_declaration
+  (* | Tstr_effect of effect_declaration *)
   | Tstr_module of module_binding
   | Tstr_recmodule of module_binding list
   | Tstr_modtype of module_type_declaration
@@ -285,7 +282,7 @@ and signature_item_desc =
   | Tsig_type of type_declaration list
   | Tsig_typext of type_extension
   | Tsig_exception of extension_constructor
-  | Tsig_effect of effect_declaration
+  (* | Tsig_effect of effect_declaration *)
   | Tsig_module of module_declaration
   | Tsig_recmodule of module_declaration list
   | Tsig_modtype of module_type_declaration
@@ -375,22 +372,17 @@ and row_field =
   | Tinherit of core_type
 
 and effect_type = {
-  eft_desc: effect_type_desc;
+  eft_io: bool;
+  eft_tilde: bool;
+  eft_row: effect_row option;
   eft_type: Types.type_expr;
   eft_loc: Location.t;
 }
 
-and effect_type_desc =
-  | Teft_io
-  | Teft_pure
-  | Teft_io_tilde
-  | Teft_pure_tilde
-  | Teft_row of effect_row
-
 and effect_row = {
-  efr_effects : (Longident.t loc * Path.t) list;
+  efr_effects: effect_constructor list;
   efr_type: Types.type_expr;
-  efr_row : core_type option;
+  efr_next: core_type option;
 }
 
 and value_description =
@@ -468,24 +460,23 @@ and extension_constructor_kind =
     Text_decl of core_type list * core_type option
   | Text_rebind of Path.t * Longident.t loc
 
-and effect_declaration =
-  { eff_id: Ident.t;
-    eff_name: string loc;
-    eff_type: Types.effect_declaration;
-    eff_kind: effect_kind;
-    eff_manifest: (Longident.t loc * Path.t) option;
-    eff_loc: Location.t;
-    eff_attributes: attribute list;
-   }
-
-and effect_kind =
-    Teff_abstract
-  | Teff_variant of effect_constructor list
+(* and effect_declaration =
+ *   { eff_id: Ident.t;
+ *     eff_name: string loc;
+ *     eff_type: Types.effect_declaration;
+ *     eff_kind: effect_kind;
+ *     eff_manifest: (Longident.t loc * Path.t) option;
+ *     eff_loc: Location.t;
+ *     eff_attributes: attribute list;
+ *    }
+ * 
+ * and effect_kind =
+ *     Teff_abstract
+ *   | Teff_variant of effect_constructor list *)
 
 and effect_constructor =
     {
-     ec_id: Ident.t;
-     ec_name: string loc;
+     ec_name: label;
      ec_args: core_type list;
      ec_res: core_type option;
      ec_loc: Location.t;

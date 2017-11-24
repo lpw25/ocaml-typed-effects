@@ -634,7 +634,7 @@ let split_cases cases =
     | [] -> List.rev vals, List.rev exns, List.rev effs, List.rev conts
     | { c_lhs = { pat_desc = Tpat_exception _ } } as case :: rest ->
         loop vals (case :: exns) effs conts rest
-    | { c_lhs = { pat_desc = Tpat_effect(_, _, _, None) } } as case :: rest ->
+    | { c_lhs = { pat_desc = Tpat_effect(_, _, None) } } as case :: rest ->
         loop vals exns (case :: effs) conts rest
     | { c_lhs = { pat_desc = Tpat_effect _ } } as case :: rest ->
         loop vals exns effs (case :: conts) rest
@@ -855,21 +855,22 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(_, ecstr, args) ->
-      let tag =
-        Lprim(Pfield(ecstr.ecstr_pos, true, Immutable),
-              [transl_path e.exp_env ecstr.ecstr_eff_path])
-      in
-      let is_const = ecstr.ecstr_arity = 0 in
-      let arg =
-        if is_const then tag
-        else Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
-      in
-      let is_raise = ecstr.ecstr_res = None in
-      if is_raise then
-        Lprim(Praise Raise_notrace, [event_after e arg])
-      else
-        Lprim(Pperform e.exp_loc, [event_after e arg])
+  | Texp_perform(_lbl, _args) -> assert false
+  (* TODO: compile perform *)
+      (* let tag =
+       *   Lprim(Pfield(ecstr.ecstr_pos, true, Immutable),
+       *         [transl_path e.exp_env ecstr.ecstr_eff_path])
+       * in
+       * let is_const = ecstr.ecstr_arity = 0 in
+       * let arg =
+       *   if is_const then tag
+       *   else Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
+       * in
+       * let is_raise = ecstr.ecstr_res = None in
+       * if is_raise then
+       *   Lprim(Praise Raise_notrace, [event_after e arg])
+       * else
+       *   Lprim(Pperform e.exp_loc, [event_after e arg]) *)
   | Texp_send(_, _, Some exp) -> transl_exp exp
   | Texp_send(expr, met, None) ->
       let obj = transl_exp expr in

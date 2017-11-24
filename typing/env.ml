@@ -112,7 +112,7 @@ type summary =
   | Env_value of summary * Ident.t * value_description
   | Env_type of summary * Ident.t * type_declaration
   | Env_extension of summary * Ident.t * extension_constructor
-  | Env_effect of summary * Ident.t * effect_declaration
+  (* | Env_effect of summary * Ident.t * effect_declaration *)
   | Env_module of summary * Ident.t * module_declaration
   | Env_modtype of summary * Ident.t * modtype_declaration
   | Env_class of summary * Ident.t * class_declaration
@@ -170,8 +170,8 @@ module EnvTbl =
 type type_descriptions =
     constructor_description list * label_description list
 
-type effect_constructors =
-    effect_constructor_description list
+(* type effect_constructors =
+ *     effect_constructor_description list *)
 
 let in_signature_flag = 0x01
 let implicit_coercion_flag = 0x02
@@ -181,8 +181,8 @@ type t = {
   constrs: constructor_description EnvTbl.t;
   labels: label_description EnvTbl.t;
   types: (Path.t * (type_declaration * type_descriptions)) EnvTbl.t;
-  effect_constrs: effect_constructor_description EnvTbl.t;
-  effects: (Path.t * (effect_declaration * effect_constructors)) EnvTbl.t;
+  (* effect_constrs: effect_constructor_description EnvTbl.t; *)
+  (* effects: (Path.t * (effect_declaration * effect_constructors)) EnvTbl.t; *)
   modules: (Path.t * module_declaration) EnvTbl.t;
   modtypes: (Path.t * modtype_declaration) EnvTbl.t;
   components: (Path.t * module_components) EnvTbl.t;
@@ -208,10 +208,10 @@ and structure_components = {
   mutable comp_labels: (string, (label_description * int) list) Tbl.t;
   mutable comp_types:
    (string, ((type_declaration * type_descriptions) * int)) Tbl.t;
-  mutable comp_effect_constrs:
-   (string, (effect_constructor_description * int)) Tbl.t;
-  mutable comp_effects:
-   (string, ((effect_declaration * effect_constructors) * int)) Tbl.t;
+  (* mutable comp_effect_constrs:
+   *  (string, (effect_constructor_description * int)) Tbl.t; *)
+  (* mutable comp_effects:
+   *  (string, ((effect_declaration * effect_constructors) * int)) Tbl.t; *)
   mutable comp_modules:
    (string, ((Subst.t * Types.module_type,module_type) EnvLazy.t * int)) Tbl.t;
   mutable comp_modtypes: (string, (modtype_declaration * int)) Tbl.t;
@@ -235,7 +235,7 @@ let subst_modtype_maker (subst, mty) = Subst.modtype subst mty
 let empty = {
   values = EnvTbl.empty; constrs = EnvTbl.empty;
   labels = EnvTbl.empty; types = EnvTbl.empty;
-  effect_constrs = EnvTbl.empty; effects = EnvTbl.empty;
+  (* effect_constrs = EnvTbl.empty; effects = EnvTbl.empty; *)
   modules = EnvTbl.empty; modtypes = EnvTbl.empty;
   components = EnvTbl.empty; classes = EnvTbl.empty;
   cltypes = EnvTbl.empty;
@@ -497,8 +497,8 @@ let find_value =
   find (fun env -> env.values) (fun sc -> sc.comp_values)
 and find_type_full =
   find (fun env -> env.types) (fun sc -> sc.comp_types)
-and find_effect_full =
-  find (fun env -> env.effects) (fun sc -> sc.comp_effects)
+(* and find_effect_full =
+ *   find (fun env -> env.effects) (fun sc -> sc.comp_effects) *)
 and find_modtype =
   find (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes)
 and find_class =
@@ -511,10 +511,10 @@ let find_type p env =
 let find_type_descrs p env =
   snd (find_type_full p env)
 
-let find_effect p env =
-  fst (find_effect_full p env)
-let find_effect_descrs p env =
-  snd (find_effect_full p env)
+(* let find_effect p env =
+ *   fst (find_effect_full p env) *)
+(* let find_effect_descrs p env =
+ *   snd (find_effect_full p env) *)
 
 let find_module ~alias path env =
   match path with
@@ -644,15 +644,15 @@ let find_modtype_expansion path env =
   | None -> raise Not_found
   | Some mty -> mty
 
-let find_effect_expansion path env =
-  let eff = find_effect path env in
-  match eff.eff_manifest with
-  | Some path -> path
-  | _ ->
-      (* another way to expand is to normalize the path itself *)
-      let path' = normalize_path None env path in
-      if Path.same path path' then raise Not_found else
-      path'
+(* let find_effect_expansion path env =
+ *   let eff = find_effect path env in
+ *   match eff.eff_manifest with
+ *   | Some path -> path
+ *   | _ ->
+ *       (\* another way to expand is to normalize the path itself *\)
+ *       let path' = normalize_path None env path in
+ *       if Path.same path path' then raise Not_found else
+ *       path' *)
 
 let rec is_functor_arg path env =
   match path with
@@ -820,10 +820,10 @@ and lookup_all_labels =
     lbl_shadow
 and lookup_type =
   lookup (fun env -> env.types) (fun sc -> sc.comp_types)
-and lookup_effect_constructor =
-  lookup_simple (fun env -> env.effect_constrs) (fun sc -> sc.comp_effect_constrs)
-and lookup_effect =
-  lookup (fun env -> env.effects) (fun sc -> sc.comp_effects)
+(* and lookup_effect_constructor =
+ *   lookup_simple (fun env -> env.effect_constrs) (fun sc -> sc.comp_effect_constrs)
+ * and lookup_effect =
+ *   lookup (fun env -> env.effects) (fun sc -> sc.comp_effects) *)
 and lookup_modtype =
   lookup (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes)
 and lookup_class =
@@ -884,9 +884,9 @@ let lookup_type lid env =
   mark_type_used env (Longident.last lid) decl;
   (path, decl)
 
-let lookup_effect lid env =
-  let (path, (decl, _)) = lookup_effect lid env in
-  (path, decl)
+(* let lookup_effect lid env =
+ *   let (path, (decl, _)) = lookup_effect lid env in
+ *   (path, decl) *)
 
 (* [path] must be the path to a type, not to a module ! *)
 let path_subst_last path id =
@@ -1173,10 +1173,10 @@ let labels_of_type ty_path decl =
 
 (* Compute effect constructor descriptions *)
 
-let constructors_of_effect eff_path eff =
-  match eff.eff_kind with
-  | Eff_variant ecs -> Datarepr.effect_constructor_descrs eff_path ecs
-  | Eff_abstract -> []
+(* let constructors_of_effect eff_path eff =
+ *   match eff.eff_kind with
+ *   | Eff_variant ecs -> Datarepr.effect_constructor_descrs eff_path ecs
+ *   | Eff_abstract -> [] *)
 
 (* Given a signature and a root path, prefix all idents in the signature
    by the root path and build the corresponding substitution. *)
@@ -1193,11 +1193,11 @@ let rec prefix_idents root pos sub = function
       let (pl, final_sub) =
         prefix_idents root pos (Subst.add_type id p sub) rem in
       (p::pl, final_sub)
-  | Sig_effect(id, eff) :: rem ->
-      let p = Pdot(root, Ident.name id, pos) in
-      let (pl, final_sub) =
-        prefix_idents root (pos+1) (Subst.add_effect id p sub) rem in
-      (p::pl, final_sub)
+  (* | Sig_effect(id, eff) :: rem ->
+   *     let p = Pdot(root, Ident.name id, pos) in
+   *     let (pl, final_sub) =
+   *       prefix_idents root (pos+1) (Subst.add_effect id p sub) rem in
+   *     (p::pl, final_sub) *)
   | Sig_typext(id, ext, _) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) = prefix_idents root (pos+1) sub rem in
@@ -1230,8 +1230,8 @@ let subst_signature sub sg =
           Sig_value (id, Subst.value_description sub decl)
       | Sig_type(id, decl, x) ->
           Sig_type(id, Subst.type_declaration sub decl, x)
-      | Sig_effect(id, eff) ->
-          Sig_effect(id, Subst.effect_declaration sub eff)
+      (* | Sig_effect(id, eff) ->
+       *     Sig_effect(id, Subst.effect_declaration sub eff) *)
       | Sig_typext(id, ext, es) ->
           Sig_typext (id, Subst.extension_constructor sub ext, es)
       | Sig_module(id, mty, x) ->
@@ -1286,7 +1286,7 @@ and components_of_module_maker (env, sub, path, mty) =
         { comp_values = Tbl.empty;
           comp_constrs = Tbl.empty;
           comp_labels = Tbl.empty; comp_types = Tbl.empty;
-          comp_effect_constrs = Tbl.empty; comp_effects = Tbl.empty;
+          (* comp_effect_constrs = Tbl.empty; comp_effects = Tbl.empty; *)
           comp_modules = Tbl.empty; comp_modtypes = Tbl.empty;
           comp_components = Tbl.empty; comp_classes = Tbl.empty;
           comp_cltypes = Tbl.empty } in
@@ -1321,22 +1321,22 @@ and components_of_module_maker (env, sub, path, mty) =
                   add_to_tbl descr.lbl_name (descr, nopos) c.comp_labels)
               labels;
             env := store_type_infos None id (Pident id) decl !env !env
-        | Sig_effect(id, eff) ->
-            let eff' = Subst.effect_declaration sub eff in
-            let constructors =
-              List.map snd (constructors_of_effect path eff')
-            in
-            c.comp_effects <-
-              Tbl.add (Ident.name id)
-                ((eff', constructors), !pos)
-                  c.comp_effects;
-            List.iter
-              (fun descr ->
-                c.comp_effect_constrs <-
-                  Tbl.add descr.ecstr_name (descr, nopos)
-                          c.comp_effect_constrs)
-              constructors;
-            incr pos
+        (* | Sig_effect(id, eff) ->
+         *     let eff' = Subst.effect_declaration sub eff in
+         *     let constructors =
+         *       List.map snd (constructors_of_effect path eff')
+         *     in
+         *     c.comp_effects <-
+         *       Tbl.add (Ident.name id)
+         *         ((eff', constructors), !pos)
+         *           c.comp_effects;
+         *     List.iter
+         *       (fun descr ->
+         *         c.comp_effect_constrs <-
+         *           Tbl.add descr.ecstr_name (descr, nopos)
+         *                   c.comp_effect_constrs)
+         *       constructors;
+         *     incr pos *)
         | Sig_typext(id, ext, _) ->
             let ext' = Subst.extension_constructor sub ext in
             let descr = Datarepr.extension_descr path ext' in
@@ -1388,7 +1388,7 @@ and components_of_module_maker (env, sub, path, mty) =
           comp_constrs = Tbl.empty;
           comp_labels = Tbl.empty;
           comp_types = Tbl.empty;
-          comp_effects = Tbl.empty; comp_effect_constrs = Tbl.empty;
+          (* comp_effects = Tbl.empty; comp_effect_constrs = Tbl.empty; *)
           comp_modules = Tbl.empty; comp_modtypes = Tbl.empty;
           comp_components = Tbl.empty; comp_classes = Tbl.empty;
           comp_cltypes = Tbl.empty })
@@ -1511,19 +1511,19 @@ and store_extension ~check slot id path ext env renv =
                 env.constrs renv.constrs;
     summary = Env_extension(env.summary, id, ext) }
 
-and store_effect slot id path eff env renv =
-  let constructors = constructors_of_effect path eff in
-  let descrs = List.map snd constructors in
-  { env with
-    effect_constrs =
-      List.fold_right
-        (fun (id, descr) constrs ->
-          EnvTbl.add "constructor" slot id descr constrs renv.constrs)
-        constructors
-        env.effect_constrs;
-    effects = EnvTbl.add "effect" slot id (path, (eff, descrs))
-                         env.effects renv.effects;
-    summary = Env_effect(env.summary, id, eff) }
+(* and store_effect slot id path eff env renv =
+ *   let constructors = constructors_of_effect path eff in
+ *   let descrs = List.map snd constructors in
+ *   { env with
+ *     effect_constrs =
+ *       List.fold_right
+ *         (fun (id, descr) constrs ->
+ *           EnvTbl.add "constructor" slot id descr constrs renv.constrs)
+ *         constructors
+ *         env.effect_constrs;
+ *     effects = EnvTbl.add "effect" slot id (path, (eff, descrs))
+ *                          env.effects renv.effects;
+ *     summary = Env_effect(env.summary, id, eff) } *)
 
 and store_module slot id path md env renv =
   { env with
@@ -1589,8 +1589,8 @@ let add_type ~check id info env =
 and add_extension ~check id ext env =
   store_extension ~check None id (Pident id) ext env env
 
-and add_effect id eff env =
-  store_effect None id (Pident id) eff env env
+(* and add_effect id eff env =
+ *   store_effect None id (Pident id) eff env env *)
 
 and add_module_declaration ?arg id md env =
   let path =
@@ -1631,7 +1631,7 @@ let enter store_fun name data env =
 let enter_value ?check = enter (store_value ?check)
 and enter_type = enter (store_type ~check:true)
 and enter_extension = enter (store_extension ~check:true)
-and enter_effect = enter store_effect
+(* and enter_effect = enter store_effect *)
 and enter_module_declaration ?arg name md env =
   let id = Ident.create name in
   (id, add_module_declaration ?arg id md env)
@@ -1650,7 +1650,7 @@ let add_item comp env =
   match comp with
     Sig_value(id, decl)     -> add_value id decl env
   | Sig_type(id, decl, _)   -> add_type ~check:false id decl env
-  | Sig_effect(id, eff)   -> add_effect id eff env
+  (* | Sig_effect(id, eff)   -> add_effect id eff env *)
   | Sig_typext(id, ext, _)  -> add_extension ~check:false id ext env
   | Sig_module(id, md, _)  -> add_module_declaration id md env
   | Sig_modtype(id, decl)   -> add_modtype id decl env
@@ -1679,8 +1679,8 @@ let open_signature slot root sg env0 =
             store_value slot (Ident.hide id) p decl env env0
         | Sig_type(id, decl, _) ->
             store_type ~check:false slot (Ident.hide id) p decl env env0
-        | Sig_effect(id, eff) ->
-            store_effect slot (Ident.hide id) p eff env env0
+        (* | Sig_effect(id, eff) ->
+         *     store_effect slot (Ident.hide id) p eff env env0 *)
         | Sig_typext(id, ext, _) ->
             store_extension ~check:false slot (Ident.hide id) p ext env env0
         | Sig_module(id, mty, _) ->
@@ -1897,11 +1897,11 @@ and fold_labels f =
   find_all_simple_list (fun env -> env.labels) (fun sc -> sc.comp_labels) f
 and fold_types f =
   find_all (fun env -> env.types) (fun sc -> sc.comp_types) f
-and fold_effects f =
-  find_all (fun env -> env.effects) (fun sc -> sc.comp_effects) f
-and fold_effect_constructors f =
-  find_all_simple (fun env -> env.effect_constrs)
-                       (fun sc -> sc.comp_effect_constrs) f
+(* and fold_effects f =
+ *   find_all (fun env -> env.effects) (fun sc -> sc.comp_effects) f *)
+(* and fold_effect_constructors f =
+ *   find_all_simple (fun env -> env.effect_constrs)
+ *                        (fun sc -> sc.comp_effect_constrs) f *)
 and fold_modtypes f =
   find_all (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes) f
 and fold_classs f =
@@ -1915,7 +1915,7 @@ let (initial_safe_string, initial_unsafe_string) =
   Predef.build_initial_env
     (add_type ~check:false)
     (add_extension ~check:false)
-    add_effect
+    (* add_effect *)
     empty
 
 (* Return the environment summary *)

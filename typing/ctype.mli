@@ -85,16 +85,15 @@ val merge_row_fields:
 val filter_row_fields:
         bool -> (label * row_field) list -> (label * row_field) list
 
-val equal_effect: Env.t -> Path.t -> Path.t -> bool
+(* val equal_effect: Env.t -> effect_constructor -> effect_constructor -> bool *)
 
 val flatten_effects:
-        type_expr -> Path.t list * type_expr
+        type_expr -> effect_constructor list * type_expr
 
-val equal_effect_constructor:
-        Env.t -> effect_constructor_description ->
-        effect_constructor_description -> bool
+(* val equal_effect_constructor:
+ *         Env.t -> effect_constructor ->
+ *         effect_constructor -> bool *)
 
-exception No_default_handler of Path.t * Location.t * string
 exception Unknown_effects of type_expr * Location.t * string
 
 val new_toplevel_expectation : unit -> effect_expectation
@@ -136,10 +135,10 @@ val instance_constructor:
         ?in_pattern:Env.t ref * int ->
         constructor_description -> type_expr list * type_expr
         (* Same, for a constructor *)
-val instance_effect_constructor:
-        ?in_pattern:Env.t ref * int ->
-        effect_constructor_description -> type_expr list * type_expr option
-        (* Same, for an effect constructor *)
+(* val instance_effect_constructor:
+ *         ?in_pattern:Env.t ref * int ->
+ *         effect_constructor_description -> type_expr list * type_expr option
+ *         (\* Same, for an effect constructor *\) *)
 val instance_parameterized_type:
         ?keep_names:bool ->
         type_expr list -> type_expr -> type_expr list * type_expr
@@ -269,8 +268,8 @@ val nondep_extension_constructor:
         Env.t -> Ident.t -> extension_constructor ->
         extension_constructor
           (* Same for extension constructor *)
-val nondep_effect_decl:
-        Env.t -> Ident.t -> bool -> effect_declaration -> effect_declaration
+(* val nondep_effect_decl:
+ *         Env.t -> Ident.t -> bool -> effect_declaration -> effect_declaration *)
         (* Same for effect declarations. *)
 val nondep_class_declaration:
         Env.t -> Ident.t -> class_declaration -> class_declaration
@@ -290,7 +289,7 @@ val closed_schema: type_expr -> bool
 val free_variables: ?env:Env.t -> type_expr -> type_expr list
         (* If env present, then check for incomplete definitions too *)
 val closed_type_decl: type_declaration -> type_expr option
-val closed_effect_decl: effect_declaration -> type_expr option
+(* val closed_effect_decl: effect_declaration -> type_expr option *)
 val closed_extension_constructor: extension_constructor -> type_expr option
 type closed_class_failure =
     CC_Method of type_expr * bool * string * type_expr

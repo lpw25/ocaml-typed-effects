@@ -19,7 +19,7 @@ module type IteratorArgument = sig
     val enter_value_description : value_description -> unit
     val enter_type_extension : type_extension -> unit
     val enter_extension_constructor : extension_constructor -> unit
-    val enter_effect_declaration : effect_declaration -> unit
+    (* val enter_effect_declaration : effect_declaration -> unit *)
     val enter_effect_row : effect_row -> unit
     val enter_effect_type : effect_type -> unit
     val enter_pattern : pattern -> unit
@@ -48,7 +48,7 @@ module type IteratorArgument = sig
     val leave_value_description : value_description -> unit
     val leave_type_extension : type_extension -> unit
     val leave_extension_constructor : extension_constructor -> unit
-    val leave_effect_declaration : effect_declaration -> unit
+    (* val leave_effect_declaration : effect_declaration -> unit *)
     val leave_effect_row : effect_row -> unit
     val leave_effect_type : effect_type -> unit
     val leave_pattern : pattern -> unit

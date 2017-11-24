@@ -275,7 +275,7 @@ type type_iterators =
     it_signature_item: type_iterators -> signature_item -> unit;
     it_value_description: type_iterators -> value_description -> unit;
     it_type_declaration: type_iterators -> type_declaration -> unit;
-    it_effect_declaration: type_iterators -> effect_declaration -> unit;
+    (* it_effect_declaration: type_iterators -> effect_declaration -> unit; *)
     it_extension_constructor: type_iterators -> extension_constructor -> unit;
     it_module_declaration: type_iterators -> module_declaration -> unit;
     it_modtype_declaration: type_iterators -> modtype_declaration -> unit;
@@ -284,7 +284,7 @@ type type_iterators =
     it_module_type: type_iterators -> module_type -> unit;
     it_class_type: type_iterators -> class_type -> unit;
     it_type_kind: type_iterators -> type_kind -> unit;
-    it_effect_kind: type_iterators -> effect_kind -> unit;
+    (* it_effect_kind: type_iterators -> effect_kind -> unit; *)
     it_do_type_expr: type_iterators -> type_expr -> unit;
     it_type_expr: type_iterators -> type_expr -> unit;
     it_path: Path.t -> unit; }
@@ -295,7 +295,7 @@ let type_iterators =
   and it_signature_item it = function
       Sig_value (_, vd)     -> it.it_value_description it vd
     | Sig_type (_, td, _)   -> it.it_type_declaration it td
-    | Sig_effect (_, ed)   -> it.it_effect_declaration it ed
+    (* | Sig_effect (_, ed)   -> it.it_effect_declaration it ed *)
     | Sig_typext (_, td, _) -> it.it_extension_constructor it td
     | Sig_module (_, md, _) -> it.it_module_declaration it md
     | Sig_modtype (_, mtd)  -> it.it_modtype_declaration it mtd
@@ -307,8 +307,8 @@ let type_iterators =
     List.iter (it.it_type_expr it) td.type_params;
     may (it.it_type_expr it) td.type_manifest;
     it.it_type_kind it td.type_kind
-  and it_effect_declaration it ed =
-    it.it_effect_kind it ed.eff_kind
+  (* and it_effect_declaration it ed =
+   *   it.it_effect_kind it ed.eff_kind *)
   and it_extension_constructor it td =
     it.it_path td.ext_type_path;
     List.iter (it.it_type_expr it) td.ext_type_params;
@@ -358,13 +358,13 @@ let type_iterators =
           may (it.it_type_expr it) cd.cd_res)
           cl
     | Type_open -> ()
-  and it_effect_kind it = function
-    | Eff_abstract -> ()
-    | Eff_variant ecs ->
-        List.iter (fun ec ->
-          List.iter (it.it_type_expr it) ec.ec_args;
-          may (it.it_type_expr it) ec.ec_res)
-          ecs
+  (* and it_effect_kind it = function
+   *   | Eff_abstract -> ()
+   *   | Eff_variant ecs ->
+   *       List.iter (fun ec ->
+   *         List.iter (it.it_type_expr it) ec.ec_args;
+   *         may (it.it_type_expr it) ec.ec_res)
+   *         ecs *)
   and it_do_type_expr it ty =
     iter_type_expr (it.it_type_expr it) ty;
     match ty.desc with
@@ -379,7 +379,7 @@ let type_iterators =
   in
   { it_path; it_type_expr = it_do_type_expr; it_do_type_expr;
     it_type_kind; it_class_type; it_module_type;
-    it_effect_declaration; it_effect_kind;
+    (* it_effect_declaration; it_effect_kind; *)
     it_signature; it_class_type_declaration; it_class_declaration;
     it_modtype_declaration; it_module_declaration; it_extension_constructor;
     it_type_declaration; it_value_description; it_signature_item; }
@@ -515,8 +515,8 @@ let unmark_iterators =
 let unmark_type_decl decl =
   unmark_iterators.it_type_declaration unmark_iterators decl
 
-let unmark_effect_decl eff =
-  unmark_iterators.it_effect_declaration unmark_iterators eff
+(* let unmark_effect_decl eff =
+ *   unmark_iterators.it_effect_declaration unmark_iterators eff *)
 
 let unmark_extension_constructor ext =
   unmark_iterators.it_extension_constructor unmark_iterators ext

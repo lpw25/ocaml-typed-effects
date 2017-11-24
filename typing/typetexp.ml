@@ -27,7 +27,7 @@ type error =
     Unbound_type_variable of string
   | Unbound_type_constructor of Longident.t
   | Unbound_type_constructor_2 of Path.t
-  | Unbound_effect of Longident.t
+  (* | Unbound_effect of Longident.t *)
   | Type_arity_mismatch of Longident.t * int * int
   | Bound_type_variable of string
   | Recursive_type
@@ -46,7 +46,7 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
-  | Unbound_effect_constructor of Longident.t
+  (* | Unbound_effect_constructor of Longident.t *)
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -267,17 +267,17 @@ let find_value env loc lid =
   check_deprecated loc decl.val_attributes (Path.name path);
   r
 
-let find_effect env loc lid =
-  let (path, eff) as r =
-    find_component Env.lookup_effect (fun lid -> Unbound_effect lid)
-      env loc lid
-  in
-  check_deprecated loc eff.eff_attributes (Path.name path);
-  r
-
-let find_effect_constructor =
-  find_component Env.lookup_effect_constructor
-                 (fun lid -> Unbound_effect_constructor lid)
+(* let find_effect env loc lid =
+ *   let (path, eff) as r =
+ *     find_component Env.lookup_effect (fun lid -> Unbound_effect lid)
+ *       env loc lid
+ *   in
+ *   check_deprecated loc eff.eff_attributes (Path.name path);
+ *   r
+ * 
+ * let find_effect_constructor =
+ *   find_component Env.lookup_effect_constructor
+ *                  (fun lid -> Unbound_effect_constructor lid) *)
 
 let lookup_module ?(load=false) env loc lid =
   let (path, decl) as r =
@@ -440,7 +440,7 @@ let check_sort loc env expected_sort sort =
 
 type policy = Fixed | Extensible | Univars
 
-let rec transl_type env policy expected_sort styp =
+let rec transl_type env policy expected_sort (styp : Parsetree.core_type) : Typedtree.core_type =
   let loc = styp.ptyp_loc in
   let ctyp ctyp_desc ctyp_type =
     { ctyp_desc; ctyp_type; ctyp_env = env;
@@ -848,28 +848,46 @@ and transl_fields loc env policy seen o =
       let ty2 = transl_fields loc env policy (s :: seen) o l in
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
 
-and transl_effect_row env policy row =
-  let efr_effects =
-    List.map
-      (fun lid ->
-        let path, _ = find_effect env lid.loc lid.txt in
-          lid, path)
-      row.pefr_effects
+and transl_effect_row_with_tail env policy row tail =
+  let transl_effect_constructor env policy constr =
+    let transl_type env policy sty =
+      let cty = transl_type env policy None sty in
+      cty
+    in
+    { ec_name = constr.peff_label;
+      ec_args = List.map (transl_type env policy) constr.peff_args;
+      ec_res  = Misc.may_map (transl_type env policy) constr.peff_res;
+      ec_loc = Location.none; (* TODO: FIXME effect_constructor in parsetree.mli does not carry location information *)
+      ec_attributes = constr.peff_attributes; }
   in
-  let efr_row, row =
-    match row.pefr_row with
-    | None -> None, newty Tenil
+  let tefr_effects =
+    List.map (transl_effect_constructor env policy) row.pefr_effects
+  in
+  let tefr_next, row =
+    match row.pefr_next with
+    | None -> None, tail
     | Some styp ->
         let typ = transl_type env policy (Some Seffect) styp in
         Some typ, typ.ctyp_type
   in
-  let efr_type =
+  let tefr_type =
     List.fold_left
-      (fun tail (_, path) ->
-         newty (Teffect(path, tail)))
-      row efr_effects
+      (fun tail ec ->
+        let tyec =
+          { ec_name = ec.Typedtree.ec_name;
+            ec_args = List.map (fun ctyp -> ctyp.ctyp_type) ec.ec_args;
+            ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) ec.ec_res; }
+        in
+         newty (Teffect(Eordinary tyec, tail)))
+      row tefr_effects
   in
-  { efr_effects; efr_type; efr_row }
+  { efr_effects = tefr_effects;
+    efr_type = tefr_type;
+    efr_next = tefr_next }
+
+and transl_effect_row env policy row =
+  let tail = newty Tenil in
+  transl_effect_row_with_tail env policy row tail
 
 and transl_tilde env loc policy =
   let name = "~" in
@@ -889,34 +907,30 @@ and transl_tilde env loc policy =
     v
 
 and transl_effect_type env policy seft =
-  match seft.peft_desc with
-  | Peft_io ->
-      let tail = newty Tenil in
-      let ty = instance_def (Predef.effect_io tail) in
-      { eft_desc = Teft_io;
-        eft_type = ty;
-        eft_loc = seft.peft_loc; }
-  | Peft_pure ->
-      let ty = newty Tenil in
-      { eft_desc = Teft_pure;
-        eft_type = ty;
-        eft_loc = seft.peft_loc; }
-  | Peft_io_tilde ->
-      let tail = transl_tilde env seft.peft_loc policy in
-      let ty = instance_def (Predef.effect_io tail) in
-      { eft_desc = Teft_io_tilde;
-        eft_type = ty;
-        eft_loc = seft.peft_loc; }
-  | Peft_pure_tilde ->
-      let ty = transl_tilde env seft.peft_loc policy in
-      { eft_desc = Teft_io_tilde;
-        eft_type = ty;
-        eft_loc = seft.peft_loc; }
-  | Peft_row efr ->
-      let efr = transl_effect_row env policy efr in
-      { eft_desc = Teft_row efr;
-        eft_type = efr.efr_type;
-        eft_loc = seft.peft_loc; }
+  let tail =
+    if seft.peft_tilde then
+      transl_tilde env seft.peft_loc policy
+    else
+      newty Tenil
+  in
+  let teft_row, tail =
+    match seft.peft_row with
+    | None -> None, tail
+    | Some sefr ->
+       let tefr = transl_effect_row_with_tail env policy sefr tail in
+       Some tefr, tefr.efr_type
+  in
+  let ty =
+    if seft.peft_io then
+      instance_def (Predef.type_io_gen) (* TODO: FIXME don't discard tail here *)
+    else
+      tail
+  in
+  { eft_io = seft.peft_io;
+    eft_tilde = seft.peft_tilde;
+    eft_type = ty;
+    eft_row = teft_row;
+    eft_loc = Location.none (* TODO: FIXME *) }
 
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =
@@ -1089,9 +1103,9 @@ let report_error env ppf = function
   | Unbound_type_constructor_2 p ->
     fprintf ppf "The type constructor@ %a@ is not yet completely defined"
       path p
-  | Unbound_effect lid ->
-    fprintf ppf "Unbound effect %a" longident lid;
-    spellcheck ppf Env.fold_effects env lid;
+  (* | Unbound_effect lid ->
+   *   fprintf ppf "Unbound effect %a" longident lid;
+   *   spellcheck ppf Env.fold_effects env lid; *)
   | Type_arity_mismatch(lid, expected, provided) ->
     fprintf ppf
       "@[The type constructor %a@ expects %i argument(s),@ \
@@ -1164,10 +1178,10 @@ let report_error env ppf = function
   | Unbound_label lid ->
       fprintf ppf "Unbound record field %a" longident lid;
       spellcheck_simple ppf Env.fold_labels (fun d -> d.lbl_name) env lid;
-  | Unbound_effect_constructor lid ->
-      fprintf ppf "Unbound effect constructor %a" longident lid;
-      spellcheck_simple ppf Env.fold_effect_constructors (fun d -> d.ecstr_name)
-        env lid;
+  (* | Unbound_effect_constructor lid ->
+   *     fprintf ppf "Unbound effect constructor %a" longident lid;
+   *     spellcheck_simple ppf Env.fold_effect_constructors (fun d -> d.ecstr_name)
+   *       env lid; *)
   | Unbound_class lid ->
       fprintf ppf "Unbound class %a" longident lid;
       spellcheck ppf Env.fold_classs env lid;

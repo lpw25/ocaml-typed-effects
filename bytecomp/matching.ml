@@ -228,11 +228,11 @@ let ctx_matcher p =
       (fun q rem -> match q.pat_desc with
       | Tpat_exception arg -> p, (arg::rem)
       | _          -> p, (omega::rem))
-  | Tpat_effect (_, ecstr, omegas, _) ->
+  | Tpat_effect (lbl, omegas, _) ->
       let nargs = List.length omegas in
       (fun q rem -> match q.pat_desc with
-      | Tpat_effect (_, ecstr', args, _)
-        when ecstr.ecstr_pos = ecstr'.ecstr_pos && List.length args = nargs ->
+      | Tpat_effect (lbl', args, _)
+        when lbl = lbl' && List.length args = nargs ->
           p,args @ rem
       | Tpat_any -> p,omegas @ rem
       | _ -> raise NoMatch)
@@ -650,7 +650,7 @@ let simplify_cases cont args cls = match args with
               | _ ->
                   simplify ((pat_simple::patl,action) :: rem)
               end
-          | Tpat_effect(_, _, _, Some(Some(id, _))) -> begin
+          | Tpat_effect(_, _, Some ({ pat_desc = Tpat_var (id, _); _})) -> begin
               match cont with
               | Some lam ->
                   (pat :: patl, bind StrictOpt id lam action) :: simplify rem
@@ -727,7 +727,7 @@ let rec extract_vars r p = match p.pat_desc with
 | Tpat_variant (_,Some p, _) -> extract_vars r p
 | Tpat_lazy p -> extract_vars r p
 | Tpat_exception p -> extract_vars r p
-| Tpat_effect (_, _, pats, _) ->
+| Tpat_effect (_, pats, _) ->
     List.fold_left extract_vars r pats
 | Tpat_or (p,_,_) -> extract_vars r p
 | Tpat_constant _|Tpat_any|Tpat_variant (_,None,_) -> r
@@ -771,9 +771,9 @@ let pat_as_constr = function
   | {pat_desc=Tpat_construct (_, cstr,_)} -> cstr
   | _ -> fatal_error "Matching.pat_as_constr"
 
-let pat_as_effect_constr = function
-  | {pat_desc=Tpat_effect (_, ecstr, _, _)} -> ecstr
-  | _ -> fatal_error "Matching.pat_as_effect_constr"
+(* let pat_as_effect_constr = function
+ *   | {pat_desc=Tpat_effect (_, _, _)} -> ecstr
+ *   | _ -> fatal_error "Matching.pat_as_effect_constr" *)
 
 let group_constant = function
   | {pat_desc= Tpat_constant _} -> true
@@ -1040,9 +1040,9 @@ and split_extension cont cls args def k =
   split_naive (fun _ cstr1 cstr2 -> cstr1 = cstr2)
     pat_as_constr group_constructor cont cls args def k
 
-and split_effect cont cls args def k =
-  split_naive Ctype.equal_effect_constructor pat_as_effect_constr
-    group_effect cont cls args def k
+(* and split_effect cont cls args def k =
+ *   split_naive Ctype.equal_effect_constructor pat_as_effect_constr
+ *     group_effect cont cls args def k *)
 
 and split_constr cont cls args def k =
   let ex_pat = what_is_cases cls in
@@ -1050,8 +1050,8 @@ and split_constr cont cls args def k =
   | Tpat_any -> precompile_var cont args cls def k
   | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) ->
       split_extension cont cls args def k
-  | Tpat_effect _ ->
-      split_effect cont cls args def k
+  | Tpat_effect _ -> assert false (* TODO: FIXME effect splitting *)
+      (* split_effect cont cls args def k *)
   | _ ->
 
       let group = get_group ex_pat in
@@ -1645,40 +1645,40 @@ let divide_exception p ctx pm =
 
 (* Matching against an effect pattern *)
 
-let get_key_effect = function
-  | {pat_desc=Tpat_effect (_, ecstr, _, _)} -> ecstr
-  | _ -> assert false
+(* let get_key_effect = function
+ *   | {pat_desc=Tpat_effect (_, ecstr, _, _)} -> ecstr
+ *   | _ -> assert false *)
 
 let get_args_effect p rem = match p with
-| {pat_desc=Tpat_effect (_, _, args, _)} -> args @ rem
+| {pat_desc=Tpat_effect (_, args, _)} -> args @ rem
 | _ -> assert false
 
 let matcher_effect ecstr p rem = match p.pat_desc with
   | Tpat_or (_,_,_) -> raise OrPat
-  | Tpat_effect (_, ecstr1, args, _)
-        when Ctype.equal_effect_constructor p.pat_env ecstr ecstr1 ->
-      args @ rem
-  | Tpat_any -> Parmatch.omegas ecstr.ecstr_arity @ rem
+  (* | Tpat_effect (lbl1, args, _)
+   *       when Ctype.equal_effect_constructor p.pat_env ecstr ecstr1 ->
+   *     args @ rem *) (* TODO: FIXME *)
+  | Tpat_any -> Parmatch.omegas (* TODO: FIXME ecstr.ecstr_arity @ *) rem
   | _        -> raise NoMatch
 
 let make_effect_matching p def ctx = function
     [] -> fatal_error "Matching.make_effect_matching"
-  | ((arg, mut) :: argl) ->
-      let ecstr = pat_as_effect_constr p in
-      let newargs =
-        make_field_args Alias arg 1 ecstr.ecstr_arity argl
-      in
-      {pm=
-        {cases = []; args = newargs;
-         default = make_default (matcher_effect ecstr) def};
-       ctx = filter_ctx p ctx;
-       pat=normalize_pat p}
+  | ((_arg, _mut) :: _argl) -> assert false (* TODO: FIXME pattern compilation *)
+      (* let ecstr = pat_as_effect_constr p in
+       * let newargs =
+       *   make_field_args Alias arg 1 ecstr.ecstr_arity argl
+       * in
+       * {pm=
+       *   {cases = []; args = newargs;
+       *    default = make_default (matcher_effect ecstr) def};
+       *  ctx = filter_ctx p ctx;
+       *  pat=normalize_pat p} *)
 
-let divide_effect ctx pm =
-  divide
-    make_effect_matching
-    Ctype.equal_effect_constructor get_key_effect get_args_effect
-    ctx pm
+(* let divide_effect ctx pm =
+ *   divide
+ *     make_effect_matching
+ *     Ctype.equal_effect_constructor get_key_effect get_args_effect
+ *     ctx pm *)
 
 (* Matching against a tuple pattern *)
 
@@ -2662,12 +2662,13 @@ let combine_array arg kind partial ctx def
 let split_effect_cases tag_lambda_list =
   let rec split_rec = function
     | [] -> ([], [])
-    | (ecstr, act) :: rem ->
-        let (consts, nonconsts) = split_rec rem in
-        if ecstr.ecstr_arity = 0 then
-          ((ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: consts, nonconsts)
-        else
-          (consts, (ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: nonconsts)
+    | _ -> split_rec (assert false) (* TODO: FIXME split_effect_cases *)
+    (* | (ecstr, act) :: rem ->
+     *     let (consts, nonconsts) = split_rec rem in
+     *     if ecstr.ecstr_arity = 0 then
+     *       ((ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: consts, nonconsts)
+     *     else
+     *       (consts, (ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: nonconsts) *)
   in
   split_rec tag_lambda_list
 
@@ -3005,11 +3006,11 @@ and do_compile_matching cont repr partial ctx arg pmh = match pmh with
       compile_no_test cont
         (divide_exception (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_effect (_, ecstr, _, _) ->
-      compile_test
-        (compile_match cont repr partial) partial
-        divide_effect (combine_effect arg pat partial)
-        ctx pm
+  | Tpat_effect (_ecstr, _, _) -> assert false (* TODO: FIXME pattern matching compilation *)
+      (* compile_test
+       *   (compile_match cont repr partial) partial
+       *   divide_effect (combine_effect arg pat partial)
+       *   ctx pm *)
   | Tpat_variant(lab, _, row) ->
       compile_test (compile_match cont repr partial) partial
         (divide_variant !row)
@@ -3061,7 +3062,7 @@ let find_in_pat pred =
     | Tpat_lazy p | Tpat_exception p ->
         find_rec p
     | Tpat_tuple ps |Tpat_construct (_,_,ps)
-    | Tpat_array ps | Tpat_effect(_,_,ps,_) ->
+    | Tpat_array ps | Tpat_effect(_,ps,_) ->
         List.exists find_rec ps
     | Tpat_record (lpats,_) ->
         List.exists
