@@ -262,7 +262,15 @@ let iter_type_expr f ty =
   | Tunivar _           -> ()
   | Tpoly (ty, tyl)     -> f ty; List.iter f tyl
   | Tpackage (_, _, l)  -> List.iter f l
-  | Teffect(_, ty)      -> f ty
+  | Teffect(ec, ty)     ->
+     begin match ec with
+     | Estate { ec_region } ->
+        f ec_region
+     | Eordinary { ec_args; ec_res; _ } ->
+        List.iter f ec_args;
+        Misc.may f ec_res
+     end;
+     f ty
   | Tenil               -> ()
 
 let rec iter_abbrev f = function
