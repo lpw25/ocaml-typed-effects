@@ -930,7 +930,7 @@ let type_continuation_pat env expected_eff expected_ty sp =
   match sp.ppat_desc with
   | Ppat_any -> None
   | Ppat_var name ->
-      let eff = instance_def Predef.type_io_gen in
+     let eff = instance_def (Effrow.with_io_open ()) in
       unify_pat_effects loc env eff expected_eff;
       let id = enter_variable loc name expected_ty in
       Some (id, name)
@@ -1181,7 +1181,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
           lbl_pat_list
       in
       if mut then begin
-        let eff = instance_def Predef.type_io_gen in
+        let eff = instance_def (Effrow.with_io_open ()) in
         unify_pat_effects loc !env eff expected_eff
       end;
       unify_pat_types loc !env record_ty expected_ty;
@@ -1199,7 +1199,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       let pl =
         List.map (fun (p,t) -> type_pat p ty_elt) spl_ann
       in
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_array pl;
@@ -1228,7 +1228,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       unify_pat_types loc !env (instance_def (Predef.type_lazy_t nv))
         expected_ty;
       let p1 = type_pat sp1 nv in
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_lazy p1;
@@ -1274,7 +1274,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       if not allow_exn then
         raise (Error (loc, !env, Exception_pattern_below_toplevel));
       let p1 = type_pat sp1 (instance_def Predef.type_exn) in
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_exception p1;
@@ -2379,7 +2379,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
               false lbl.lbl_all
       in
       if mut then begin
-        let eff = instance_def Predef.type_io_gen in
+        let eff = instance_def (Effrow.with_io_open ()) in
         unify_exp_effects loc env eff expected_eff
       end;
       re {
@@ -2396,7 +2396,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       unify_exp env record ty_res;
       let eff =
         if label.lbl_mut = Mutable then
-          instance_def Predef.type_io_gen
+          instance_def (Effrow.with_io_open ())
         else
           newvar Seffect
       in
@@ -2418,7 +2418,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       unify_exp env record ty_record;
       if label.lbl_mut = Immutable then
         raise(Error(loc, env, Label_not_mutable lid.txt));
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       rufe eff {
         exp_desc = Texp_setfield(record, label_loc, label, newval);
         exp_loc = loc; exp_extra = [];
@@ -2432,7 +2432,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let argl =
         List.map (fun sarg -> type_expect env expected_eff sarg ty) sargl
       in
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       unify_exp_effects loc env eff expected_eff;
       re {
         exp_desc = Texp_array argl;
@@ -2703,7 +2703,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           | _ ->
               assert false
         in
-        let eff = instance_def Predef.type_io_gen in
+        let eff = instance_def (Effrow.with_io_open ()) in
         rufe eff {
           exp_desc = Texp_send(obj, meth, exp);
           exp_loc = loc; exp_extra = [];
@@ -2722,7 +2722,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           None ->
             raise(Error(loc, env, Virtual_class cl.txt))
         | Some ty ->
-            let eff = instance_def Predef.type_io_gen in
+            let eff = instance_def (Effrow.with_io_open ()) in
             rufe eff {
               exp_desc = Texp_new (cl_path, cl, cl_decl);
               exp_loc = loc; exp_extra = [];
@@ -2741,7 +2741,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
             let (path_self, _) =
               Env.lookup_value (Longident.Lident ("self-" ^ cl_num)) env
             in
-            let eff = instance_def Predef.type_io_gen in
+            let eff = instance_def (Effrow.with_io_open ()) in
             rufe eff {
               exp_desc = Texp_setinstvar(path_self, path, lab, newval);
               exp_loc = loc; exp_extra = [];
@@ -2788,7 +2788,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
             end
           in
           let modifs = List.map type_override lst in
-          let eff = instance_def Predef.type_io_gen in
+          let eff = instance_def (Effrow.with_io_open ()) in
           rufe eff {
             exp_desc = Texp_override(path_self, modifs);
             exp_loc = loc; exp_extra = [];
@@ -2847,7 +2847,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let ty = newgenvar Stype in
       let to_unify = Predef.type_lazy_t ty in
       unify_exp_types loc env to_unify ty_expected;
-      let eff = Predef.type_io_gen (* TODO FIXME Predef.effect_io (newgenty Tenil) *) in
+      let eff = Effrow.with_io (newgenty Tenil) in
       let arg = type_expect env eff e ty in
       re {
         exp_desc = Texp_lazy arg;
@@ -2858,7 +2858,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       }
   | Pexp_object s ->
       let desc, sign, meths = !type_object env loc s in
-      let eff = instance_def Predef.type_io_gen in
+      let eff = instance_def (Effrow.with_io_open ()) in
       rufe eff {
         exp_desc = Texp_object (desc, (*sign,*) meths);
         exp_loc = loc; exp_extra = [];

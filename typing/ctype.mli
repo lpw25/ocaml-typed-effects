@@ -94,6 +94,18 @@ val flatten_effects:
  *         Env.t -> effect_constructor ->
  *         effect_constructor -> bool *)
 
+module Effrow : sig
+  val with_state : type_expr -> type_expr -> type_expr
+     (* Arguments: region tail. Constructs an effect row containing the
+        state effect with parameter region and which ends in tail. *)
+  val with_io : type_expr -> type_expr
+     (* Arguments: tail. Constructs an effect row containing the io
+        effect and which ends in tail. *)
+  val with_io_open : unit -> type_expr
+     (* Constructs an effect row containing the io effect and which ends
+        with a fresh effect variable. *)
+end
+
 exception Unknown_effects of type_expr * Location.t * string
 
 val new_toplevel_expectation : unit -> effect_expectation
