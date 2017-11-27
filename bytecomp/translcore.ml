@@ -855,7 +855,7 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(_lbl, _args) -> assert false
+  | Texp_perform(_lbl, _args) -> Lprim(Pignore, [Lconst (Const_base (Const_int 0))])
   (* TODO: compile perform *)
       (* let tag =
        *   Lprim(Pfield(ecstr.ecstr_pos, true, Immutable),
