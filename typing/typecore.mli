@@ -129,6 +129,7 @@ type error =
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
   | Toplevel_unknown_effects of type_expr * string
+  | Cannot_perform_state
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

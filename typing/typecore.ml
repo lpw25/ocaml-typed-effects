@@ -75,6 +75,7 @@ type error =
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
   | Toplevel_unknown_effects of type_expr * string
+  | Cannot_perform_state
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -930,7 +931,7 @@ let type_continuation_pat env expected_eff expected_ty sp =
   match sp.ppat_desc with
   | Ppat_any -> None
   | Ppat_var name ->
-     let eff = instance_def (Effrow.with_io_open ()) in
+     let eff = instance_def (effect_io (newvar Seffect)) in
       unify_pat_effects loc env eff expected_eff;
       let id = enter_variable loc name expected_ty in
       Some (id, name)
@@ -1181,7 +1182,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
           lbl_pat_list
       in
       if mut then begin
-        let eff = instance_def (Effrow.with_io_open ()) in
+        let eff = instance_def (effect_io (newvar Seffect)) in
         unify_pat_effects loc !env eff expected_eff
       end;
       unify_pat_types loc !env record_ty expected_ty;
@@ -1199,7 +1200,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       let pl =
         List.map (fun (p,t) -> type_pat p ty_elt) spl_ann
       in
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_array pl;
@@ -1228,7 +1229,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       unify_pat_types loc !env (instance_def (Predef.type_lazy_t nv))
         expected_ty;
       let p1 = type_pat sp1 nv in
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_lazy p1;
@@ -1274,7 +1275,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       if not allow_exn then
         raise (Error (loc, !env, Exception_pattern_below_toplevel));
       let p1 = type_pat sp1 (instance_def Predef.type_exn) in
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       unify_pat_effects loc !env eff expected_eff;
       rp {
         pat_desc = Tpat_exception p1;
@@ -2379,7 +2380,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
               false lbl.lbl_all
       in
       if mut then begin
-        let eff = instance_def (Effrow.with_io_open ()) in
+        let eff = instance_def (effect_io (newvar Seffect)) in
         unify_exp_effects loc env eff expected_eff
       end;
       re {
@@ -2396,7 +2397,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       unify_exp env record ty_res;
       let eff =
         if label.lbl_mut = Mutable then
-          instance_def (Effrow.with_io_open ())
+          instance_def (effect_io (newvar Seffect))
         else
           newvar Seffect
       in
@@ -2418,7 +2419,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       unify_exp env record ty_record;
       if label.lbl_mut = Immutable then
         raise(Error(loc, env, Label_not_mutable lid.txt));
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       rufe eff {
         exp_desc = Texp_setfield(record, label_loc, label, newval);
         exp_loc = loc; exp_extra = [];
@@ -2432,7 +2433,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let argl =
         List.map (fun sarg -> type_expect env expected_eff sarg ty) sargl
       in
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       unify_exp_effects loc env eff expected_eff;
       re {
         exp_desc = Texp_array argl;
@@ -2703,7 +2704,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           | _ ->
               assert false
         in
-        let eff = instance_def (Effrow.with_io_open ()) in
+        let eff = instance_def (effect_io (newvar Seffect)) in
         rufe eff {
           exp_desc = Texp_send(obj, meth, exp);
           exp_loc = loc; exp_extra = [];
@@ -2722,7 +2723,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
           None ->
             raise(Error(loc, env, Virtual_class cl.txt))
         | Some ty ->
-            let eff = instance_def (Effrow.with_io_open ()) in
+            let eff = instance_def (effect_io (newvar Seffect)) in
             rufe eff {
               exp_desc = Texp_new (cl_path, cl, cl_decl);
               exp_loc = loc; exp_extra = [];
@@ -2741,7 +2742,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
             let (path_self, _) =
               Env.lookup_value (Longident.Lident ("self-" ^ cl_num)) env
             in
-            let eff = instance_def (Effrow.with_io_open ()) in
+            let eff = instance_def (effect_io (newvar Seffect)) in
             rufe eff {
               exp_desc = Texp_setinstvar(path_self, path, lab, newval);
               exp_loc = loc; exp_extra = [];
@@ -2788,7 +2789,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
             end
           in
           let modifs = List.map type_override lst in
-          let eff = instance_def (Effrow.with_io_open ()) in
+          let eff = instance_def (effect_io (newvar Seffect)) in
           rufe eff {
             exp_desc = Texp_override(path_self, modifs);
             exp_loc = loc; exp_extra = [];
@@ -2847,7 +2848,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let ty = newgenvar Stype in
       let to_unify = Predef.type_lazy_t ty in
       unify_exp_types loc env to_unify ty_expected;
-      let eff = Effrow.with_io (newgenty Tenil) in
+      let eff = effect_io (newgenty Tenil) in
       let arg = type_expect env eff e ty in
       re {
         exp_desc = Texp_lazy arg;
@@ -2858,7 +2859,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       }
   | Pexp_object s ->
       let desc, sign, meths = !type_object env loc s in
-      let eff = instance_def (Effrow.with_io_open ()) in
+      let eff = instance_def (effect_io (newvar Seffect)) in
       rufe eff {
         exp_desc = Texp_object (desc, (*sign,*) meths);
         exp_loc = loc; exp_extra = [];
@@ -3744,7 +3745,34 @@ and type_construct env loc lid sarg ty_expected expected_eff attrs =
   { texp with
     exp_desc = Texp_construct(lid, constr, args) }
 
-and type_perform _env _loc _expected_eff _lid _sarg _attrs _ty_expected = assert false (* TODO: FIXME type check perform *)
+and type_perform env loc expected_eff label sargs attrs ty_expected =
+  (* Make sure that label is not the reserved name `state' *)
+  if label = "state" then
+    raise (Error (loc, env, Cannot_perform_state));
+  (* Type check arguments *)
+  let ty_args = List.map (type_exp env expected_eff) sargs in
+  let targs = List.map (fun e -> e.exp_type) ty_args in
+  (* Construct result type *)
+  let ty_res = instance env ty_expected in
+  (* Construct corresponding effect row *)
+  let eff =
+    let ec =
+      Eordinary
+        { ec_label = label;
+          ec_args = targs;
+          ec_res  = Some ty_res }
+    in
+    newty (Teffect(ec, newvar Seffect))
+  in
+  (* Unify with the context *)
+  unify_exp_effects loc env eff expected_eff;
+  re {
+    exp_desc = Texp_perform(label, ty_args);
+    exp_loc = loc;
+    exp_extra = [];
+    exp_type = ty_res;
+    exp_attributes = attrs;
+    exp_env = env }
   (* let ecstr = Typetexp.find_effect_constructor env lid.loc lid.txt in
    * Typetexp.check_deprecated loc ecstr.ecstr_attributes ecstr.ecstr_name;
    * let sargs =
@@ -4252,7 +4280,6 @@ let type_expression env expected_eff sexp =
       {exp with exp_type = desc.val_type}
   | _ -> exp
 
-
 let check_expectation env expected_eff =
   match Ctype.check_expectation env expected_eff with
   | () -> ()
@@ -4509,6 +4536,9 @@ let report_error env ppf = function
       fprintf ppf
         "@[This %s performs effects %a, which may not have default handlers.@]"
         str Printtyp.type_expr ty
+  | Cannot_perform_state ->
+     fprintf ppf
+       "@[Invalid operation invocation: state is a reserved effect name which cannot be invoked.@]"
 
 let report_error env ppf err =
   wrap_printing_env env (fun () -> report_error env ppf err)
