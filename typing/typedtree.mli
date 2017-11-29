@@ -476,7 +476,7 @@ and extension_constructor_kind =
 
 and effect_constructor =
     {
-     ec_name: label;
+     ec_label: label;
      ec_args: core_type list;
      ec_res: core_type option;
      ec_loc: Location.t;

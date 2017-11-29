@@ -204,11 +204,11 @@ and raw_effect_constructor ppf = function
      fprintf ppf
        "Estate(@,%a)"
        raw_type ec_region
-  | Eordinary { ec_name; ec_args; ec_res } ->
+  | Eordinary { ec_label; ec_args; ec_res } ->
      fprintf ppf
        "Eordinary(@,[<hov1>{@[%s@,%s;@]@ @[%s@,%a;@]@ @[%s@,%a;@]}@])"
        "ec_label="
-       ec_name
+       ec_label
        "ec_args="
        raw_type_list ec_args
        "ec_res="
@@ -600,7 +600,14 @@ let rec mark_loops_rec visited ty =
     | Tunivar _ ->
         add_named_var ty;
         count_effect_var ty
-    | Teffect(_, ty) ->
+    | Teffect(ec, ty) ->
+       begin match ec with
+       | Estate { ec_region } ->
+          mark_loops_rec visited ec_region
+       | Eordinary { ec_args; ec_res; _ } ->
+          List.iter (mark_loops_rec visited) ec_args;
+          Misc.may (mark_loops_rec visited) ec_res
+       end;
         mark_loops_rec visited ty
     | Tenil -> ()
 
@@ -736,15 +743,11 @@ let rec tree_of_typexp sch ty =
         let n =
           List.map (fun li -> String.concat "." (Longident.flatten li)) n in
         Otyp_module (Path.name p, n, tree_of_typlist sch tyl)
-    | Teffect _ ->
+    | Teffect (_, _) ->
         let (effects, row) = Ctype.flatten_effects ty in
         let row = repr row in
         let effects =
-          List.map
-            (function
-             | Eordinary { ec_name; _ } -> Oide_ident ec_name
-             | Estate _ -> Oide_ident "state")
-            effects
+          List.map tree_of_effect_constructor effects
         in
          let row =
           match row.desc with
@@ -759,6 +762,14 @@ let rec tree_of_typexp sch ty =
     check_name_of_type px;
     Otyp_alias (pr_typ (), tree_of_name (name_of_type px)) end
   else pr_typ ()
+
+and tree_of_effect_constructor = function
+  | Eordinary { ec_label; ec_args; ec_res } ->
+     let res = Misc.may_map (tree_of_typexp false) ec_res in
+     let args = tree_of_typlist false ec_args in
+     Otyp_econstr(ec_label, args, res)
+  | Estate { ec_region } ->
+     Otyp_constr (Oide_ident "state", [tree_of_typexp false ec_region])
 
 and tree_of_row_field sch (l, f) =
   match row_field_repr f with
@@ -827,21 +838,16 @@ and tree_of_typeffect sch ty =
     | _ -> Some (tree_of_typexp sch row)
   in
   (* TODO: FIXME *)
-    match effects, row with
-    | [], None -> Oarr_pure
-    | [Eordinary { ec_name }], None when ec_name = "io" -> Oarr_io
-    | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_pure_tilde
-    | [Eordinary { ec_name }], Some (Otyp_var(false, ("~", Osrt_effect)))
-          when ec_name = "io" -> Oarr_io_tilde
-    | _, _ ->
-       let effects =
-         List.map
-           (function
-            | Eordinary { ec_name } -> Oide_ident ec_name
-            | Estate _ -> Oide_ident "state")
-           effects
-       in
-       Oarr_row(effects, row)
+  match effects, row with
+  | [], None -> Oarr_pure
+  | [Estate _], None -> Oarr_io
+  | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_pure_tilde
+  | [Estate _], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_io_tilde
+  | _, _ ->
+     let effects =
+       List.map tree_of_effect_constructor effects
+     in
+     Oarr_row(effects, row)
 
 
 let typexp sch prio ppf ty =
@@ -1098,17 +1104,6 @@ let extension_constructor id ppf ext =
  *   let eff = { oeff_manifest; oeff_kind; } in
  *   Osig_effect (Ident.name id, eff) *)
 
-and tree_of_effect_constructor ec =
-  let name = ec.ec_name in
-  match ec.ec_res with
-  | None -> (name, tree_of_typlist false ec.ec_args, None)
-  | Some res ->
-      let nm = !names in
-      names := [];
-      let ret = tree_of_typexp false res in
-      let args = tree_of_typlist false ec.ec_args in
-      names := nm;
-      (name, args, Some ret)
 
 (* let effect_declaration id ppf eff =
  *   !Oprint.out_sig_item ppf (tree_of_effect_declaration id eff) *)

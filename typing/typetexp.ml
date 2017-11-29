@@ -854,7 +854,7 @@ and transl_effect_row_with_tail env policy row tail =
       let cty = transl_type env policy None sty in
       cty
     in
-    { ec_name = constr.peff_label;
+    { ec_label = constr.peff_label;
       ec_args = List.map (transl_type env policy) constr.peff_args;
       ec_res  = Misc.may_map (transl_type env policy) constr.peff_res;
       ec_loc = Location.none; (* TODO: FIXME effect_constructor in parsetree.mli does not carry location information *)
@@ -874,7 +874,7 @@ and transl_effect_row_with_tail env policy row tail =
     List.fold_left
       (fun tail ec ->
         let tyec =
-          { ec_name = ec.Typedtree.ec_name;
+          { ec_label = ec.Typedtree.ec_label;
             ec_args = List.map (fun ctyp -> ctyp.ctyp_type) ec.ec_args;
             ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) ec.ec_res; }
         in

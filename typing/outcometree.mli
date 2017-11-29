@@ -64,7 +64,8 @@ type out_type =
       bool * out_variant * bool * (string list) option
   | Otyp_poly of (string * out_sort) list * out_type
   | Otyp_module of string * string list * out_type list
-  | Otyp_effects of out_ident list * out_type option
+  | Otyp_effects of out_type list * out_type option
+  | Otyp_econstr of string * out_type list * out_type option
 
 and out_variant =
   | Ovar_fields of (string * bool * out_type list) list
@@ -75,7 +76,7 @@ and out_arrow =
   | Oarr_pure
   | Oarr_io_tilde
   | Oarr_pure_tilde
-  | Oarr_row of out_ident list * out_type option
+  | Oarr_row of out_type list * out_type option
 
 (* type out_effect =
  *   { oeff_manifest: out_ident option;

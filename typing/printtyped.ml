@@ -494,7 +494,7 @@ and extension_constructor_kind i ppf x =
 
 and effect_constructor i ppf x =
   line i ppf "%a\n" fmt_location x.ec_loc;
-  label (i+1) ppf x.ec_name;
+  label (i+1) ppf x.ec_label;
   attributes i ppf x.ec_attributes;
   list (i+1) core_type ppf x.ec_args;
   option (i+1) core_type ppf x.ec_res

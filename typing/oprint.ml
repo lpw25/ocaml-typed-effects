@@ -249,7 +249,7 @@ and print_simple_out_type ppf =
   | Otyp_effects(cstrs, row_opt) ->
       pp_print_string ppf "![";
       print_list
-        print_ident (fun ppf -> pp_print_string ppf " | ")
+        print_out_type (fun ppf -> pp_print_string ppf " | ")
         ppf cstrs;
       begin match cstrs, row_opt with
       | [], _ -> ()
@@ -263,6 +263,32 @@ and print_simple_out_type ppf =
           print_out_type ppf row
       end;
       pp_print_string ppf "]"
+  | Otyp_econstr (label, args, res_opt) ->
+     let nargs = List.length args in
+     let print_args ppf args =
+       if nargs > 1 then
+        pp_print_string ppf "(";
+       print_list print_out_type (fun ppf -> fprintf ppf ", ") ppf args;
+       if nargs > 1 then
+         pp_print_string ppf ")"
+     in
+     match res_opt with
+     | None ->
+        fprintf ppf
+          "%s of %a"
+          label
+          print_args args
+     | Some res when nargs > 0 ->
+        fprintf ppf
+          "%s : %a -> %a"
+          label
+          print_args args
+          print_out_type res
+     | Some res ->
+        fprintf ppf
+          "%s : %a"
+          label
+          print_out_type res
 
 and print_fields rest ppf =
   function
@@ -317,7 +343,7 @@ and print_arrow ppf =
   | Oarr_row(cstrs, row_opt) ->
       pp_print_string ppf "-[";
       print_list
-        print_ident (fun ppf -> pp_print_string ppf " | ")
+        print_out_type (fun ppf -> pp_print_string ppf " | ")
         ppf cstrs;
       begin match cstrs, row_opt with
       | [], _ -> ()

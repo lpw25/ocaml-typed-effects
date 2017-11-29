@@ -193,7 +193,7 @@ and untype_extension_constructor ext =
 
 and untype_effect_constructor ec =
   {
-    peff_label = ec.ec_name;
+    peff_label = ec.ec_label;
     peff_args = List.map untype_core_type ec.ec_args;
     peff_res = Misc.may_map untype_core_type ec.ec_res;
     (* pec_loc = ec.ec_loc; *)

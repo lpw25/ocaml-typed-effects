@@ -457,10 +457,10 @@ let rec copy_type_desc ?(keep_names=false) f = function
        match p with
        | Estate { ec_region } ->
           Estate { ec_region = f ec_region }
-       | Eordinary { ec_name; ec_args; ec_res } ->
+       | Eordinary { ec_label; ec_args; ec_res } ->
           let ec_args = List.map f ec_args in
           let ec_res = Misc.may_map f ec_res in
-          Eordinary { ec_name; ec_args; ec_res }
+          Eordinary { ec_label; ec_args; ec_res }
      in
      Teffect (ec, f ty)
   | Tenil               -> Tenil

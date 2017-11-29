@@ -50,7 +50,7 @@ and effect_constructor_state = (* inline once rebased to 4.03 *)
   { ec_region: type_expr; }
 
 and effect_constructor_ordinary =
-  { ec_name: label;
+  { ec_label: label;
     ec_args: type_expr list;
     ec_res: type_expr option; }
 
