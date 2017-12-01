@@ -250,8 +250,8 @@ and untype_pattern pat =
         let cont =
           match cont with
           | None -> None
-          | Some _ -> assert false (* Some (Pat.any ()) *) (* TODO: FIXME *)
-          (* | Some (Some(_, s)) -> Some (Pat.var s) *)
+          | Some None -> Some (Pat.any ())
+          | Some (Some(_, s)) -> Some (Pat.var s)
         in
           Ppat_effect(lid, args, cont)
   in

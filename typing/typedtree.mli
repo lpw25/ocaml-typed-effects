@@ -30,6 +30,7 @@ type pattern =
     pat_type: type_expr;
     mutable pat_env: Env.t;
     pat_attributes: attributes;
+    pat_eff: type_expr
    }
 
 and pat_extra =
@@ -53,7 +54,9 @@ and pattern_desc =
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
   | Tpat_exception of pattern
-  | Tpat_effect of label * pattern list * pattern option
+  | Tpat_effect of label * pattern list * continuation option
+
+and continuation = (Ident.t * string loc) option
 
 and expression =
   { exp_desc: expression_desc;
@@ -62,6 +65,7 @@ and expression =
     exp_type: type_expr;
     exp_env: Env.t;
     exp_attributes: attributes;
+    exp_eff: type_expr
    }
 
 and exp_extra =

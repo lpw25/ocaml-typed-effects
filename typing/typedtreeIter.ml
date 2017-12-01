@@ -269,9 +269,8 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tpat_or (p1, p2, _) -> iter_pattern p1; iter_pattern p2
         | Tpat_lazy p -> iter_pattern p
         | Tpat_exception p -> iter_pattern p
-        | Tpat_effect (_, args, cont) ->
+        | Tpat_effect (_, args, _) ->
            List.iter iter_pattern args;
-           Misc.may iter_pattern cont
       end;
       Iter.leave_pattern pat
 

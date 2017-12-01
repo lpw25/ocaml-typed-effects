@@ -278,7 +278,10 @@ and pattern i ppf x =
   | Tpat_effect (lbl, po, pk) ->
       line i ppf "Ppat_effect %s\n" lbl;
       list i pattern ppf po;
-      option i pattern ppf pk
+      option i continuation ppf pk
+
+and continuation i ppf x =
+  option i (fun i ppf x -> line i ppf "%s" ((fst x).Ident.name)) ppf x
 
 and expression_extra i ppf x attrs =
   match x with

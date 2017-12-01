@@ -95,6 +95,7 @@ val flatten_effects:
  *         effect_constructor -> bool *)
 
 val effect_io : type_expr -> type_expr
+val new_eff_constr : label -> int -> bool -> effect_constructor
 
 exception Unknown_effects of type_expr * Location.t * string
 

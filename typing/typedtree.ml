@@ -31,6 +31,7 @@ type pattern =
     pat_type: type_expr;
     mutable pat_env: Env.t;
     pat_attributes: attribute list;
+    pat_eff: type_expr
    }
 
 and pat_extra =
@@ -55,7 +56,9 @@ and pattern_desc =
   | Tpat_lazy of pattern
   | Tpat_exception of pattern
   | Tpat_effect of
-      label * pattern list * pattern option
+      label * pattern list * continuation option
+
+and continuation = (Ident.t * string loc) option
 
 and expression =
   { exp_desc: expression_desc;
@@ -64,6 +67,7 @@ and expression =
     exp_type: type_expr;
     exp_env: Env.t;
     exp_attributes: attribute list;
+    exp_eff: type_expr
    }
 
 and exp_extra =
@@ -554,7 +558,7 @@ let iter_pattern_desc f = function
   | Tpat_or(p1, p2, _) -> f p1; f p2
   | Tpat_lazy p -> f p
   | Tpat_exception p -> f p
-  | Tpat_effect(_, patl, cont_pat) -> List.iter f patl; Misc.may f cont_pat
+  | Tpat_effect(_, patl, cont_pat) -> List.iter f patl
   | Tpat_any
   | Tpat_var _
   | Tpat_constant _ -> ()
@@ -578,7 +582,7 @@ let map_pattern_desc f d =
       Tpat_or (f p1, f p2, path)
   | Tpat_exception p1 -> Tpat_exception (f p1)
   | Tpat_effect (label, pats, cont) ->
-      Tpat_effect (label, List.map f pats, Misc.may_map f cont)
+      Tpat_effect (label, List.map f pats, cont)
   | Tpat_var _
   | Tpat_constant _
   | Tpat_any

@@ -362,20 +362,26 @@ let diff_effects _env effs1 effs2  =
        lbl1 = lbl2
     | _, _ -> false
   in
-  let rec remove_one p = function
+  let rec pop_one p = function
     | [] -> assert false
     | p' :: rest ->
-        if equal_effect_constr p p' then rest
-        else p' :: remove_one p rest
+        if equal_effect_constr p p' then (p', rest)
+        else begin
+            let (p'', rest) = pop_one p rest in
+            (p'', p' :: rest)
+          end
   in
-  let rec remove_common effs diff = function
-    | [] -> effs, List.rev diff
+  let rec remove_common effs diff pairs = function
+    | [] -> effs, List.rev diff, List.rev pairs
     | p :: rest ->
-       if List.exists (equal_effect_constr p) effs then
-         remove_common (remove_one p effs) diff rest
-       else remove_common effs (p :: diff) rest
+       if List.exists (equal_effect_constr p) effs then begin
+           let (q, effs) = pop_one p effs in
+           remove_common effs diff ((p, q) :: pairs) rest
+         end else begin
+           remove_common effs (p :: diff) pairs rest
+         end
   in
-  remove_common effs1 [] effs2
+  remove_common effs1 [] [] effs2
 
 let build_effects level effs rest =
   List.fold_right
@@ -2414,7 +2420,7 @@ and mcomp_effects type_pairs env ty1 ty2 =
   if not (concrete_effect ty1 && concrete_effect ty2) then assert false;
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
-  let (miss1, miss2) = diff_effects env effs1 effs2 in
+  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO fixme *)
   mcomp type_pairs env rest1 rest2;
   if miss1 <> []  && (effect_row ty2).desc = Tenil
   || miss2 <> []  && (effect_row ty1).desc = Tenil then raise (Unify [])
@@ -2915,13 +2921,29 @@ and unify_kind k1 k2 =
   | (Fpresent, Fpresent)          -> ()
   | _                             -> assert false
 
+and unify_effect_constructors env ec1 ec2 =
+  match ec1, ec2 with
+  | Estate ec1, Estate ec2 -> unify env ec1.ec_region ec2.ec_region
+  | Eordinary ec1, Eordinary ec2 -> begin
+     unify_list env ec1.ec_args ec2.ec_args;
+     match ec1.ec_res, ec2.ec_res with
+     | None, None -> ()
+     | Some _, None
+       | None, Some _ ->
+        raise (Unify [])
+     | Some res1, Some res2 ->
+        unify env res1 res2
+    end
+  | _, _ -> raise (Unify [])
+
 and unify_effects env ty1 ty2 =          (* Optimization *)
   let (effs1, rest1) = flatten_effects ty1 in
   let (effs2, rest2) = flatten_effects ty2 in
-  let (miss1, miss2) = diff_effects !env effs1 effs2 in
+  let (miss1, miss2, pairs) = diff_effects !env effs1 effs2 in
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
   let va = make_rowvar (min l1 l2) Seffect (miss2=[]) rest1 (miss1=[]) rest2 in
   let d1 = rest1.desc and d2 = rest2.desc in
+  List.iter (fun (ec1,ec2) -> unify_effect_constructors env ec1 ec2) pairs;
   try
     unify env (build_effects l1 miss1 va) rest2;
     unify env rest1 (build_effects l2 miss2 va)
@@ -3406,7 +3428,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
 and moregen_effects inst_nongen type_pairs env ty1 ty2 =
   let (effs1, rest1) = flatten_effects ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2) = diff_effects env effs1 effs2 in
+  let (miss1, miss2,_) = diff_effects env effs1 effs2 in (* TODO FIXME *)
   if miss1 <> [] then raise (Unify []);
   moregen inst_nongen type_pairs env rest1
     (build_effects (repr ty2).level miss2 rest2)
@@ -3675,7 +3697,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
 and eqtype_effects rename type_pairs subst env ty1 ty2 =
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2) = diff_effects env effs1 effs2 in
+  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO FIXME *)
   eqtype rename type_pairs subst env rest1 rest2;
   if (miss1 <> []) || (miss2 <> []) then raise (Unify [])
 
@@ -4693,7 +4715,7 @@ and subtype_effects env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2) = diff_effects env effs1 effs2 in
+  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO FIXME *)
   let cstrs =
     match rest1.desc, rest2.desc with
     | Tenil, _ -> cstrs
@@ -5213,3 +5235,16 @@ let effect_state ec_region tail =
 
 let effect_io tail =
   effect_state (instance_def Predef.type_global) tail
+
+let new_eff_constr lbl arity ret =
+  let rec make_list = function
+    | 0 -> []
+    | n -> (newvar Stype) :: (make_list (n-1))
+  in
+  Eordinary {
+      ec_label = lbl;
+      ec_args  = make_list arity;
+      ec_res   = if ret
+                 then Some (newvar Stype)
+                 else None
+    }

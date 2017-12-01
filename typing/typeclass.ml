@@ -959,6 +959,7 @@ and class_expr cl_num val_env met_env scl =
               Texp_ident(path, mknoloc (Longident.Lident (Ident.name id)), vd);
               exp_loc = Location.none; exp_extra = [];
               exp_type = Ctype.instance val_env' vd.val_type;
+              exp_eff = Ctype.newvar Seffect;
               exp_attributes = []; (* check *)
               exp_env = val_env'})
           end
@@ -978,6 +979,7 @@ and class_expr cl_num val_env met_env scl =
             {exp_desc = Texp_constant (Asttypes.Const_int 1);
              exp_loc = Location.none; exp_extra = [];
              exp_type = Ctype.none;
+             exp_eff = Ctype.newvar Seffect;
              exp_attributes = [];
              exp_env = Env.empty }}]
       in
@@ -1129,6 +1131,7 @@ and class_expr cl_num val_env met_env scl =
                 Texp_ident(path, mknoloc(Longident.Lident (Ident.name id)),vd);
                 exp_loc = Location.none; exp_extra = [];
                 exp_type = Ctype.instance val_env vd.val_type;
+                exp_eff = Ctype.newvar Seffect;
                 exp_attributes = [];
                 exp_env = val_env;
                }

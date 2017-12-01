@@ -264,7 +264,7 @@ module MakeMap(Map : MapArgument) = struct
         | Tpat_lazy p -> Tpat_lazy (map_pattern p)
         | Tpat_exception p -> Tpat_exception (map_pattern p)
         | Tpat_effect (lbl, args, cont) ->
-          Tpat_effect (lbl, List.map map_pattern args, Misc.may_map map_pattern cont)
+          Tpat_effect (lbl, List.map map_pattern args, cont)
         | Tpat_constant _
         | Tpat_any
         | Tpat_var _ -> pat.pat_desc
