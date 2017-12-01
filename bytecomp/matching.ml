@@ -650,7 +650,7 @@ let simplify_cases cont args cls = match args with
               | _ ->
                   simplify ((pat_simple::patl,action) :: rem)
               end
-          | Tpat_effect(_, _, Some ({ pat_desc = Tpat_var (id, _); _})) -> begin
+          | Tpat_effect(_, _, Some (Some(id,_))) -> begin
               match cont with
               | Some lam ->
                   (pat :: patl, bind StrictOpt id lam action) :: simplify rem
@@ -772,7 +772,7 @@ let pat_as_constr = function
   | _ -> fatal_error "Matching.pat_as_constr"
 
 (* let pat_as_effect_constr = function
- *   | {pat_desc=Tpat_effect (_, _, _)} -> ecstr
+ *   | {pat_desc=Tpat_effect (lbl, args, cont)} -> assert false
  *   | _ -> fatal_error "Matching.pat_as_effect_constr" *)
 
 let group_constant = function
@@ -1050,8 +1050,8 @@ and split_constr cont cls args def k =
   | Tpat_any -> precompile_var cont args cls def k
   | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) ->
       split_extension cont cls args def k
-  | Tpat_effect _ -> assert false (* TODO: FIXME effect splitting *)
-      (* split_effect cont cls args def k *)
+  (* | Tpat_effect _ -> assert false (\* TODO: FIXME effect splitting *\)
+   *     (\* split_effect cont cls args def k *\) *)
   | _ ->
 
       let group = get_group ex_pat in
@@ -1645,20 +1645,20 @@ let divide_exception p ctx pm =
 
 (* Matching against an effect pattern *)
 
-(* let get_key_effect = function
- *   | {pat_desc=Tpat_effect (_, ecstr, _, _)} -> ecstr
- *   | _ -> assert false *)
+let get_key_effect = function
+  | {pat_desc=Tpat_effect (lbl, _, _)} -> Cstr_block (Btype.hash_variant lbl)
+  | _ -> assert false
 
 let get_args_effect p rem = match p with
 | {pat_desc=Tpat_effect (_, args, _)} -> args @ rem
 | _ -> assert false
 
-let matcher_effect ecstr p rem = match p.pat_desc with
+let matcher_effect lbl1 p rem = match p.pat_desc with
   | Tpat_or (_,_,_) -> raise OrPat
-  (* | Tpat_effect (lbl1, args, _)
-   *       when Ctype.equal_effect_constructor p.pat_env ecstr ecstr1 ->
-   *     args @ rem *) (* TODO: FIXME *)
-  | Tpat_any -> Parmatch.omegas (* TODO: FIXME ecstr.ecstr_arity @ *) rem
+  | Tpat_effect (lbl2, args, _)
+        when lbl1 = lbl2 ->
+     args @ rem
+  | Tpat_any -> Parmatch.omegas 0 (* TODO: FIXME ecstr.ecstr_arity @ *) @ rem
   | _        -> raise NoMatch
 
 let make_effect_matching p def ctx = function
@@ -1674,11 +1674,14 @@ let make_effect_matching p def ctx = function
        *  ctx = filter_ctx p ctx;
        *  pat=normalize_pat p} *)
 
-(* let divide_effect ctx pm =
- *   divide
- *     make_effect_matching
- *     Ctype.equal_effect_constructor get_key_effect get_args_effect
- *     ctx pm *)
+let divide_effect ctx pm =
+  divide
+    make_effect_matching
+    (fun _ l l' -> l = l')
+    get_key_effect
+    get_args_effect
+    ctx pm
+
 
 (* Matching against a tuple pattern *)
 
@@ -3006,11 +3009,11 @@ and do_compile_matching cont repr partial ctx arg pmh = match pmh with
       compile_no_test cont
         (divide_exception (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_effect (_ecstr, _, _) -> assert false (* TODO: FIXME pattern matching compilation *)
-      (* compile_test
-       *   (compile_match cont repr partial) partial
-       *   divide_effect (combine_effect arg pat partial)
-       *   ctx pm *)
+  | Tpat_effect (lbl, _, _) -> (* TODO: FIXME pattern matching compilation *)
+      compile_test
+        (compile_match cont repr partial) partial
+        divide_effect (combine_effect arg pat partial)
+        ctx pm
   | Tpat_variant(lab, _, row) ->
       compile_test (compile_match cont repr partial) partial
         (divide_variant !row)
