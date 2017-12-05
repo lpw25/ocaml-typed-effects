@@ -1147,7 +1147,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
       let eff =
-        Expected (Ctype.instance_def Predef.type_io_gen)
+        Expected (Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)))
       in
       let body = type_module sttn funct_body None newenv eff sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
@@ -1161,7 +1161,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
         | Toplevel _ -> ()
         | Expected eff ->
             let io =
-              Ctype.instance_def Predef.type_io_gen
+              Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
             in
             try
               Ctype.unify env io eff

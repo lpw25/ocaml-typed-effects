@@ -871,15 +871,15 @@ and transl_effect_row_with_tail env policy row tail =
         Some typ, typ.ctyp_type
   in
   let tefr_type =
-    List.fold_left
-      (fun tail ec ->
+    List.fold_right
+      (fun ec tail ->
         let tyec =
           { ec_label = ec.Typedtree.ec_label;
             ec_args = List.map (fun ctyp -> ctyp.ctyp_type) ec.ec_args;
             ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) ec.ec_res; }
         in
-         newty (Teffect(Eordinary tyec, tail)))
-      row tefr_effects
+        newty (Teffect(Eordinary tyec, tail)))
+      tefr_effects row
   in
   { efr_effects = tefr_effects;
     efr_type = tefr_type;
@@ -922,7 +922,7 @@ and transl_effect_type env policy seft =
   in
   let ty =
     if seft.peft_io then
-      instance_def (Predef.type_io_gen) (* TODO: FIXME don't discard tail here *)
+      instance_def (effect_io tail)
     else
       tail
   in
