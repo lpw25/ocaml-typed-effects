@@ -273,11 +273,13 @@ and print_simple_out_type ppf =
          pp_print_string ppf ")"
      in
      match res_opt with
-     | None ->
+     | None when label <> "io" ->
         fprintf ppf
           "%s of %a"
           label
           print_args args
+     | None ->
+        fprintf ppf "%s" label
      | Some res when nargs > 0 ->
         fprintf ppf
           "%s : %a -> %a"
