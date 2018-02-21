@@ -54,8 +54,9 @@ type error =
   | Ill_typed_functor_application of Longident.t
   | Illegal_reference_to_recursive_module
   | Access_functor_as_structure of Longident.t
-  | Unexpected_value_type
-  | Unexpected_effect_type
+  | Unexpected_value_type of bool
+  | Unexpected_effect_type of bool
+  | Unexpected_region_type of bool
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -73,6 +74,7 @@ let string_of_var name sort =
   match sort with
   | Stype -> "'" ^ name
   | Seffect -> "!" ^ name
+  | Sregion -> "@" ^ name
 
 let rec error_of_extension ext =
   match ext with
@@ -382,6 +384,7 @@ let newvar ?name sort =
 let transl_sort = function
   | Type -> Stype
   | Effect -> Seffect
+  | Region -> Sregion
 
 let approx_type_param (styp, _) =
   match styp.ptyp_desc with
@@ -433,10 +436,20 @@ let check_sort loc env expected_sort sort =
   | None, _ -> ()
   | Some Seffect, Seffect -> ()
   | Some Stype, Stype -> ()
+  | Some Sregion, Sregion -> ()
   | Some Seffect, Stype ->
-      raise (Error (loc, env, Unexpected_value_type))
+      raise (Error (loc, env, Unexpected_value_type true))
+  | Some Seffect, Sregion ->
+      raise (Error (loc, env, Unexpected_region_type false))
   | Some Stype, Seffect ->
-      raise (Error (loc, env, Unexpected_effect_type))
+      raise (Error (loc, env, Unexpected_effect_type true))
+  | Some Stype, Sregion ->
+      raise (Error (loc, env, Unexpected_region_type true))
+  | Some Sregion, Seffect ->
+      raise (Error (loc, env, Unexpected_effect_type false))
+  | Some Sregion, Stype ->
+      raise (Error (loc, env, Unexpected_value_type false))
+
 
 type policy = Fixed | Extensible | Univars
 
@@ -1197,10 +1210,16 @@ let report_error env ppf = function
       fprintf ppf "Illegal recursive module reference"
   | Access_functor_as_structure lid ->
       fprintf ppf "The module %a is a functor, not a structure" longident lid
-  | Unexpected_value_type ->
-      fprintf ppf "This is a value type but an effect type was expected"
-  | Unexpected_effect_type ->
-      fprintf ppf "This is an effect type but a value type was expected"
+  | Unexpected_value_type e ->
+      fprintf ppf "This is a value type but %s type was expected"
+              (if e then "an effect" else "a region")
+  | Unexpected_effect_type v ->
+      fprintf ppf "This is an effect type but a %s type was expected"
+              (if v then "value" else "region")
+  | Unexpected_region_type v ->
+      fprintf ppf "This is a region type but %s type was expected"
+              (if v then "a value" else "an effect")
+
 
 let () =
   Location.register_error_of_exn

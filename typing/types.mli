@@ -17,6 +17,7 @@ open Asttypes
 type type_sort =
   | Stype
   | Seffect
+  | Sregion
 
 (* Type expressions for the core language *)
 

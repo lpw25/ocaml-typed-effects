@@ -73,6 +73,7 @@ let keyword_table =
 (*  "parser", PARSER; *)
     "private", PRIVATE;
     "rec", REC;
+    "region", REGION;
     "sig", SIG;
     "struct", STRUCT;
     "then", THEN;
@@ -499,13 +500,16 @@ rule token = parse
   | "-"  { MINUS }
   | "-." { MINUSDOT }
   | "!~" { BANGTILDE }
+  | "@"  { AT }
   | "!" symbolchar +
             { PREFIXOP(Lexing.lexeme lexbuf) }
   | ['~' '?'] symbolchar +
             { PREFIXOP(Lexing.lexeme lexbuf) }
   | ['=' '<' '>' '|' '&' '$'] symbolchar *
             { INFIXOP0(Lexing.lexeme lexbuf) }
-  | ['@' '^'] symbolchar *
+  | "^" symbolchar *
+            { INFIXOP1(Lexing.lexeme lexbuf) }
+  | "@" symbolchar +
             { INFIXOP1(Lexing.lexeme lexbuf) }
   | ['+' '-'] symbolchar *
             { INFIXOP2(Lexing.lexeme lexbuf) }

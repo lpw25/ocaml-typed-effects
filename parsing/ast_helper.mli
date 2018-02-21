@@ -39,7 +39,7 @@ module Typ :
     val attr: core_type -> attribute -> core_type
 
     val any: ?loc:loc -> ?attrs:attrs -> unit -> core_type
-    val var: ?loc:loc -> ?attrs:attrs -> string -> effect_flag -> core_type
+    val var: ?loc:loc -> ?attrs:attrs -> string -> sort -> core_type
     val arrow: ?loc:loc -> ?attrs:attrs -> label -> core_type
                -> effect_type -> core_type -> core_type
     val tuple: ?loc:loc -> ?attrs:attrs -> core_type list -> core_type
@@ -49,11 +49,11 @@ module Typ :
                   core_type
     val class_: ?loc:loc -> ?attrs:attrs -> lid -> core_type list -> core_type
     val alias: ?loc:loc -> ?attrs:attrs ->
-                 core_type -> string -> effect_flag -> core_type
+                 core_type -> string -> sort -> core_type
     val variant: ?loc:loc -> ?attrs:attrs -> row_field list -> closed_flag
                  -> label list option -> core_type
     val poly: ?loc:loc -> ?attrs:attrs ->
-              (string * effect_flag) list -> core_type -> core_type
+              (string * sort) list -> core_type -> core_type
     val package: ?loc:loc -> ?attrs:attrs -> lid -> (lid * core_type) list
                  -> core_type
     val effect_: ?loc:loc -> ?attrs:attrs -> effect_row -> core_type
@@ -146,7 +146,7 @@ module Exp:
     val poly: ?loc:loc -> ?attrs:attrs -> expression -> core_type option -> expression
     val object_: ?loc:loc -> ?attrs:attrs -> class_structure -> expression
     val newtype:
-      ?loc:loc -> ?attrs:attrs -> string -> effect_flag -> expression
+      ?loc:loc -> ?attrs:attrs -> string -> sort -> expression
       -> expression
     val pack: ?loc:loc -> ?attrs:attrs -> module_expr -> expression
     val open_: ?loc:loc -> ?attrs:attrs -> override_flag -> lid -> expression -> expression
@@ -168,7 +168,7 @@ module Type:
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
       ?params:(core_type * variance) list ->
       ?cstrs:(core_type * core_type * loc) list ->
-      ?sort:effect_flag -> ?kind:type_kind -> ?priv:private_flag ->
+      ?sort:sort -> ?kind:type_kind -> ?priv:private_flag ->
       ?manifest:core_type -> str ->
       type_declaration
 

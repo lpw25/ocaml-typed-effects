@@ -86,7 +86,7 @@ and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], Stype, ref Mnil))
 and type_bytes = newgenty (Tconstr(path_bytes, [], Stype, ref Mnil))
 and type_io_gen = newgenty (Tconstr(path_io, [], Seffect, ref Mnil))
 and type_io level = newty2 level (Tconstr(path_io, [], Seffect, ref Mnil))
-and type_global = newgenty (Tconstr(path_global, [], Seffect, ref Mnil))
+and type_global = newgenty (Tconstr(path_global, [], Sregion, ref Mnil))
 and type_state t = newgenty (Tconstr(path_state, [t], Seffect, ref Mnil))
 
 let ident_match_failure = ident_create_predef_exn "Match_failure"
@@ -192,9 +192,11 @@ let common_initial_env add_type add_extension empty_env =
     {decl_abstr with
      type_sort = Seffect;
      type_manifest = Some (type_state type_global)}
-  and decl_global = decl_abstr
+  and decl_global =
+    {decl_abstr with
+     type_sort = Sregion}
   and decl_state =
-    let tvar = newgenvar Stype in
+    let tvar = newgenvar Sregion in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;

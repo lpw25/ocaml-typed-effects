@@ -95,6 +95,7 @@ let type_variance = function
 let type_sort = function
   | Type -> ""
   | Effect -> ": effect"
+  | Region -> ": region"
 
 type construct =
   [ `cons of expression list
@@ -221,6 +222,7 @@ class printer  ()= object(self:'self)
     match v with
     | (str, Type) -> pp f "'%s" str
     | (str, Effect) -> pp f "!%s" str
+    | (str, Region) -> pp f "@%s" str
 
   method string_quot f x = pp f "`%s" x
 

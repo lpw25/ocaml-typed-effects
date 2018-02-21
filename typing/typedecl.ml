@@ -50,6 +50,7 @@ type error =
   | Varying_anonymous
   | Not_allowed_in_functor_body
   | Effect_type_with_definition
+  | Region_type_with_definition
 
 open Typedtree
 
@@ -283,8 +284,11 @@ let transl_declaration env sdecl id =
     begin match sort, kind with
     | Stype, _ -> ()
     | Seffect, Type_abstract -> ()
+    | Sregion, Type_abstract -> ()
     | Seffect, (Type_variant _ | Type_record _ | Type_open) ->
         raise(Error(sdecl.ptype_loc, Effect_type_with_definition))
+    | Sregion, (Type_variant _ | Type_record _ | Type_open) ->
+        raise(Error(sdecl.ptype_loc, Region_type_with_definition))
     end;
     let (tman, man) = match sdecl.ptype_manifest with
         None -> None, None
@@ -1578,6 +1582,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
     match orig_decl.type_sort with
     | Stype -> Asttypes.Type
     | Seffect -> Asttypes.Effect
+    | Sregion -> Asttypes.Region
   in
   {
     typ_id = id;
@@ -1856,6 +1861,10 @@ let report_error ppf = function
   | Effect_type_with_definition ->
       fprintf ppf "@[%s@ %s@]"
         "This definition was expected to be an effect type,"
+        "but it is a value type"
+  | Region_type_with_definition ->
+      fprintf ppf "@[%s@ %s@]"
+        "This definition was expected to be a region type,"
         "but it is a value type"
 
 let () =

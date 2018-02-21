@@ -41,6 +41,8 @@ let tvar_none = Tvar(None, Stype)
 let tunivar_none = Tunivar(None, Stype)
 let evar_none = Tvar(None, Seffect)
 let eunivar_none = Tunivar(None, Seffect)
+let rvar_none = Tvar(None, Sregion)
+let runivar_name = Tunivar(None, Sregion)
 
 (**** Some type creators ****)
 
@@ -89,9 +91,11 @@ let rec type_sort ty =
 let equal_sort sort1 sort2 =
   match sort1, sort2 with
   | Stype, Stype -> true
+  | Stype, (Seffect | Sregion) -> false
   | Seffect, Seffect -> true
-  | Stype, Seffect -> false
-  | Seffect, Stype -> false
+  | Seffect, (Stype | Sregion) -> false
+  | Sregion, Sregion -> true
+  | Sregion, (Stype | Seffect) -> false
 
 (**** Representative of a type ****)
 
@@ -434,6 +438,8 @@ let rec copy_type_desc ?(keep_names=false) f = function
      if keep_names then ty else tvar_none
   | Tvar(name, Seffect) as ty ->
      if keep_names then ty else evar_none
+  | Tvar(name, Sregion) as ty ->
+     if keep_names then ty else rvar_none
   | Tarrow (p, ty1, ty2, ty3, c)->
       Tarrow (p, f ty1, f ty2, f ty3, copy_commu c)
   | Ttuple l            -> Ttuple (List.map f l)

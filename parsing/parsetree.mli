@@ -52,7 +52,7 @@ and core_type =
 and core_type_desc =
   | Ptyp_any
         (*  _ *)
-  | Ptyp_var of string * effect_flag
+  | Ptyp_var of string * sort
         (* 'a *)
   | Ptyp_arrow of label * core_type * effect_type * core_type
         (* T1 -> T2       (label = "")
@@ -78,7 +78,7 @@ and core_type_desc =
            T #tconstr
            (T1, ..., Tn) #tconstr
          *)
-  | Ptyp_alias of core_type * string * effect_flag
+  | Ptyp_alias of core_type * string * sort
         (* T as 'a *)
   | Ptyp_variant of row_field list * closed_flag * label list option
         (* [ `A|`B ]         (flag = Closed; labels = None)
@@ -86,7 +86,7 @@ and core_type_desc =
            [< `A|`B ]        (flag = Closed; labels = Some [])
            [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
          *)
-  | Ptyp_poly of (string * effect_flag) list * core_type
+  | Ptyp_poly of (string * sort) list * core_type
         (* 'a1 ... 'an. T
 
            Can only appear in the following context:
@@ -334,7 +334,7 @@ and expression_desc =
            for methods (not values). *)
   | Pexp_object of class_structure
         (* object ... end *)
-  | Pexp_newtype of string * effect_flag * expression
+  | Pexp_newtype of string * sort * expression
         (* fun (type t) -> E *)
   | Pexp_pack of module_expr
         (* (module ME)
@@ -383,7 +383,7 @@ and type_declaration =
      ptype_cstrs: (core_type * core_type * Location.t) list;
            (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
      ptype_kind: type_kind;
-     ptype_sort: effect_flag;
+     ptype_sort: sort;
      ptype_private: private_flag;   (* = private ... *)
      ptype_manifest: core_type option;  (* = T *)
      ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)

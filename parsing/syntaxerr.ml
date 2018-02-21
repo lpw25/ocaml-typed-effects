@@ -17,7 +17,7 @@ type error =
   | Expecting of Location.t * string
   | Not_expecting of Location.t * string
   | Applicative_path of Location.t
-  | Variable_in_scope of Location.t * string * Asttypes.effect_flag
+  | Variable_in_scope of Location.t * string * Asttypes.sort
   | Other of Location.t
   | Ill_formed_ast of Location.t * string
 
@@ -50,6 +50,7 @@ let prepare_error = function
         match sort with
         | Asttypes.Type -> "'"
         | Asttypes.Effect -> "!"
+        | Asttypes.Region -> "@"
       in
       Location.errorf ~loc
         "Error: In this scoped type, variable %s%s \

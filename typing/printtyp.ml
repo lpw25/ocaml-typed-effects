@@ -125,6 +125,7 @@ let print_name ppf = function
 let raw_type_sort ppf = function
   | Stype -> fprintf ppf "Stype"
   | Seffect -> fprintf ppf "Seffect"
+  | Sregion -> fprintf ppf "Sregion"
 
 let option f ppf x =
   match x with
@@ -403,6 +404,7 @@ let best_type_path p =
 let names = ref ([] : (type_expr * (string * type_sort)) list)
 let type_name_counter = ref 0
 let effect_name_counter = ref 0
+let region_name_counter = ref 0
 let named_vars = ref ([] : (string * type_sort) list)
 let tilde_effect_var = ref (None : type_expr option)
 let single_effect_var = ref true
@@ -411,6 +413,7 @@ let reset_names () =
   names := [];
   type_name_counter := 0;
   effect_name_counter := 0;
+  region_name_counter := 0;
   named_vars := [];
   tilde_effect_var := None;
   single_effect_var := true
@@ -418,6 +421,7 @@ let reset_names () =
 let tree_of_name = function
   | (name, Stype) -> (name, Osrt_type)
   | (name, Seffect) -> (name, Osrt_effect)
+  | (name, Sregion) -> (name, Osrt_region)
 
 let add_named_var ty =
   match ty.desc with
@@ -455,6 +459,7 @@ let rec new_name sort =
         match sort with
         | Stype -> type_name_counter, 0
         | Seffect -> effect_name_counter, 15
+        | Sregion -> region_name_counter, 20
       in
       let num = (!name_counter + offset) mod 26 in
       let base = String.make 1 (Char.chr(97 + num)) in

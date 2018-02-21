@@ -15,7 +15,7 @@
 open Types
 
 val transl_sort:
-        Asttypes.effect_flag -> Types.type_sort
+        Asttypes.sort -> Types.type_sort
 val transl_simple_type:
         Env.t -> bool -> Types.type_sort option ->
         Parsetree.core_type -> Typedtree.core_type
@@ -73,8 +73,9 @@ type error =
   | Ill_typed_functor_application of Longident.t
   | Illegal_reference_to_recursive_module
   | Access_functor_as_structure of Longident.t
-  | Unexpected_value_type
-  | Unexpected_effect_type
+  | Unexpected_value_type of bool
+  | Unexpected_effect_type of bool
+  | Unexpected_region_type of bool
 
 exception Error of Location.t * Env.t * error
 

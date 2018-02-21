@@ -160,6 +160,7 @@ let pr_var ppf ng (s, sort) =
     match sort with
     | Osrt_type -> fprintf ppf "'%s%s" (if ng then "_" else "") s
     | Osrt_effect -> fprintf ppf "!%s%s" (if ng then "_" else "") s
+    | Osrt_region -> fprintf ppf "@%s%s" (if ng then "_" else "") s
 
 let pr_gvar ppf v =
   pr_var ppf false v

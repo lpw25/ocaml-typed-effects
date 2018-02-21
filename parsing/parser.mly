@@ -441,6 +441,7 @@ let class_of_let_bindings lbs body =
 %token AND
 %token AS
 %token ASSERT
+%token AT
 %token BACKQUOTE
 %token BANG
 %token BANGTILDE
@@ -542,6 +543,7 @@ let class_of_let_bindings lbs body =
 %token RBRACKETTILDEGREATER
 %token RBRACKETTILDEGREATERGREATER
 %token REC
+%token REGION
 %token RPAREN
 %token SEMI
 %token SEMISEMI
@@ -617,7 +619,7 @@ The precedences must be listed from low to high.
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
 %nonassoc below_EQUAL
 %left     INFIXOP0 EQUAL LESS GREATER   /* expr (e OP e OP e) */
-%right    INFIXOP1                      /* expr (e OP e OP e) */
+%right    AT INFIXOP1                   /* expr (e OP e OP e) */
 %nonassoc below_LBRACKETAT
 %nonassoc LBRACKETAT
 %nonassoc LBRACKETATAT
@@ -1368,6 +1370,8 @@ expr:
       { mkinfix $1 "&&" $3 }
   | expr COLONEQUAL expr
       { mkinfix $1 ":=" $3 }
+  | expr AT expr
+      { mkinfix $1 "@" $3 }
   | subtractive expr %prec prec_unary_minus
       { mkuminus $1 $2 }
   | additive expr %prec prec_unary_plus
@@ -1532,18 +1536,23 @@ poly_type_list_multi:
       { [$1, Type] }
   | LPAREN LIDENT COLON EFFECT RPAREN
       { [$2, Effect] }
+  | LPAREN LIDENT COLON REGION RPAREN
+      { [$2, Region] }
   | LPAREN LIDENT COLON TYPE RPAREN
       { [$2, Type] }
   | LIDENT poly_type_list_multi
       { ($1, Type) :: $2 }
   | LPAREN LIDENT COLON EFFECT RPAREN poly_type_list_multi
       { ($2, Effect) :: $6 }
+  | LPAREN LIDENT COLON REGION RPAREN poly_type_list_multi
+      { ($2, Region) :: $6 }
   | LPAREN LIDENT COLON TYPE RPAREN poly_type_list_multi
       { ($2, Type) :: $6 }
 ;
 poly_type_list:
   | poly_type_list_multi              { $1 }
   | LIDENT COLON EFFECT               { [$1, Effect] }
+  | LIDENT COLON REGION               { [$1, Region] }
   | LIDENT COLON TYPE                 { [$1, Type] }
 ;
 let_binding_body:
@@ -1833,10 +1842,12 @@ constraints:
 type_sort:
     /* empty */
       { Type }
-  | COLON TYPE
-      { Type }
   | COLON EFFECT
       { Effect }
+  | COLON REGION
+      { Region }
+  | COLON TYPE
+      { Type }
 ;
 
 type_kind:
@@ -1876,6 +1887,7 @@ optional_type_parameter_list:
 optional_type_variable:
     QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
+  | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
   | UNDERSCORE                                  { mktyp(Ptyp_any) }
 ;
 
@@ -1896,6 +1908,7 @@ type_variance:
 type_variable:
     QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
+  | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
 ;
 type_parameter_list:
     type_parameter                              { [$1] }
@@ -2068,10 +2081,12 @@ typevar_list:
       | BANG ident                              { [$2, Effect] }
       | BANG TILDE                              { ["~", Effect] }
       | BANGTILDE                               { ["~", Effect] }
+      | AT ident                                { [$2, Region] }
       | typevar_list QUOTE ident                { ($3, Type) :: $1 }
       | typevar_list BANG ident                 { ($3, Effect) :: $1 }
       | typevar_list BANG TILDE                 { ("~", Effect) :: $1 }
       | typevar_list BANGTILDE                  { ("~", Effect) :: $1 }
+      | typevar_list AT ident                   { ($3, Region) :: $1 }
 ;
 poly_type:
         core_type
@@ -2101,6 +2116,8 @@ core_type_no_attr:
       { mktyp(Ptyp_alias($1, $4, Type)) }
   | core_type2 AS BANG ident
       { mktyp(Ptyp_alias($1, $4, Effect)) }
+  | core_type2 AS AT ident
+      { mktyp(Ptyp_alias($1, $4, Region)) }
 ;
 core_type2:
     simple_core_type_or_tuple
@@ -2210,6 +2227,8 @@ simple_core_type2:
       { mktyp(Ptyp_var("~", Effect)) }
   | BANGTILDE
       { mktyp(Ptyp_var("~", Effect)) }
+  | AT ident
+      { mktyp(Ptyp_var($2, Region)) }
   | UNDERSCORE
       { mktyp(Ptyp_any) }
   | type_longident
@@ -2387,6 +2406,7 @@ operator:
   | COLONEQUAL                                  { ":=" }
   | PLUSEQ                                      { "+=" }
   | PERCENT                                     { "%" }
+  | AT                                          { "@" }
 ;
 constr_ident:
     UIDENT                                      { $1 }

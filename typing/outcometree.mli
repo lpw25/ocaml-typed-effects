@@ -45,6 +45,7 @@ type out_value =
 type out_sort =
   | Osrt_type
   | Osrt_effect
+  | Osrt_region
 
 type out_type =
   | Otyp_abstract

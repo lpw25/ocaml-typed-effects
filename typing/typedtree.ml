@@ -75,7 +75,7 @@ and exp_extra =
   | Texp_coerce of core_type option * core_type
   | Texp_open of override_flag * Path.t * Longident.t loc * Env.t
   | Texp_poly of core_type option
-  | Texp_newtype of string * effect_flag
+  | Texp_newtype of string * sort
 
 and expression_desc =
     Texp_ident of Path.t * Longident.t loc * Types.value_description
@@ -354,15 +354,15 @@ and core_type =
 
 and core_type_desc =
     Ttyp_any
-  | Ttyp_var of string * effect_flag
+  | Ttyp_var of string * sort
   | Ttyp_arrow of label * core_type * effect_type * core_type
   | Ttyp_tuple of core_type list
   | Ttyp_constr of Path.t * Longident.t loc * core_type list
   | Ttyp_object of (string * attributes * core_type) list * closed_flag
   | Ttyp_class of Path.t * Longident.t loc * core_type list
-  | Ttyp_alias of core_type * string * effect_flag
+  | Ttyp_alias of core_type * string * sort
   | Ttyp_variant of row_field list * closed_flag * label list option
-  | Ttyp_poly of (string * effect_flag) list * core_type
+  | Ttyp_poly of (string * sort) list * core_type
   | Ttyp_package of package_type
   | Ttyp_effect of effect_row
 
@@ -408,7 +408,7 @@ and type_declaration =
     typ_type: Types.type_declaration;
     typ_cstrs: (core_type * core_type * Location.t) list;
     typ_kind: type_kind;
-    typ_sort: effect_flag;
+    typ_sort: sort;
     typ_private: private_flag;
     typ_manifest: core_type option;
     typ_loc: Location.t;
