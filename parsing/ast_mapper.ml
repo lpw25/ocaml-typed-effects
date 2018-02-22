@@ -376,8 +376,8 @@ module E = struct
           (sub.typ sub t2)
     | Pexp_constraint (e, t) ->
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
-    | Pexp_perform (s, arg) ->
-        perform_ ~loc ~attrs s (List.map (sub.expr sub) arg)
+    | Pexp_perform (s, arg, b) ->
+        perform_ ~loc ~attrs s (List.map (sub.expr sub) arg) b
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
     | Pexp_new lid -> new_ ~loc ~attrs (map_loc sub lid)
     | Pexp_setinstvar (s, e) ->

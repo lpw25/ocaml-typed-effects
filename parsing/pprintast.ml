@@ -761,6 +761,12 @@ class printer  ()= object(self:'self)
         let fmt:(_,_,_)format =
           "@[<hv0>@[<hv2>@[<2>for %a =@;%a@;%a%a@;do@]@;%a@]@;done@]" in
         pp f fmt self#pattern s self#expression e1 self#direction_flag df self#expression e2  self#expression e3
+    | Pexp_perform (l, el, true) ->
+        pp f "@[<2>perform %s(%a)@]"
+           l (self#list self#simple_expr ~sep:",@;") el
+    | Pexp_perform (l, el, false) ->
+        pp f "@[<2>throw %s(%a)@]"
+           l (self#list self#simple_expr ~sep:",@;") el
     | _ ->  self#paren true self#expression f x
 
   method attributes f l =

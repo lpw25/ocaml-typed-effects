@@ -135,7 +135,7 @@ module Exp:
     val send: ?loc:loc -> ?attrs:attrs -> expression -> string -> expression
     val new_: ?loc:loc -> ?attrs:attrs -> lid -> expression
     val perform_:
-      ?loc:loc -> ?attrs:attrs -> label -> expression list -> expression
+      ?loc:loc -> ?attrs:attrs -> label -> expression list -> bool -> expression
     val setinstvar: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val override: ?loc:loc -> ?attrs:attrs -> (str * expression) list
                   -> expression

@@ -370,8 +370,8 @@ and expression i ppf x =
       expression i ppf e;
       option i core_type ppf cto1;
       core_type i ppf cto2;
-  | Pexp_perform (s, l) ->
-      line i ppf "Pexp_perfrom %s\n" s;
+  | Pexp_perform (s, l, b) ->
+      line i ppf "Pexp_perfrom %s %a\n" s fmt_bool b;
       list i expression ppf l;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;

@@ -353,8 +353,8 @@ and untype_expression exp =
         Pexp_for (name,
           untype_expression exp1, untype_expression exp2,
           dir, untype_expression exp3)
-    | Texp_perform (lbl, args) ->
-        Pexp_perform (lbl, List.map untype_expression args)
+    | Texp_perform (lbl, args, b) ->
+        Pexp_perform (lbl, List.map untype_expression args, b)
     | Texp_send (exp, meth, _) ->
         Pexp_send (untype_expression exp, match meth with
             Tmeth_name name -> name

@@ -162,7 +162,7 @@ let expression sub exp =
       sub # expression exp1;
       sub # expression exp2;
       sub # expression exp3
-  | Texp_perform (_, args) ->
+  | Texp_perform (_, args, _) ->
       List.iter (sub # expression) args
   | Texp_send (exp, _meth, expo) ->
       sub # expression exp;

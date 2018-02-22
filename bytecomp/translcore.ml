@@ -855,7 +855,7 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(lbl, args) ->
+  | Texp_perform(lbl, args, returns) ->
       let tag = Lconst(Const_pointer (Btype.hash_variant lbl)) in
       let constr =
         match args with
@@ -863,11 +863,10 @@ and transl_exp0 e =
         | args ->
             Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
       in
-      let is_throw = false in
-      if is_throw then
-        Lprim(Praise Raise_notrace, [event_after e constr])
-      else
+      if returns then
         Lprim(Pperform e.exp_loc, [event_after e constr])
+      else
+        Lprim(Praise Raise_notrace, [event_after e constr])
   | Texp_send(_, _, Some exp) -> transl_exp exp
   | Texp_send(expr, met, None) ->
       let obj = transl_exp expr in

@@ -554,6 +554,7 @@ let class_of_let_bindings lbs body =
 %token <string * string option> STRING
 %token STRUCT
 %token THEN
+%token THROW
 %token TILDE
 %token TILDEGREATER
 %token TILDEGREATERGREATER
@@ -1325,7 +1326,9 @@ expr:
     seq_expr DONE
       { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
   | PERFORM ext_attributes ident LPAREN effect_arg_list RPAREN
-      { mkexp_attrs (Pexp_perform($3, $5)) $2 }
+      { mkexp_attrs (Pexp_perform($3, $5, true)) $2 }
+  | THROW ext_attributes ident LPAREN effect_arg_list RPAREN
+      { mkexp_attrs (Pexp_perform($3, $5, false)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -2543,6 +2546,7 @@ single_attr_id:
   | DO { "do" }
   | DONE { "done" }
   | DOWNTO { "downto" }
+  | EFFECT { "effect" }
   | ELSE { "else" }
   | END { "end" }
   | EXCEPTION { "exception" }
@@ -2571,9 +2575,11 @@ single_attr_id:
   | PERFORM { "perform" }
   | PRIVATE { "private" }
   | REC { "rec" }
+  | REGION { "region" }
   | SIG { "sig" }
   | STRUCT { "struct" }
   | THEN { "then" }
+  | THROW { "throw" }
   | TO { "to" }
   | TRUE { "true" }
   | TRY { "try" }

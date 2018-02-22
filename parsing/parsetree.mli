@@ -309,8 +309,9 @@ and expression_desc =
         (* (E :> T)        (None, T)
            (E : T0 :> T)   (Some T0, T)
          *)
-  | Pexp_perform of label * expression list
-        (* perform E *)
+  | Pexp_perform of label * expression list * bool
+        (* perform E     true
+           throw E       false *)
   | Pexp_send of expression * string
         (*  E # m *)
   | Pexp_new of Longident.t loc

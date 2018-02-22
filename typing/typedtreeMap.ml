@@ -368,8 +368,8 @@ module MakeMap(Map : MapArgument) = struct
             dir,
             map_expression exp3
           )
-        | Texp_perform (lbl, args) ->
-          Texp_perform (lbl, List.map map_expression args)
+        | Texp_perform (lbl, args, b) ->
+          Texp_perform (lbl, List.map map_expression args, b)
         | Texp_send (exp, meth, expo) ->
           Texp_send (map_expression exp, meth, may_map map_expression expo)
         | Texp_new (path, lid, cl_decl) -> exp.exp_desc

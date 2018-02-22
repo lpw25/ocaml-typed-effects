@@ -77,6 +77,7 @@ let keyword_table =
     "sig", SIG;
     "struct", STRUCT;
     "then", THEN;
+    "throw", THROW;
     "to", TO;
     "true", TRUE;
     "try", TRY;

@@ -205,7 +205,7 @@ let rec add_expr bv exp =
   | Pexp_constraint(e1, ty2) ->
       add_expr bv e1;
       add_type bv ty2
-  | Pexp_perform(_l, es) -> List.iter (add_expr bv) es
+  | Pexp_perform(_, es, _) -> List.iter (add_expr bv) es
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e

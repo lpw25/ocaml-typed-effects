@@ -381,8 +381,8 @@ and expression i ppf x =
       expression i ppf e1;
       expression i ppf e2;
       expression i ppf e3;
-  | Texp_perform (lbl, eo) ->
-      line i ppf "Pexp_perform %s\n" lbl;
+  | Texp_perform (lbl, eo, b) ->
+      line i ppf "Pexp_perform %s %s\n" lbl (string_of_bool b);
       list i expression ppf eo;
   | Texp_send (e, Tmeth_name s, eo) ->
       line i ppf "Pexp_send \"%s\"\n" s;

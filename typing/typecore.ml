@@ -144,7 +144,7 @@ let iter_expression f e =
     | Pexp_let (_, pel, e) ->  expr e; List.iter binding pel
     | Pexp_match (e, pel)
     | Pexp_try (e, pel) -> expr e; List.iter case pel
-    | Pexp_perform (_, el)
+    | Pexp_perform (_, el, _)
     | Pexp_array el
     | Pexp_tuple el -> List.iter expr el
     | Pexp_construct (_, eo)
@@ -2802,9 +2802,9 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       with Unify _ ->
         raise(Error(e.pexp_loc, env, Undefined_method (obj.exp_type, met)))
       end
-  | Pexp_perform(lid, sarg) ->
+  | Pexp_perform(lid, sarg, returns) ->
       type_perform env loc expected_eff lid sarg
-        sexp.pexp_attributes ty_expected
+        returns sexp.pexp_attributes ty_expected
   | Pexp_new cl ->
       let (cl_path, cl_decl) = Typetexp.find_class env loc cl.txt in
       begin match cl_decl.cty_new with
@@ -3843,7 +3843,7 @@ and type_construct env loc lid sarg ty_expected expected_eff attrs =
   { texp with
     exp_desc = Texp_construct(lid, constr, args) }
 
-and type_perform env loc expected_eff label sargs attrs ty_expected =
+and type_perform env loc expected_eff label sargs returns attrs ty_expected =
   (* Make sure that label is not the reserved name `state' *)
   if label = "state" then
     raise (Error (loc, env, Cannot_perform_state));
@@ -3851,24 +3851,28 @@ and type_perform env loc expected_eff label sargs attrs ty_expected =
   let ty_args = List.map (type_exp env expected_eff) sargs in
   let targs = List.map (fun e -> e.exp_type) ty_args in
   (* Construct result type *)
-  let ty_res = instance env ty_expected in
+  let exp_ty = instance env ty_expected in
+  let res_ty =
+    if returns then Some exp_ty
+    else None
+  in
   (* Construct corresponding effect row *)
   let eff =
     let ec =
       Eordinary
         { ec_label = label;
           ec_args = targs;
-          ec_res  = Some ty_res }
+          ec_res  = res_ty }
     in
     newty (Teffect(ec, newvar Seffect))
   in
   (* Unify with the context *)
   unify_exp_effects loc env eff expected_eff;
   re {
-    exp_desc = Texp_perform(label, ty_args);
+    exp_desc = Texp_perform(label, ty_args, returns);
     exp_loc = loc;
     exp_extra = [];
-    exp_type = ty_res;
+    exp_type = exp_ty;
     exp_eff = eff;
     exp_attributes = attrs;
     exp_env = env }

@@ -353,7 +353,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_expression exp1;
             iter_expression exp2;
             iter_expression exp3
-        | Texp_perform (_, args) ->
+        | Texp_perform (_, args, _) ->
             List.iter iter_expression args
         | Texp_send (exp, meth, expo) ->
             iter_expression exp;
