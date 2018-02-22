@@ -97,11 +97,17 @@ val flatten_effects:
 val effect_io : type_expr -> type_expr
 val new_eff_constr : label -> int -> bool -> effect_constructor
 
-exception Unknown_effects of type_expr * Location.t * string
+type effect_expectation =
+  | Toplevel of (Env.t * type_expr * Location.t * string) list ref * int
+  | Expected of type_expr
+
+exception No_default_handler of
+            Env.t * string * Location.t * string
+exception Unknown_effects of Env.t * type_expr * Location.t * string
 
 val new_toplevel_expectation : unit -> effect_expectation
 
-val check_expectation: Env.t -> effect_expectation -> unit
+val check_expectation: effect_expectation -> unit
 
 val generalize: type_expr -> unit
         (* Generalize in-place the given type *)

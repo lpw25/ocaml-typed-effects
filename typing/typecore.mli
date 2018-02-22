@@ -19,16 +19,16 @@ open Format
 val is_nonexpansive: Typedtree.expression -> bool
 
 val type_binding:
-        Env.t -> Location.t -> effect_expectation -> rec_flag ->
+        Env.t -> Location.t -> Ctype.effect_expectation -> rec_flag ->
           Parsetree.value_binding list ->
           Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_let:
-        Env.t -> Location.t -> effect_expectation -> rec_flag ->
+        Env.t -> Location.t -> Ctype.effect_expectation -> rec_flag ->
           Parsetree.value_binding list -> Annot.ident option ->
           Typedtree.value_binding list * Env.t
 val type_expression:
-        Env.t -> effect_expectation ->
+        Env.t -> Ctype.effect_expectation ->
         Parsetree.expression -> Typedtree.expression
 val type_class_arg_pattern:
         string -> Env.t -> Env.t -> type_expr -> label ->
@@ -71,8 +71,9 @@ val force_delayed_checks: unit -> unit
 
 val self_coercion : (Path.t * Location.t list ref) list ref
 
-val effect_expectation: string -> Location.t -> effect_expectation -> type_expr
-val check_expectation: Env.t -> effect_expectation -> unit
+val effect_expectation:
+  string -> Env.t -> Location.t -> Ctype.effect_expectation -> type_expr
+val check_expectation: Ctype.effect_expectation -> unit
 
 type error =
     Polymorphic_label of Longident.t
@@ -128,6 +129,7 @@ type error =
   | Invalid_continuation_pattern
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
+  | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
   | Cannot_perform_state
 
@@ -139,7 +141,7 @@ val report_error: Env.t -> formatter -> error -> unit
 
 (* Forward declaration, to be filled in by Typemod.type_module *)
 val type_module:
-   (Env.t -> effect_expectation ->
+   (Env.t -> Ctype.effect_expectation ->
     Parsetree.module_expr -> Typedtree.module_expr) ref
 (* Forward declaration, to be filled in by Typemod.type_open *)
 val type_open:
@@ -150,7 +152,7 @@ val type_object:
   (Env.t -> Location.t -> Parsetree.class_structure ->
    Typedtree.class_structure * Types.class_signature * string list) ref
 val type_package:
-  (Env.t -> effect_expectation -> Parsetree.module_expr -> Path.t ->
+  (Env.t -> Ctype.effect_expectation -> Parsetree.module_expr -> Path.t ->
   Longident.t list -> type_expr list ->
   Typedtree.module_expr * type_expr list) ref
 

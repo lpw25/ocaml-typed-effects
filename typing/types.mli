@@ -341,9 +341,3 @@ and ext_status =
     Text_first                     (* first constructor in an extension *)
   | Text_next                      (* not first constructor in an extension *)
   | Text_exception
-
-(* Expected effect *)
-
-type effect_expectation =
-  | Toplevel of (type_expr * Location.t * string) list ref * int
-  | Expected of type_expr

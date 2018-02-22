@@ -16,7 +16,7 @@ open Types
 open Format
 
 val type_module:
-        Env.t -> effect_expectation ->
+        Env.t -> Ctype.effect_expectation ->
         Parsetree.module_expr -> Typedtree.module_expr
 val type_phrase:
         bool -> Env.t -> Parsetree.structure ->

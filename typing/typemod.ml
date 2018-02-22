@@ -1147,7 +1147,8 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
       let eff =
-        Expected (Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)))
+        Ctype.Expected (Ctype.instance_def
+                          (Ctype.effect_io (Ctype.newty Tenil)))
       in
       let body = type_module sttn funct_body None newenv eff sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
@@ -1158,8 +1159,8 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
   | Pmod_apply(sfunct, sarg) ->
       begin
         match eff with
-        | Toplevel _ -> ()
-        | Expected eff ->
+        | Ctype.Toplevel _ -> ()
+        | Ctype.Expected eff ->
             let io =
               Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
             in
@@ -1220,7 +1221,9 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
 
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
-      let eff = Typecore.effect_expectation "unpack expression" smod.pmod_loc eff in
+      let eff =
+        Typecore.effect_expectation "unpack expression" env smod.pmod_loc eff
+      in
       let exp = Typecore.type_exp env eff sexp in
       if !Clflags.principal then begin
         Ctype.end_def ();
@@ -1543,7 +1546,7 @@ let type_phrase toplevel env s =
     type_structure ~toplevel false None eff_expected env s Location.none
   in
   Ctype.end_def ();
-  Typecore.check_expectation finalenv eff_expected;
+  Typecore.check_expectation eff_expected;
   (str, sg, finalenv)
 
 (*let type_module_alias = type_module ~alias:true true false None*)
@@ -1577,7 +1580,7 @@ let type_module_type_of env smod =
              mod_env = env;
              mod_attributes = smod.pmod_attributes;
              mod_loc = smod.pmod_loc }
-    | _ -> type_module env (Expected (Ctype.newvar Seffect)) smod
+    | _ -> type_module env (Ctype.Expected (Ctype.newvar Seffect)) smod
   in
   let mty = tmty.mod_type in
   (* PR#6307: expand aliases at root and submodules *)
@@ -1682,7 +1685,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
       let coercion =
         Includemod.compunit initial_env sourcefile sg intf_file dclsig in
       Typecore.force_delayed_checks ();
-      Typecore.check_expectation finalenv eff_expected;
+      Typecore.check_expectation eff_expected;
       (* It is important to run these checks after the inclusion test above,
          so that value declarations which are not used internally but exported
          are not reported as being unused. *)
@@ -1696,7 +1699,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
         Includemod.compunit initial_env sourcefile sg
                             "(inferred signature)" simple_sg in
       Typecore.force_delayed_checks ();
-      Typecore.check_expectation finalenv eff_expected;
+      Typecore.check_expectation eff_expected;
       (* See comment above. Here the target signature contains all
          the value being exported. We can still capture unused
          declarations like "let x = true;; let x = 1;;", because in this

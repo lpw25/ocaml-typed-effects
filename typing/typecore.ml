@@ -74,6 +74,7 @@ type error =
   | Invalid_continuation_pattern
   | Unexpected_continuation_pattern of Longident.t
   | Missing_continuation_pattern of Longident.t
+  | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
   | Cannot_perform_state
 
@@ -3876,55 +3877,6 @@ and type_perform env loc expected_eff label sargs returns attrs ty_expected =
     exp_eff = eff;
     exp_attributes = attrs;
     exp_env = env }
-  (* let ecstr = Typetexp.find_effect_constructor env lid.loc lid.txt in
-   * Typetexp.check_deprecated loc ecstr.ecstr_attributes ecstr.ecstr_name;
-   * let sargs =
-   *   match sarg with
-   *     None -> []
-   *   | Some {pexp_desc = Pexp_tuple sel} when
-   *       ecstr.ecstr_arity > 1 || explicit_arity attrs
-   *     -> sel
-   *   | Some se -> [se]
-   * in
-   * if List.length sargs <> ecstr.ecstr_arity then
-   *   raise(Error(loc, env, Constructor_arity_mismatch
-   *                 (lid.txt, ecstr.ecstr_arity, List.length sargs)));
-   * let separate = !Clflags.principal || Env.has_local_constraints env in
-   * if separate then (begin_def (); begin_def ());
-   * let (ty_args, ty_res) = instance_effect_constructor ecstr in
-   * let ty_res =
-   *   match ty_res with
-   *   | None -> newvar Stype
-   *   | Some ty_res -> ty_res
-   * in
-   * if separate then begin
-   *   end_def ();
-   *   generalize_structure ty_res;
-   *   unify_exp_types loc env ty_res
-   *                   (instance env ty_expected);
-   *   end_def ();
-   *   List.iter generalize_structure ty_args;
-   *   generalize_structure ty_res;
-   * end;
-   * let ty_args0, ty_res =
-   *   match instance_list env (ty_res :: ty_args) with
-   *   | t :: tl -> tl, t
-   *   | _ -> assert false
-   * in
-   * if not separate then
-   *   unify_exp_types loc env ty_res (instance env ty_expected);
-   * let eff = newty (Teffect(ecstr.ecstr_eff_path, newvar Seffect)) in
-   * unify_exp_effects loc env eff expected_eff;
-   * let args =
-   *   List.map2 (fun e (t,t0) -> type_argument env expected_eff e t t0)
-   *     sargs (List.combine ty_args ty_args0)
-   * in
-   *   re {
-   *     exp_desc = Texp_perform(lid, ecstr, args);
-   *     exp_loc = loc; exp_extra = [];
-   *     exp_type = ty_res;
-   *     exp_attributes = attrs;
-   *     exp_env = env } *)
 
 (* Typing of statements (expressions whose values are discarded) *)
 
@@ -4326,25 +4278,19 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
 
 (* Handling effect expectations *)
 
-let effect_expectation kind loc expected_eff =
+let effect_expectation kind env loc expected_eff =
   match expected_eff with
   | Expected eff -> eff
   | Toplevel(lr, _) ->
       let evar = Ctype.newvar Seffect in
-      lr := (evar, loc, kind) :: !lr;
+      lr := (env, evar, loc, kind) :: !lr;
       evar
-
-let check_expectation env eff_expected =
-  match Ctype.check_expectation env eff_expected with
-  | () -> ()
-  | exception Ctype.Unknown_effects(ty, loc, str) ->
-      raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
 
 (* Typing of toplevel bindings *)
 
 let type_binding env loc expected_eff rec_flag spat_sexp_list scope =
   Typetexp.reset_type_variables();
-  let expected_eff = effect_expectation "binding" loc expected_eff in
+  let expected_eff = effect_expectation "binding" env loc expected_eff in
   let (pat_exp_list, new_env, unpacks) =
     type_let
       ~check:(fun s -> Warnings.Unused_value_declaration s)
@@ -4354,7 +4300,7 @@ let type_binding env loc expected_eff rec_flag spat_sexp_list scope =
   (pat_exp_list, new_env)
 
 let type_let env loc expected_eff rec_flag spat_sexp_list scope =
-  let expected_eff = effect_expectation "let binding" loc expected_eff in
+  let expected_eff = effect_expectation "let binding" env loc expected_eff in
   let (pat_exp_list, new_env, unpacks) =
     type_let env rec_flag spat_sexp_list scope false expected_eff in
   (pat_exp_list, new_env)
@@ -4364,7 +4310,7 @@ let type_let env loc expected_eff rec_flag spat_sexp_list scope =
 let type_expression env expected_eff sexp =
   Typetexp.reset_type_variables();
   let expected_eff =
-    effect_expectation "expression" sexp.pexp_loc expected_eff
+    effect_expectation "expression" env sexp.pexp_loc expected_eff
   in
   begin_def();
   let eff = newvar Seffect in
@@ -4386,10 +4332,12 @@ let type_expression env expected_eff sexp =
       {exp with exp_type = desc.val_type}
   | _ -> exp
 
-let check_expectation env expected_eff =
-  match Ctype.check_expectation env expected_eff with
+let check_expectation expected_eff =
+  match Ctype.check_expectation expected_eff with
   | () -> ()
-  | exception Ctype.Unknown_effects(ty, loc, str) ->
+  | exception Ctype.No_default_handler(env, lbl, loc, str) ->
+      raise (Error(loc, env, Toplevel_no_default_handler(lbl, str)))
+  | exception Ctype.Unknown_effects(env, ty, loc, str) ->
       raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
 
 (* Error report *)
@@ -4638,6 +4586,10 @@ let report_error env ppf = function
       fprintf ppf
         "@[Missing continuation pattern: effect %a has a continuation.@]"
         longident lid
+  | Toplevel_no_default_handler(lbl, str) ->
+      fprintf ppf
+        "@[This %s performs effect %s, which has no default handler.@]"
+        str lbl
   | Toplevel_unknown_effects(ty, str) ->
       fprintf ppf
         "@[This %s performs effects %a, which may not have default handlers.@]"
