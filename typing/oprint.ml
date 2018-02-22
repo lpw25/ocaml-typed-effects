@@ -265,33 +265,24 @@ and print_simple_out_type ppf =
       end;
       pp_print_string ppf "]"
   | Otyp_econstr (label, args, res_opt) ->
-     let nargs = List.length args in
      let print_args ppf args =
-       if nargs > 1 then
-        pp_print_string ppf "(";
-       print_list print_out_type (fun ppf -> fprintf ppf ", ") ppf args;
-       if nargs > 1 then
-         pp_print_string ppf ")"
+       print_list print_out_type (fun ppf -> fprintf ppf " * ") ppf args;
      in
-     match res_opt with
-     | None when label <> "io" ->
+     match res_opt, args with
+     | None, [] ->
+        fprintf ppf "%s" label
+     | None, args ->
         fprintf ppf
           "%s of %a"
-          label
-          print_args args
-     | None ->
-        fprintf ppf "%s" label
-     | Some res when nargs > 0 ->
-        fprintf ppf
-          "%s : %a -> %a"
-          label
-          print_args args
-          print_out_type res
-     | Some res ->
+          label print_args args
+     | Some res, [] ->
         fprintf ppf
           "%s : %a"
-          label
-          print_out_type res
+          label print_out_type res
+     | Some res, args ->
+        fprintf ppf
+          "%s : %a -> %a"
+          label print_args args print_out_type res
 
 and print_fields rest ppf =
   function
