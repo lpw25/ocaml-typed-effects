@@ -50,14 +50,14 @@ exception Exit
 
     @raise Invalid_argument if the continuation has already been
     resumed. *)
-val continue: ('a, ![io | ..] as !p, 'b) continuation -> 'a -[!p]-> 'b
+val continue: ('a, !~, 'b) continuation ->> 'a ~>> 'b
 
 (** [discontinue k e] resumes the continuation [k] by raising the
     exception [e] in [k].
 
     @raise Invalid_argument if the continuation has already been
     resumed. *)
-val discontinue: ('a, ![io | ..] as !p, 'b) continuation -> exn -[!p]-> 'b
+val discontinue: ('a, !~, 'b) continuation ->> exn ~>> 'b
 
 (** {6 Comparisons} *)
 
