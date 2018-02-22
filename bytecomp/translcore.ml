@@ -855,22 +855,19 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(_lbl, _args) -> Lprim(Pignore, [Lconst (Const_base (Const_int 0))])
-  (* TODO: compile perform *)
-      (* let tag =
-       *   Lprim(Pfield(ecstr.ecstr_pos, true, Immutable),
-       *         [transl_path e.exp_env ecstr.ecstr_eff_path])
-       * in
-       * let is_const = ecstr.ecstr_arity = 0 in
-       * let arg =
-       *   if is_const then tag
-       *   else Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
-       * in
-       * let is_raise = ecstr.ecstr_res = None in
-       * if is_raise then
-       *   Lprim(Praise Raise_notrace, [event_after e arg])
-       * else
-       *   Lprim(Pperform e.exp_loc, [event_after e arg]) *)
+  | Texp_perform(lbl, args) ->
+      let tag = Lconst(Const_pointer (Btype.hash_variant lbl)) in
+      let constr =
+        match args with
+        | [] -> tag
+        | args ->
+            Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
+      in
+      let is_throw = false in
+      if is_throw then
+        Lprim(Praise Raise_notrace, [event_after e constr])
+      else
+        Lprim(Pperform e.exp_loc, [event_after e constr])
   | Texp_send(_, _, Some exp) -> transl_exp exp
   | Texp_send(expr, met, None) ->
       let obj = transl_exp expr in
@@ -1223,53 +1220,50 @@ and prim_alloc_stack =
   Pccall { prim_name = "caml_alloc_stack"; prim_arity = 3; prim_alloc = true;
            prim_native_name = ""; prim_native_float = false }
 
-and transl_handler _e _body _val_caselist _exn_caselist _eff_caselist _cont_caselist =
-  Lprim(Pignore, [Lconst (Const_base (Const_int 0))]) (* TODO FIX compilation of handlers *)
-  (* let val_fun =
-   *   match val_caselist with
-   *   | None ->
-   *       let param = Ident.create "param" in
-   *         Lfunction (Curried, [param], Lvar param)
-   *   | Some (val_caselist, partial) ->
-   *       let val_cases = transl_cases val_caselist in
-   *       let param = name_pattern "param" val_caselist in
-   *         Lfunction(Curried, [param],
-   *          Matching.for_function e.exp_loc None
-   *            (Lvar param) val_cases partial)
-   * in
-   * let exn_fun =
-   *   let exn_cases = transl_cases_try exn_caselist in
-   *   let eff_cases = transl_cases eff_caselist in
-   *   let param = name_pattern "exn" exn_caselist in
-   *     Lfunction(Curried, [param],
-   *      Matching.for_trywith (Lvar param) exn_cases eff_cases)
-   * in
-   * let eff_fun =
-   *   let param = Ident.create "eff" in
-   *   let raw_cont = Ident.create "cont" in
-   *   let cont = Ident.create "k" in
-   *   let cont_cases = transl_cases cont_caselist in
-   *     Lfunction(Curried, [param; raw_cont],
-   *       Llet(StrictOpt, cont, Lprim (prim_bvar_create, [Lvar raw_cont]),
-   *         Matching.for_handler (Lvar param) (Lvar raw_cont) cont_cases))
-   * in
-   * let is_pure = function
-   *   | Lconst _ -> true
-   *   | Lvar _ -> true
-   *   | Lfunction _ -> true
-   *   | _ -> false
-   * in
-   * let (body_fun, arg) =
-   *   match transl_exp body with
-   *   | Lapply (fn, [arg], _) when is_pure fn && is_pure arg ->
-   *      (fn, arg)
-   *   | body ->
-   *      let param = Ident.create "param" in
-   *      (Lfunction (Curried, [param], body),
-   *       Lconst(Const_base(Const_int 0)))
-   * in
-   *   Lprim(Presume e.exp_loc, [Lprim(prim_alloc_stack, [val_fun; exn_fun; eff_fun]);
-   *                             body_fun; arg]) *)
+and transl_handler e body val_caselist exn_caselist eff_caselist cont_caselist =
+  let val_fun =
+    match val_caselist with
+    | None ->
+        let param = Ident.create "param" in
+          Lfunction (Curried, [param], Lvar param)
+    | Some (val_caselist, partial) ->
+        let val_cases = transl_cases val_caselist in
+        let param = name_pattern "param" val_caselist in
+          Lfunction(Curried, [param],
+           Matching.for_function e.exp_loc None
+             (Lvar param) val_cases partial)
+  in
+  let exn_fun =
+    let exn_cases = transl_cases_try exn_caselist in
+    let eff_cases = transl_cases eff_caselist in
+    let param = name_pattern "exn" exn_caselist in
+      Lfunction(Curried, [param],
+        Matching.for_trywith (Lvar param) exn_cases eff_cases)
+  in
+  let eff_fun =
+    let param = Ident.create "eff" in
+    let raw_cont = Ident.create "cont" in
+    let cont_cases = transl_cases cont_caselist in
+      Lfunction(Curried, [param; raw_cont],
+        Matching.for_handler (Lvar param) (Lvar raw_cont) cont_cases)
+  in
+  let is_pure = function
+    | Lconst _ -> true
+    | Lvar _ -> true
+    | Lfunction _ -> true
+    | _ -> false
+  in
+  let (body_fun, arg) =
+    match transl_exp body with
+    | Lapply (fn, [arg], _) when is_pure fn && is_pure arg ->
+       (fn, arg)
+    | body ->
+       let param = Ident.create "param" in
+       (Lfunction (Curried, [param], body),
+        Lconst(Const_base(Const_int 0)))
+  in
+    Lprim(Presume e.exp_loc, [Lprim(prim_alloc_stack, [val_fun; exn_fun; eff_fun]);
+                              body_fun; arg])
 
 (* Wrapper for class compilation *)
 

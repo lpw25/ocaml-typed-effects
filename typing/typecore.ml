@@ -1330,8 +1330,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
            ec_res  =
              match cont with
              | None -> None
-             | Some None -> None
-             | Some (Some _) -> Some ty_arg  }
+             | Some _ -> Some ty_arg  }
        in
        newty (Teffect(Eordinary ec, newvar Seffect))
      in

@@ -76,6 +76,7 @@ type error =
   | Unexpected_value_type of bool
   | Unexpected_effect_type of bool
   | Unexpected_region_type of bool
+  | Effect_tags of string * string
 
 exception Error of Location.t * Env.t * error
 

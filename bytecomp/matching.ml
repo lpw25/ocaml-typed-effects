@@ -229,12 +229,10 @@ let ctx_matcher p =
       | Tpat_exception arg -> p, (arg::rem)
       | _          -> p, (omega::rem))
   | Tpat_effect (lbl, omegas, _) ->
-      let nargs = List.length omegas in
       (fun q rem -> match q.pat_desc with
-      | Tpat_effect (lbl', args, _)
-        when lbl = lbl' && List.length args = nargs ->
-          p,args @ rem
-      | Tpat_any -> p,omegas @ rem
+      | Tpat_effect (lbl', args, _) when lbl = lbl' ->
+          p, args @ rem
+      | Tpat_any -> p, omegas @ rem
       | _ -> raise NoMatch)
  | _ -> fatal_error "Matching.ctx_matcher"
 
@@ -551,7 +549,7 @@ let up_ok_action act1 act2 =
    because of potential rebind *)
 let rec exc_inside p = match p.pat_desc with
   | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) -> true
-  | Tpat_effect _ -> true
+  | Tpat_effect _
   | Tpat_any|Tpat_constant _|Tpat_var _
   | Tpat_construct (_,_,[])
   | Tpat_variant (_,None,_)
@@ -770,10 +768,6 @@ let pm_free_variables {cases=cases} =
 let pat_as_constr = function
   | {pat_desc=Tpat_construct (_, cstr,_)} -> cstr
   | _ -> fatal_error "Matching.pat_as_constr"
-
-(* let pat_as_effect_constr = function
- *   | {pat_desc=Tpat_effect (lbl, args, cont)} -> assert false
- *   | _ -> fatal_error "Matching.pat_as_effect_constr" *)
 
 let group_constant = function
   | {pat_desc= Tpat_constant _} -> true
@@ -1040,18 +1034,12 @@ and split_extension cont cls args def k =
   split_naive (fun _ cstr1 cstr2 -> cstr1 = cstr2)
     pat_as_constr group_constructor cont cls args def k
 
-(* and split_effect cont cls args def k =
- *   split_naive Ctype.equal_effect_constructor pat_as_effect_constr
- *     group_effect cont cls args def k *)
-
 and split_constr cont cls args def k =
   let ex_pat = what_is_cases cls in
   match ex_pat.pat_desc with
   | Tpat_any -> precompile_var cont args cls def k
   | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) ->
       split_extension cont cls args def k
-  (* | Tpat_effect _ -> assert false (\* TODO: FIXME effect splitting *\)
-   *     (\* split_effect cont cls args def k *\) *)
   | _ ->
 
       let group = get_group ex_pat in
@@ -1161,7 +1149,6 @@ and is_exc p = match p.pat_desc with
 | Tpat_or (p1,p2,_) -> is_exc p1 || is_exc p2
 | Tpat_alias (p,v,_) -> is_exc p
 | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) -> true
-| Tpat_effect _ -> true
 | _ -> false
 
 and precompile_or cont argo cls ors args def k = match ors with
@@ -1645,43 +1632,69 @@ let divide_exception p ctx pm =
 
 (* Matching against an effect pattern *)
 
-let get_key_effect = function
-  | {pat_desc=Tpat_effect (lbl, _, _)} -> Cstr_block (Btype.hash_variant lbl)
-  | _ -> assert false
+let rec matcher_effect_const lab p rem = match p.pat_desc with
+| Tpat_or (p1, p2, _) ->
+    begin
+      try
+        matcher_effect_const lab p1 rem
+      with
+      | NoMatch -> matcher_effect_const lab p2 rem
+    end
+| Tpat_effect (lab1, _, _) when lab1=lab -> rem
+| Tpat_any -> rem
+| _   -> raise NoMatch
 
-let get_args_effect p rem = match p with
-| {pat_desc=Tpat_effect (_, args, _)} -> args @ rem
-| _ -> assert false
+let make_effect_matching_constant p lab def ctx = function
+    [] -> fatal_error "Matching.make_effect_matching_constant"
+  | ((arg, mut) :: argl) ->
+      let def = make_default (matcher_effect_const lab) def
+      and ctx = filter_ctx p ctx in
+      {pm={ cases = []; args = argl ; default=def} ;
+        ctx=ctx ;
+        pat = normalize_pat p}
 
-let matcher_effect lbl1 p rem = match p.pat_desc with
-  | Tpat_or (_,_,_) -> raise OrPat
-  | Tpat_effect (lbl2, args, _)
-        when lbl1 = lbl2 ->
-     args @ rem
-  | Tpat_any -> Parmatch.omegas 0 (* TODO: FIXME ecstr.ecstr_arity @ *) @ rem
-  | _        -> raise NoMatch
+let matcher_effect_nonconst lab arity p rem = match p.pat_desc with
+| Tpat_or (_,_,_) -> raise OrPat
+| Tpat_effect (lab1, args, _) when lab1=lab -> args @ rem
+| Tpat_any -> Parmatch.omegas arity @ rem
+| _   -> raise NoMatch
 
-let make_effect_matching p def ctx = function
-    [] -> fatal_error "Matching.make_effect_matching"
-  | ((_arg, _mut) :: _argl) -> assert false (* TODO: FIXME pattern compilation *)
-      (* let ecstr = pat_as_effect_constr p in
-       * let newargs =
-       *   make_field_args Alias arg 1 ecstr.ecstr_arity argl
-       * in
-       * {pm=
-       *   {cases = []; args = newargs;
-       *    default = make_default (matcher_effect ecstr) def};
-       *  ctx = filter_ctx p ctx;
-       *  pat=normalize_pat p} *)
+let make_effect_matching_nonconst p lab arity def ctx = function
+    [] -> fatal_error "Matching.make_effect_matching_nonconst"
+  | ((arg, mut) :: argl) ->
+      let def = make_default (matcher_effect_nonconst lab arity) def in
+      let args = make_field_args Alias arg 1 arity argl in
+      let ctx = filter_ctx p ctx in
+      {pm = { cases = [];
+              args = args;
+              default = def };
+       ctx = ctx;
+       pat = normalize_pat p}
 
-let divide_effect ctx pm =
-  divide
-    make_effect_matching
-    (fun _ l l' -> l = l')
-    get_key_effect
-    get_args_effect
-    ctx pm
+let get_key_effect p = match p.pat_desc with
+| Tpat_effect(lab, _ :: _ , _) ->  Cstr_block (Btype.hash_variant lab)
+| Tpat_effect(lab, [], _) -> Cstr_constant (Btype.hash_variant lab)
+|  _ -> assert false
 
+let divide_effect ctx {cases = cl; args = al; default=def} =
+  let rec divide = function
+    | ({pat_desc = Tpat_effect(lab, pats, _)} as p :: patl, action) :: rem ->
+        let effects = divide rem in
+        let tag = Btype.hash_variant lab in begin
+          match pats with
+          | [] ->
+              add p.pat_env (make_effect_matching_constant p lab def ctx)
+                effects equal_constr_key (Cstr_constant tag)
+                (patl, action) al
+          | pats ->
+              let arity = List.length pats in
+              add p.pat_env (make_effect_matching_nonconst p lab arity def ctx)
+                effects equal_constr_key (Cstr_block tag)
+                (pats @ patl, action) al
+        end
+    | cl -> []
+  in
+  divide cl
 
 (* Matching against a tuple pattern *)
 
@@ -2587,7 +2600,6 @@ let make_test_sequence_variant_constant fail arg int_lambda_list =
 let call_switcher_variant_constant fail arg int_lambda_list =
   call_switcher fail arg min_int max_int int_lambda_list
 
-
 let call_switcher_variant_constr fail arg int_lambda_list =
   let v = Ident.create "variant" in
   Llet(Alias, v, Lprim(Pfield(0, true, Immutable), [arg]),
@@ -2661,65 +2673,42 @@ let combine_array arg kind partial ctx def
       Alias newvar (Lprim(Parraylength kind, [arg])) switch in
   lambda1, jumps_union local_jumps total1
 
-
-let split_effect_cases tag_lambda_list =
-  let rec split_rec = function
-    | [] -> ([], [])
-    | _ -> split_rec (assert false) (* TODO: FIXME split_effect_cases *)
-    (* | (ecstr, act) :: rem ->
-     *     let (consts, nonconsts) = split_rec rem in
-     *     if ecstr.ecstr_arity = 0 then
-     *       ((ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: consts, nonconsts)
-     *     else
-     *       (consts, (ecstr.ecstr_eff_path, ecstr.ecstr_pos, act) :: nonconsts) *)
-  in
-  split_rec tag_lambda_list
-
-let combine_effect arg ex_pat partial ctx def
-    (tag_lambda_list, total1, pats) =
+let combine_effect arg partial ctx def (tag_lambda_list, total1, pats) =
+  let test_int_or_block arg if_int if_block =
+    Lifthenelse(Lprim (Pisint, [arg]), if_int, if_block) in
+  let one_action = same_actions tag_lambda_list in
   let fail, to_add, local_jumps =
-    mk_failaction_neg partial ctx def in
-  let tag_lambda_list = to_add@tag_lambda_list in
-  let lambda1 =
-    let consts, nonconsts = split_effect_cases tag_lambda_list in
-    let default, consts, nonconsts =
-      match fail with
-      | None ->
-          begin match consts, nonconsts with
-          | _, (_, _, act)::rem -> act, consts, rem
-          | (_, _, act)::rem, _ -> act, rem, nonconsts
-          | _ -> assert false
+    match partial with
+    | Total -> None, [], jumps_empty
+    | Partial -> mk_failaction_neg partial ctx def
+  in
+  let tag_lambda_list = to_add @ tag_lambda_list in
+  let (consts, nonconsts) = split_cases tag_lambda_list in
+  let lambda1 = match fail, one_action with
+  | None, Some act -> act
+  | _,_ ->
+      match (consts, nonconsts) with
+      | ([n, act1], [m, act2]) when fail=None ->
+          test_int_or_block arg act1 act2
+      | (_, []) -> (* One can compare integers and pointers *)
+          make_test_sequence_variant_constant fail arg consts
+      | ([], _) ->
+          let lam = call_switcher_variant_constr fail arg nonconsts in
+          (* One must not dereference integers *)
+          begin match fail with
+          | None -> lam
+          | Some fail -> test_int_or_block arg fail lam
           end
-      | Some fail -> fail, consts, nonconsts in
-    let nonconst_lambda =
-      match nonconsts with
-      | [] -> default
-      | _ ->
-          let tag = Ident.create "tag" in
-          let tests =
-            List.fold_right
-              (fun (path, pos, act) rem ->
-                Lifthenelse(Lprim(Pintcomp Ceq,
-                                  [Lvar tag;
-                                   Lprim(Pfield(pos, true, Immutable),
-                                         [transl_path ex_pat.pat_env path])]),
-                            act, rem))
-                nonconsts
-                default
-            in
-            Llet(Alias, tag, Lprim(Pfield(0, true, Immutable), [arg]), tests)
-      in
-        List.fold_right
-          (fun (path, pos, act) rem ->
-             Lifthenelse(Lprim(Pintcomp Ceq,
-                               [arg;
-                                Lprim(Pfield(pos, true, Immutable),
-                                      [transl_path ex_pat.pat_env path])]),
-                         act, rem))
-          consts
-          nonconst_lambda
-    in
-    lambda1, jumps_union local_jumps total1
+      | (_, _) ->
+          let lam_const =
+            call_switcher_variant_constant fail arg consts
+          in
+          let  lam_nonconst =
+            call_switcher_variant_constr fail arg nonconsts
+          in
+          test_int_or_block arg lam_const lam_nonconst
+  in
+  lambda1, jumps_union local_jumps total1
 
 (* Insertion of debugging events *)
 
@@ -3009,12 +2998,12 @@ and do_compile_matching cont repr partial ctx arg pmh = match pmh with
       compile_no_test cont
         (divide_exception (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_effect (lbl, _, _) -> (* TODO: FIXME pattern matching compilation *)
+  | Tpat_effect (_, _, _) ->
       compile_test
         (compile_match cont repr partial) partial
-        divide_effect (combine_effect arg pat partial)
+        divide_effect (combine_effect arg partial)
         ctx pm
-  | Tpat_variant(lab, _, row) ->
+  | Tpat_variant(_, _, row) ->
       compile_test (compile_match cont repr partial) partial
         (divide_variant !row)
         (combine_variant !row arg partial)
@@ -3188,11 +3177,15 @@ let for_trywith param exn_pat_act_list eff_pat_act_list =
   in
   let tag_id = Ident.create "tag" in
   Lstaticcatch(effs, (eff_fail, []),
-    Llet(Alias, tag_id, Lprim(Ptag, [param]),
-      Lifthenelse(
-          Lprim(Pintcomp Ceq, [Lvar tag_id; Lconst(Const_base(Const_int 1))]),
-          Lprim(Praise Raise_notrace, [param]),
-          exns)))
+    Lifthenelse(
+        Lprim (Pisint, [param]),
+        Lprim(Praise Raise_notrace, [param]),
+        Llet(Alias, tag_id, Lprim(Ptag, [param]),
+        Lifthenelse(
+            Lprim(Pintcomp Ceq,
+                  [Lvar tag_id; Lconst(Const_base(Const_int 1))]),
+            Lprim(Praise Raise_notrace, [param]),
+            exns))))
 
 let prim_bvar_create =
   Pccall { prim_name = "caml_bvar_create"; prim_arity = 1; prim_alloc = true;

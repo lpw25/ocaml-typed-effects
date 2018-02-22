@@ -83,6 +83,7 @@ open Btype
 exception Unify of (type_expr * type_expr) list
 
 exception Tags of label * label
+exception Effect_tags of label * label
 
 let () =
   Location.register_error_of_exn
@@ -92,6 +93,13 @@ let () =
             Location.
               (errorf ~loc:(in_file !input_name)
                  "In this program,@ variant constructors@ `%s and `%s@ \
+                  have the same hash value.@ Change one of them." l l'
+              )
+      | Effect_tags (l, l') ->
+          Some
+            Location.
+              (errorf ~loc:(in_file !input_name)
+                 "In this program,@ effect constructors@ `%s and `%s@ \
                   have the same hash value.@ Change one of them." l l'
               )
       | _ -> None
@@ -2940,6 +2948,25 @@ and unify_effects env ty1 ty2 =          (* Optimization *)
   let (effs1, rest1) = flatten_effects ty1 in
   let (effs2, rest2) = flatten_effects ty2 in
   let (miss1, miss2, pairs) = diff_effects !env effs1 effs2 in
+  if miss1 <> [] && miss2 <> [] then begin
+    let ht = Hashtbl.create (List.length miss1) in
+    List.iter
+      (function
+       | Eordinary { ec_label } ->
+           Hashtbl.add ht (hash_variant ec_label) ec_label
+       | Estate _ -> ())
+      miss1;
+    List.iter
+      (function
+       | Eordinary { ec_label } -> begin
+           try
+             let ec_label' = Hashtbl.find ht (hash_variant ec_label) in
+             raise (Effect_tags(ec_label, ec_label'))
+           with Not_found -> ()
+         end
+       | Estate _ -> ())
+      miss2
+  end;
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
   let va = make_rowvar (min l1 l2) Seffect (miss2=[]) rest1 (miss1=[]) rest2 in
   let d1 = rest1.desc and d2 = rest2.desc in

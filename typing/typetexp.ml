@@ -57,6 +57,8 @@ type error =
   | Unexpected_value_type of bool
   | Unexpected_effect_type of bool
   | Unexpected_region_type of bool
+  | Effect_tags of string * string
+
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -862,7 +864,18 @@ and transl_fields loc env policy seen o =
       newty (Tfield (s, Fpresent, ty1.ctyp_type, ty2))
 
 and transl_effect_row_with_tail env policy row tail =
+  let hfields = Hashtbl.create 17 in
   let transl_effect_constructor env policy constr =
+    let loc = Location.none in (* TODO: FIXME effect_constructor in parsetree.mli does not carry location information *)
+    let lbl = constr.peff_label in
+    let () =
+      let h = Btype.hash_variant lbl in
+      match Hashtbl.find hfields h with
+      | lbl' ->
+          if lbl <> lbl' then raise(Error(loc, env, Effect_tags(lbl, lbl')))
+      | exception Not_found ->
+          Hashtbl.add hfields h lbl
+    in
     let transl_type env policy sty =
       let cty = transl_type env policy None sty in
       cty
@@ -870,7 +883,7 @@ and transl_effect_row_with_tail env policy row tail =
     { ec_label = constr.peff_label;
       ec_args = List.map (transl_type env policy) constr.peff_args;
       ec_res  = Misc.may_map (transl_type env policy) constr.peff_res;
-      ec_loc = Location.none; (* TODO: FIXME effect_constructor in parsetree.mli does not carry location information *)
+      ec_loc = loc;
       ec_attributes = constr.peff_attributes; }
   in
   let tefr_effects =
@@ -1219,6 +1232,10 @@ let report_error env ppf = function
   | Unexpected_region_type v ->
       fprintf ppf "This is a region type but %s type was expected"
               (if v then "a value" else "an effect")
+  | Effect_tags (lab1, lab2) ->
+      fprintf ppf
+        "@[Effect constructors `%s@ and `%s have the same hash value.@ %s@]"
+        lab1 lab2 "Change one of them."
 
 
 let () =
