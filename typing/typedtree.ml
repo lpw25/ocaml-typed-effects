@@ -425,11 +425,15 @@ and label_declaration =
     {
      ld_id: Ident.t;
      ld_name: string loc;
-     ld_mutable: mutable_flag;
+     ld_mutable: label_mutability;
      ld_type: core_type;
      ld_loc: Location.t;
      ld_attributes: attribute list;
     }
+
+and label_mutability =
+  | Tlmut_immutable
+  | Tlmut_mutable of core_type option
 
 and constructor_declaration =
     {

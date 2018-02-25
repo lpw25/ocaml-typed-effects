@@ -858,9 +858,17 @@ and constructor_decl i ppf {cd_id; cd_name = _; cd_args; cd_res; cd_loc; cd_attr
 and label_decl i ppf {ld_id; ld_name = _; ld_mutable; ld_type; ld_loc; ld_attributes} =
   line i ppf "%a\n" fmt_location ld_loc;
   attributes i ppf ld_attributes;
-  line (i+1) ppf "%a\n" fmt_mutable_flag ld_mutable;
+  label_mut (i+1) ppf ld_mutable;
   line (i+1) ppf "%a" fmt_ident ld_id;
   core_type (i+1) ppf ld_type
+
+and label_mut i ppf x =
+  match x with
+  | Tlmut_immutable ->
+      line i ppf "Plmut_immutable\n"
+  | Tlmut_mutable cto ->
+      line i ppf "Plmut_immutable\n";
+      option (i+1) core_type ppf cto
 
 and longident_x_pattern i ppf (li, _, p) =
   line i ppf "%a\n" fmt_longident li;

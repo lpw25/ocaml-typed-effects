@@ -71,8 +71,6 @@ val force_delayed_checks: unit -> unit
 
 val self_coercion : (Path.t * Location.t list ref) list ref
 
-val effect_expectation:
-  string -> Env.t -> Location.t -> Ctype.effect_expectation -> type_expr
 val check_expectation: Ctype.effect_expectation -> unit
 
 type error =
@@ -86,6 +84,7 @@ type error =
   | Orpat_vars of Ident.t
   | Expr_type_clash of (type_expr * type_expr) list
   | Expr_effect_clash of (type_expr * type_expr) list
+  | Function_effect_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
   | Apply_wrong_label of label * type_expr
   | Label_multiply_defined of string
@@ -131,6 +130,7 @@ type error =
   | Missing_continuation_pattern of Longident.t
   | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
+  | Toplevel_unknown_region of type_expr * string
   | Cannot_perform_state
 
 exception Error of Location.t * Env.t * error

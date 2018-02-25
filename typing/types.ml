@@ -165,7 +165,7 @@ type label_description =
   { lbl_name: string;                   (* Short name *)
     lbl_res: type_expr;                 (* Type of the result *)
     lbl_arg: type_expr;                 (* Type of the argument *)
-    lbl_mut: mutable_flag;              (* Is this a mutable field? *)
+    lbl_mut: label_mutability;          (* Is this a mutable field? *)
     lbl_pos: int;                       (* Position in block *)
     lbl_all: label_description array;   (* All the labels in this type *)
     lbl_repres: record_representation;  (* Representation for this record *)
@@ -173,6 +173,10 @@ type label_description =
     lbl_loc: Location.t;
     lbl_attributes: Parsetree.attributes;
    }
+
+and label_mutability =
+  | Lmut_immutable
+  | Lmut_mutable of type_expr option
 
 and record_representation =
     Record_regular                      (* All fields are boxed / tagged *)
@@ -233,7 +237,7 @@ and type_kind =
 and label_declaration =
   {
     ld_id: Ident.t;
-    ld_mutable: mutable_flag;
+    ld_mutable: label_mutability;
     ld_type: type_expr;
     ld_loc: Location.t;
     ld_attributes: Parsetree.attributes;

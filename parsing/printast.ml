@@ -870,9 +870,17 @@ and constructor_decl i ppf
 and label_decl i ppf {pld_name; pld_mutable; pld_type; pld_loc; pld_attributes}=
   line i ppf "%a\n" fmt_location pld_loc;
   attributes i ppf pld_attributes;
-  line (i+1) ppf "%a\n" fmt_mutable_flag pld_mutable;
+  label_mut (i+1) ppf pld_mutable;
   line (i+1) ppf "%a" fmt_string_loc pld_name;
   core_type (i+1) ppf pld_type
+
+and label_mut i ppf x =
+  match x with
+  | Plmut_immutable ->
+      line i ppf "Plmut_immutable\n"
+  | Plmut_mutable cto ->
+      line i ppf "Plmut_immutable\n";
+      option (i+1) core_type ppf cto
 
 and longident_x_pattern i ppf (li, p) =
   line i ppf "%a\n" fmt_longident_loc li;

@@ -1115,8 +1115,9 @@ and class_expr cl_num val_env met_env scl =
       in
       let (defs, val_env) =
         try
+          let expectation = Ctype.effect_expectation eff in
           Typecore.type_let val_env scl.pcl_loc
-             (Ctype.Expected eff) rec_flag sdefs None
+             expectation rec_flag sdefs None
         with Ctype.Unify [(ty, _)] ->
           raise(Error(scl.pcl_loc, val_env, Make_nongen_seltype ty))
       in

@@ -752,7 +752,7 @@ let rec tree_of_typexp sch ty =
         let (effects, row) = Ctype.flatten_effects ty in
         let row = repr row in
         let effects =
-          List.map tree_of_effect_constructor effects
+          List.map (tree_of_effect_constructor sch) effects
         in
          let row =
           match row.desc with
@@ -768,13 +768,13 @@ let rec tree_of_typexp sch ty =
     Otyp_alias (pr_typ (), tree_of_name (name_of_type px)) end
   else pr_typ ()
 
-and tree_of_effect_constructor = function
+and tree_of_effect_constructor sch = function
   | Eordinary { ec_label; ec_args; ec_res } ->
-     let res = Misc.may_map (tree_of_typexp false) ec_res in
-     let args = tree_of_typlist false ec_args in
+     let res = Misc.may_map (tree_of_typexp sch) ec_res in
+     let args = tree_of_typlist sch ec_args in
      Otyp_econstr(ec_label, args, res)
   | Estate { ec_region } ->
-     Otyp_constr (Oide_ident "state", [tree_of_typexp false ec_region])
+     Otyp_constr (Oide_ident "state", [tree_of_typexp sch ec_region])
 
 and tree_of_row_field sch (l, f) =
   match row_field_repr f with
@@ -834,6 +834,13 @@ and tree_of_typfields sch rest = function
       let (fields, rest) = tree_of_typfields sch rest l in
       (field :: fields, rest)
 
+and is_global ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tconstr(p, [], _, _) ->
+      Path.same p Predef.path_global
+  | _ -> false
+
 and tree_of_typeffect sch ty =
   let (effects, row) = Ctype.flatten_effects ty in
   let row = repr row in
@@ -842,15 +849,16 @@ and tree_of_typeffect sch ty =
     | Tenil -> None
     | _ -> Some (tree_of_typexp sch row)
   in
-  (* TODO: FIXME *)
   match effects, row with
   | [], None -> Oarr_pure
-  | [Estate _], None -> Oarr_io
+  | [Estate { ec_region }], None when is_global ec_region -> Oarr_io
   | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_pure_tilde
-  | [Estate _], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_io_tilde
+  | [Estate { ec_region }], Some (Otyp_var(false, ("~", Osrt_effect)))
+        when is_global ec_region ->
+      Oarr_io_tilde
   | _, _ ->
      let effects =
-       List.map tree_of_effect_constructor effects
+       List.map (tree_of_effect_constructor sch) effects
      in
      Oarr_row(effects, row)
 
@@ -1023,8 +1031,16 @@ and tree_of_constructor cd =
       names := nm;
       (name, args, Some ret)
 
+and tree_of_label_mutability lmut =
+  match lmut with
+  | Lmut_immutable -> Olmut_immutable
+  | Lmut_mutable None -> Olmut_mutable None
+  | Lmut_mutable (Some rg) -> Olmut_mutable (Some (tree_of_typexp false rg))
+
 and tree_of_label l =
-  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp false l.ld_type)
+  (Ident.name l.ld_id,
+   tree_of_label_mutability l.ld_mutable,
+   tree_of_typexp false l.ld_type)
 
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)

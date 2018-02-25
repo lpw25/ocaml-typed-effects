@@ -120,6 +120,7 @@ type type_mismatch =
   | Param_sort of int * bool * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
+  | Field_mutable_region of Ident.t
   | Field_arity of Ident.t
   | Field_names of int * Ident.t * Ident.t
   | Field_missing of bool * Ident.t
@@ -146,6 +147,8 @@ let report_type_mismatch0 first second decl ppf err =
       pr "The types for field %s are not equal" (Ident.name s)
   | Field_mutable s ->
       pr "The mutability of field %s is different" (Ident.name s)
+  | Field_mutable_region s ->
+      pr "The region type of field %s is different" (Ident.name s)
   | Field_arity s ->
       pr "The arities for field %s differ" (Ident.name s)
   | Field_names (n, name1, name2) ->
@@ -220,6 +223,27 @@ let rec compare_variants env decl1 decl2 n cstrs1 cstrs2 =
             compare_variants env decl1 decl2 (n+1) rem1 rem2
           else [Field_type cstr1]
 
+let compare_label_mutability env decl1 decl2 lab mut1 mut2 =
+  match mut1, mut2 with
+  | Lmut_immutable, Lmut_immutable -> []
+  | Lmut_immutable, Lmut_mutable _ -> [Field_mutable lab]
+  | Lmut_mutable _, Lmut_immutable -> [Field_mutable lab]
+  | Lmut_mutable None, Lmut_mutable None -> []
+  | Lmut_mutable rgo1, Lmut_mutable rgo2 ->
+      let rg1 =
+        match rgo1 with
+        | None -> Predef.type_global
+        | Some rg -> rg
+      in
+      let rg2 =
+        match rgo2 with
+        | None -> Predef.type_global
+        | Some rg -> rg
+      in
+      if Ctype.equal env true (rg1::decl1.type_params)
+                              (rg2::decl2.type_params)
+      then []
+      else [Field_mutable_region lab]
 
 let rec compare_records env decl1 decl2 n labels1 labels2 =
   match labels1, labels2 with
@@ -228,13 +252,15 @@ let rec compare_records env decl1 decl2 n labels1 labels2 =
   | l::_, [] -> [Field_missing (false, l.ld_id)]
   | {Types.ld_id=lab1; ld_mutable=mut1; ld_type=arg1}::rem1,
     {Types.ld_id=lab2; ld_mutable=mut2; ld_type=arg2}::rem2 ->
-      if Ident.name lab1 <> Ident.name lab2
-      then [Field_names (n, lab1, lab2)]
-      else if mut1 <> mut2 then [Field_mutable lab1] else
-      if Ctype.equal env true (arg1::decl1.type_params)
-                              (arg2::decl2.type_params)
-      then compare_records env decl1 decl2 (n+1) rem1 rem2
-      else [Field_type lab1]
+      if Ident.name lab1 <> Ident.name lab2 then
+        [Field_names (n, lab1, lab2)]
+      else
+        let err = compare_label_mutability env decl1 decl2 lab1 mut1 mut2 in
+        if err <> [] then err else
+        if Ctype.equal env true (arg1::decl1.type_params)
+                                (arg2::decl2.type_params)
+        then compare_records env decl1 decl2 (n+1) rem1 rem2
+        else [Field_type lab1]
 
 let type_declarations ?(equality = false) env name decl1 id decl2 =
   let err = type_sort decl1 decl2 in

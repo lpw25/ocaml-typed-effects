@@ -29,6 +29,7 @@ type type_mismatch =
   | Param_sort of int * bool * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
+  | Field_mutable_region of Ident.t
   | Field_arity of Ident.t
   | Field_names of int * Ident.t * Ident.t
   | Field_missing of bool * Ident.t

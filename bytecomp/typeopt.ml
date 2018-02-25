@@ -126,3 +126,8 @@ let bigarray_kind_and_layout exp =
                             Pbigarray_unknown_layout)
   | _ ->
       (Pbigarray_unknown, Pbigarray_unknown_layout)
+
+let label_mutability mut =
+  match mut with
+  | Lmut_immutable -> Asttypes.Immutable
+  | Lmut_mutable _ -> Asttypes.Mutable

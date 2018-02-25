@@ -1366,9 +1366,17 @@ class printer  ()= object(self:'self)
             self#core_type1 x
             self#attributes pcd.pcd_attributes
     in
+    let label_mutability f x =
+      match x with
+      | Plmut_immutable -> ()
+      | Plmut_mutable None ->
+          pp f "mutable@;"
+      | Plmut_mutable (Some ct) ->
+          pp f "mutable(%a)@;" self#core_type ct
+    in
     let label_declaration f pld =
       pp f "@[<2>%a%s:@;%a%a;@]"
-         self#mutable_flag pld.pld_mutable
+         label_mutability pld.pld_mutable
          pld.pld_name.txt
          self#core_type pld.pld_type
          self#attributes pld.pld_attributes

@@ -460,7 +460,7 @@ let do_set_args erase_mutable q r = match q with
            if
              erase_mutable &&
              (match lbl.lbl_mut with
-             | Mutable -> true | Immutable -> false)
+             | Lmut_mutable _ -> true | Lmut_immutable -> false)
            then
              lid, lbl, omega
            else

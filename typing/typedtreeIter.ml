@@ -174,6 +174,15 @@ module MakeIterator(Iter : IteratorArgument) : sig
       List.iter iter_core_type cd.cd_args;
       option iter_core_type cd.cd_res;
 
+    and iter_label_mutability mut =
+      match mut with
+      | Tlmut_immutable -> ()
+      | Tlmut_mutable rgo -> option iter_core_type rgo
+
+    and iter_label_declaration ld =
+      iter_core_type ld.ld_type;
+      iter_label_mutability ld.ld_mutable
+
     and iter_type_parameter (ct, v) =
       iter_core_type ct
 
@@ -189,10 +198,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Ttype_variant list ->
             List.iter iter_constructor_declaration list
         | Ttype_record list ->
-            List.iter
-              (fun ld ->
-                iter_core_type ld.ld_type
-            ) list
+            List.iter iter_label_declaration list
         | Ttype_open -> ()
       end;
       option iter_core_type decl.typ_manifest;

@@ -257,6 +257,14 @@ let transl_declaration env sdecl id =
                                   pld_attributes=attrs} ->
           let arg = Ast_helper.Typ.force_poly arg in
           let cty = transl_simple_type env true (Some Stype) arg in
+          let mut =
+            match mut with
+            | Plmut_immutable -> Tlmut_immutable
+            | Plmut_mutable None -> Tlmut_mutable None
+            | Plmut_mutable (Some rg) ->
+                let cty = transl_simple_type env true (Some Sregion) rg in
+                Tlmut_mutable (Some cty)
+          in
           {ld_id = Ident.create name.txt; ld_name = name; ld_mutable = mut;
            ld_type = cty; ld_loc = loc; ld_attributes = attrs}
           ) lbls in
@@ -265,8 +273,14 @@ let transl_declaration env sdecl id =
             (fun ld ->
               let ty = ld.ld_type.ctyp_type in
               let ty = match ty.desc with Tpoly(t,[]) -> t | _ -> ty in
+              let mut =
+                match ld.ld_mutable with
+                | Tlmut_immutable -> Lmut_immutable
+                | Tlmut_mutable None -> Lmut_mutable None
+                | Tlmut_mutable (Some rg) -> Lmut_mutable (Some rg.ctyp_type)
+              in
               {Types.ld_id = ld.ld_id;
-               ld_mutable = ld.ld_mutable;
+               ld_mutable = mut;
                ld_type = ty;
                ld_loc = ld.ld_loc;
                ld_attributes = ld.ld_attributes
@@ -360,7 +374,12 @@ let generalize_decl decl =
           may Ctype.generalize c.Types.cd_res)
         v
   | Type_record(r, rep) ->
-      List.iter (fun l -> Ctype.generalize l.Types.ld_type) r
+      List.iter
+        (fun l ->
+          Ctype.generalize l.Types.ld_type;
+          match l.Types.ld_mutable with
+          | Lmut_immutable | Lmut_mutable None -> ()
+          | Lmut_mutable (Some rg) -> Ctype.generalize rg) r
   | Type_open ->
       ()
   end;
@@ -454,8 +473,13 @@ let check_constraints env sdecl (_, decl) =
             else get_loc name tl
       in
       List.iter
-        (fun {Types.ld_id=name; ld_type=ty} ->
-          check_constraints_rec env (get_loc (Ident.name name) pl) visited ty)
+        (fun {Types.ld_id=name; ld_type=ty; ld_mutable=mut} ->
+          let loc = get_loc (Ident.name name) pl in
+          check_constraints_rec env loc visited ty;
+          match mut with
+          | Lmut_immutable | Lmut_mutable None -> ()
+          | Lmut_mutable (Some rg) ->
+              check_constraints_rec env loc visited rg)
         l
   | Type_open -> ()
   end;
@@ -713,7 +737,19 @@ let compute_variance env visited vari ty =
         compute_same row.row_more
     | Tpoly (ty, _) ->
         compute_same ty
-    | Teffect (_, ty) ->
+    | Teffect (ec, ty) ->
+        let open Variance in
+        let () =
+          match ec with
+          | Eordinary ec -> begin
+              List.iter compute_same ec.ec_args;
+              match ec.ec_res with
+              | None -> ()
+              | Some ec_res -> compute_variance_rec (conjugate vari) ec_res
+            end
+          | Estate { ec_region } ->
+              compute_variance_rec full ec_region
+        in
         compute_same ty
     | Tvar _ | Tnil | Tlink _ | Tunivar _ | Tenil -> ()
     | Tpackage (_, _, tyl) ->
@@ -893,9 +929,17 @@ let compute_variance_decl env check decl (required, loc as rloc) =
         | _ -> assert false
       end
   | Type_record (ftl, _) ->
-      compute_variance_type env check rloc decl
-        (mn @ List.map (fun {Types.ld_mutable; ld_type} ->
-             (ld_mutable = Mutable, ld_type)) ftl)
+      let tyl =
+        List.fold_left
+          (fun acc {Types.ld_mutable; ld_type} ->
+            match ld_mutable with
+            | Lmut_immutable -> (false, ld_type) :: acc
+            | Lmut_mutable None -> (true, ld_type) :: acc
+            | Lmut_mutable (Some rg) ->
+                (true, ld_type) :: (true, rg) :: acc)
+          mn ftl
+      in
+      compute_variance_type env check rloc decl tyl
 
 let is_sharp id =
   let s = Ident.name id in
@@ -1753,7 +1797,11 @@ let report_error ppf = function
             Btype.newgenty (Ttuple c.Types.cd_args))
             "case" (fun c -> Ident.name c.Types.cd_id ^ " of ")
       | Type_record (tl, _), _ ->
-          explain_unbound ppf ty tl (fun l -> l.Types.ld_type)
+          explain_unbound ppf ty tl (fun l ->
+            match l.Types.ld_mutable with
+            | Lmut_immutable | Lmut_mutable None -> l.Types.ld_type
+            | Lmut_mutable (Some rg) ->
+                Btype.newgenty (Ttuple [l.Types.ld_type; rg]))
             "field" (fun l -> Ident.name l.Types.ld_id ^ ": ")
       | Type_abstract, Some ty' ->
           explain_unbound_single ppf ty ty'

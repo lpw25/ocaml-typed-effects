@@ -175,7 +175,7 @@ module Type:
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->
       ?args:core_type list -> ?res:core_type -> str -> constructor_declaration
     val field: ?loc:loc -> ?attrs:attrs -> ?info:info ->
-      ?mut:mutable_flag -> str -> core_type -> label_declaration
+      ?mut:label_mutability -> str -> core_type -> label_declaration
   end
 
 (** Type extensions *)

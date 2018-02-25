@@ -1146,28 +1146,26 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
       let (id, newenv), funct_body =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
-      let eff =
-        Ctype.Expected (Ctype.instance_def
-                          (Ctype.effect_io (Ctype.newty Tenil)))
-      in
-      let body = type_module sttn funct_body None newenv eff sbody in
+      let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+      let expectation = Ctype.effect_expectation eff in
+      let body = type_module sttn funct_body None newenv expectation sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
            mod_type = Mty_functor(id, ty_arg, body.mod_type);
            mod_env = env;
            mod_attributes = smod.pmod_attributes;
            mod_loc = smod.pmod_loc }
   | Pmod_apply(sfunct, sarg) ->
+      let eff_ty =
+        Ctype.expectation_effect "functor application" env sfunct.pmod_loc eff
+      in
+      let io =
+        Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
+      in
       begin
-        match eff with
-        | Ctype.Toplevel _ -> ()
-        | Ctype.Expected eff ->
-            let io =
-              Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
-            in
-            try
-              Ctype.unify env io eff
-            with Ctype.Unify trace ->
-              raise(Error(smod.pmod_loc, env, Module_effect_clash(trace)))
+        try
+          Ctype.unify env io eff_ty
+        with Ctype.Unify trace ->
+          raise(Error(smod.pmod_loc, env, Module_effect_clash(trace)))
       end;
       let arg = type_module true funct_body None env eff sarg in
       let path = path_of_module arg in
@@ -1222,7 +1220,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
       let eff =
-        Typecore.effect_expectation "unpack expression" env smod.pmod_loc eff
+        Ctype.expectation_effect "unpack expression" env smod.pmod_loc eff
       in
       let exp = Typecore.type_exp env eff sexp in
       if !Clflags.principal then begin
@@ -1580,7 +1578,9 @@ let type_module_type_of env smod =
              mod_env = env;
              mod_attributes = smod.pmod_attributes;
              mod_loc = smod.pmod_loc }
-    | _ -> type_module env (Ctype.Expected (Ctype.newvar Seffect)) smod
+    | _ ->
+        let expectation = Ctype.effect_expectation (Ctype.newvar Seffect) in
+        type_module env expectation smod
   in
   let mty = tmty.mod_type in
   (* PR#6307: expand aliases at root and submodules *)

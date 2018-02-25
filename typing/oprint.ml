@@ -587,9 +587,14 @@ and print_out_constr ppf (name, tyl,ret_type_opt) =
             tyl print_simple_out_type ret_type
       end
 
+and print_out_label_mutability ppf lmut =
+  match lmut with
+  | Olmut_immutable -> ()
+  | Olmut_mutable None -> fprintf ppf "mutable@;"
+  | Olmut_mutable (Some rg) -> fprintf ppf "mutable(%a)@;" !out_type rg
 
 and print_out_label ppf (name, mut, arg) =
-  fprintf ppf "@[<2>%s%s :@ %a@];" (if mut then "mutable " else "") name
+  fprintf ppf "@[<2>%a%s :@ %a@];" print_out_label_mutability mut name
     !out_type arg
 
 and print_out_extension_constructor ppf ext =

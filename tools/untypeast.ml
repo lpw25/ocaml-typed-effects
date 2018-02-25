@@ -146,10 +146,15 @@ and untype_constructor_declaration cd =
    pcd_attributes = cd.cd_attributes;
   }
 
+and untype_label_mutability lmut =
+  match lmut with
+  | Tlmut_immutable -> Plmut_immutable
+  | Tlmut_mutable rgo -> Plmut_mutable (option untype_core_type rgo)
+
 and untype_label_declaration ld =
   {
     pld_name=ld.ld_name;
-    pld_mutable=ld.ld_mutable;
+    pld_mutable=untype_label_mutability ld.ld_mutable;
     pld_type=untype_core_type ld.ld_type;
     pld_loc=ld.ld_loc;
     pld_attributes=ld.ld_attributes

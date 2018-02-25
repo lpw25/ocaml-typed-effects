@@ -238,7 +238,13 @@ let type_declaration s decl =
               (List.map (fun l ->
                    {
                      ld_id = l.ld_id;
-                     ld_mutable = l.ld_mutable;
+                     ld_mutable = begin
+                       match l.ld_mutable with
+                       | Lmut_immutable ->
+                           Lmut_immutable
+                       | Lmut_mutable rgo ->
+                           Lmut_mutable (may_map (typexp s) rgo)
+                       end;
                      ld_type = typexp s l.ld_type;
                      ld_loc = loc s l.ld_loc;
                      ld_attributes = attrs s l.ld_attributes;

@@ -202,6 +202,8 @@ let new_global_var ?name sort =
 let newobj fields      = newty (Tobject (fields, ref None))
 
 let newconstr path tyl sort = newty (Tconstr (path, tyl, sort, ref Mnil))
+let newconstr2 level path tyl sort =
+  newty2 level (Tconstr (path, tyl, sort, ref Mnil))
 
 let none = newty (Ttuple [])                (* Clearly ill-formed type *)
 
@@ -699,7 +701,13 @@ let closed_type_decl decl =
             | None -> List.iter closed_type cd_args)
           v
     | Type_record(r, rep) ->
-        List.iter (fun l -> closed_type l.ld_type) r
+        List.iter
+          (fun l ->
+            closed_type l.ld_type;
+            match l.ld_mutable with
+            | Lmut_immutable | Lmut_mutable None -> ()
+            | Lmut_mutable (Some rg) -> closed_type rg)
+          r
     | Type_open -> ()
     end;
     begin match decl.type_manifest with
@@ -1005,13 +1013,6 @@ let rec update_level env level ty =
     | Tfield(lab, _, ty1, _)
       when lab = dummy_method && (repr ty1).level > level ->
         raise (Unify [(ty1, newvar2 (type_sort ty) level)])
-    (* | Teffect(p, ty1) ->
-     * (\* TODO: Fix this case *\)
-     *     let p' = expand_effect env p in
-     *     if equal_effect_constructor env p p' then
-     *       raise (Unify [(ty, newvar2 (type_sort ty) level)]);
-     *     log_type ty; ty.desc <- Teffect(p', ty1);
-     *     update_level env level ty *)
     | _ ->
         set_level ty level;
         (* XXX what about abbreviations in Tconstr ? *)
@@ -1066,6 +1067,17 @@ let rec generalize_expansive env var_level ty =
           generalize_structure true var_level t1;
           generalize_expansive env var_level t2;
           generalize_expansive env var_level t3
+      | Teffect(ec, t) -> begin
+          match ec with
+          | Eordinary ec -> begin
+              List.iter (generalize_expansive env var_level) ec.ec_args;
+              match ec.ec_res with
+              | None -> ()
+              | Some ec_res -> generalize_structure true var_level ec_res
+            end
+          | Estate ec ->
+              generalize_structure true var_level ec.ec_region
+        end
       | _ ->
           iter_type_expr (generalize_expansive env var_level) ty
     end
@@ -1463,8 +1475,16 @@ let instance_declaration decl =
          Type_record (
            List.map
              (fun l ->
-                {l with ld_type = copy l.ld_type}
-             ) fl, rr)
+               let mut =
+                 match l.ld_mutable with
+                 | Lmut_immutable -> Lmut_immutable
+                 | Lmut_mutable None -> Lmut_mutable None
+                 | Lmut_mutable (Some rg) -> Lmut_mutable (Some (copy rg))
+               in
+               let typ = copy l.ld_type in
+               {l with ld_type = typ; ld_mutable = mut})
+             fl,
+           rr)
      | Type_open -> Type_open
     }
   in
@@ -1583,8 +1603,17 @@ let instance_label fixed lbl =
     | ty ->
         [], copy lbl.lbl_arg
   in
+  let ty_mut =
+    match lbl.lbl_mut with
+    | Lmut_immutable ->
+        None
+    | Lmut_mutable None ->
+        Some (instance_def Predef.type_global)
+    | Lmut_mutable (Some rg) ->
+        Some (copy rg)
+  in
   cleanup_types ();
-  (vars, ty_arg, ty_res)
+  (vars, ty_arg, ty_res, ty_mut)
 
 (**** Instantiation with parameter substitution ****)
 
@@ -2490,8 +2519,25 @@ and mcomp_record_description type_pairs env =
     match x, y with
     | l1 :: xs, l2 :: ys ->
         mcomp type_pairs env l1.ld_type l2.ld_type;
-        if Ident.name l1.ld_id = Ident.name l2.ld_id &&
-           l1.ld_mutable = l2.ld_mutable
+        begin match l1.ld_mutable, l2.ld_mutable with
+        | Lmut_immutable, Lmut_immutable -> ()
+        | Lmut_mutable rgo1, Lmut_mutable rgo2 ->
+            let rg1 =
+              match rgo1 with
+              | None -> Predef.type_global
+              | Some rg -> rg
+            in
+            let rg2 =
+              match rgo2 with
+              | None -> Predef.type_global
+              | Some rg -> rg
+            in
+            mcomp type_pairs env rg1 rg2
+        | Lmut_immutable, Lmut_mutable _
+        | Lmut_mutable _, Lmut_immutable ->
+            raise (Unify [])
+        end;
+        if Ident.name l1.ld_id = Ident.name l2.ld_id
         then iter xs ys
         else raise (Unify [])
     | [], [] -> ()
@@ -4519,6 +4565,43 @@ let rec close_effect_var env ty =
     | _ -> ()
   end
 
+let rec remove_local_effects env ty =
+  let ty = repr ty in
+  if ty.level <= !current_level then ty, false
+  else begin
+    set_level ty !current_level;
+    match ty.desc with
+    | Tvar _ -> ty, false
+    | Tenil -> ty, false
+    | Tconstr(p, _, _, _)
+          when generic_abbrev env p && safe_abbrev env ty ->
+        let t = expand_abbrev env ty in
+        let (t', changed) = remove_local_effects env t in
+        if changed then (t', true)
+        else (ty, false)
+    | Tconstr _ -> ty, false
+    | Teffect(ec, t) -> begin
+        let t', changed = remove_local_effects env t in
+        match ec with
+        | Eordinary _ ->
+            if changed then newty (Teffect(ec, t')), true
+            else ty, false
+        | Estate { ec_region } -> begin
+            let ec_region = repr ec_region in
+            match ec_region.desc with
+            | Tvar _ when ec_region.level > !current_level ->
+                t', true
+            | _ ->
+                if changed then newty (Teffect(ec, t')), true
+                else ty, false
+          end
+      end
+    | _ -> assert false
+  end
+
+let remove_local_effects env ty =
+  fst (remove_local_effects env ty)
+
 (**** Check whether a type is a subtype of another type. ****)
 
 (*
@@ -4904,12 +4987,39 @@ type effect_expectation =
   | Toplevel of (Env.t * type_expr * Location.t * string) list ref * int
   | Expected of type_expr
 
+let new_toplevel_expectation () =
+  Toplevel(ref [], !current_level)
+
+let effect_expectation eff =
+  Expected eff
+
+let expectation_effect kind env loc expected_eff =
+  match expected_eff with
+  | Expected eff -> eff
+  | Toplevel(lr, _) ->
+      let evar = newvar Seffect in
+      lr := (env, evar, loc, kind) :: !lr;
+      evar
+
 exception No_default_handler of
             Env.t * string * Location.t * string
 exception Unknown_effects of Env.t * type_expr * Location.t * string
+exception Unknown_region of Env.t * type_expr * Location.t * string
 
-let new_toplevel_expectation () =
-  Toplevel(ref [], !current_level)
+let rec check_global env loc str level ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tconstr(p, [], Sregion, _) when Path.same p Predef.path_global -> ()
+  | Tvar _ ->
+      if ty.level < level then
+        raise (Unknown_region(env, ty, loc, str))
+      else
+        unify env ty (newconstr2 ty.level Predef.path_global [] Sregion)
+  | _ ->
+    match try_expand_safe env ty with
+    | ty -> check_global env loc str level ty
+    | exception Cannot_expand ->
+        raise (Unknown_region(env, ty, loc, str))
 
 let rec check_default_handlers env loc str level ty =
   let ty = repr ty in
@@ -4919,13 +5029,17 @@ let rec check_default_handlers env loc str level ty =
         match ec with
         | Eordinary { ec_label } ->
             raise (No_default_handler(env, ec_label, loc, str))
-        | Estate _ -> ()
+        | Estate { ec_region } ->
+            check_global env loc str level ec_region
       in
       check_default_handlers env loc str level ty
   | Tenil -> ()
   | Tvar _ ->
       if ty.level < level then
         raise (Unknown_effects(env, ty, loc, str))
+      else
+        unify env ty (newty2 ty.level Tenil)
+
   | _ ->
     match try_expand_safe env ty with
     | ty -> check_default_handlers env loc str level ty
@@ -4936,10 +5050,9 @@ let check_expectation = function
   | Expected _ -> ()
   | Toplevel(lr, level) ->
       List.iter
-      (fun (env, ty, loc, str) ->
-        check_default_handlers env loc str level ty)
-      !lr
-
+        (fun (env, ty, loc, str) ->
+          check_default_handlers env loc str level ty)
+        !lr
 
                               (*************************)
                               (*  Remove dependencies  *)
@@ -5068,7 +5181,16 @@ let nondep_type_decl env mid id is_covariant decl =
           Type_record
             (List.map
                (fun l ->
-                  {l with ld_type = nondep_type_rec env mid l.ld_type}
+                  let typ = nondep_type_rec env mid l.ld_type in
+                  let mut =
+                    match l.ld_mutable with
+                    | Lmut_immutable -> Lmut_immutable
+                    | Lmut_mutable None -> Lmut_mutable None
+                    | Lmut_mutable (Some rg) ->
+                        let rg = nondep_type_rec env mid l.ld_type in
+                        Lmut_mutable (Some rg)
+                  in
+                  {l with ld_type = typ; ld_mutable = mut}
                )
                lbls,
              rep)

@@ -808,16 +808,18 @@ and transl_exp0 e =
   | Texp_record ([], _) ->
       fatal_error "Translcore.transl_exp: bad Texp_record"
   | Texp_field(arg, _, lbl) ->
+      let mut = Typeopt.label_mutability lbl.lbl_mut in
       let access =
         match lbl.lbl_repres with
-          Record_regular -> Pfield(lbl.lbl_pos, maybe_pointer e, lbl.lbl_mut)
+          Record_regular -> Pfield(lbl.lbl_pos, maybe_pointer e, mut)
         | Record_float -> Pfloatfield lbl.lbl_pos in
       Lprim(access, [transl_exp arg])
   | Texp_setfield(arg, _, lbl, newval) ->
+      let mut = Typeopt.label_mutability lbl.lbl_mut in
       let access =
         match lbl.lbl_repres with
           Record_regular ->
-            Psetfield(lbl.lbl_pos, maybe_pointer newval, lbl.lbl_mut)
+            Psetfield(lbl.lbl_pos, maybe_pointer newval, mut)
         | Record_float ->
             Psetfloatfield lbl.lbl_pos in
       Lprim(access, [transl_exp arg; transl_exp newval])
@@ -1128,11 +1130,12 @@ and transl_record all_labels repres lbl_expr_list opt_init_expr =
     | Some init_expr ->
         for i = 0 to Array.length all_labels - 1 do
           let lbl = all_labels.(i) in
+          let mut = Typeopt.label_mutability lbl.lbl_mut in
           let access =
             match lbl.lbl_repres with
               Record_regular ->
                 let ptr = maybe_pointer_type init_expr.exp_env lbl.lbl_arg in
-                  Pfield(i, ptr, lbl.lbl_mut)
+                  Pfield(i, ptr, mut)
             | Record_float -> Pfloatfield i in
           lv.(i) <- Lprim(access, [Lvar init_id])
         done
@@ -1142,9 +1145,13 @@ and transl_record all_labels repres lbl_expr_list opt_init_expr =
       lbl_expr_list;
     let ll = Array.to_list lv in
     let mut =
-      if List.exists (fun (_, lbl, expr) -> lbl.lbl_mut = Mutable) lbl_expr_list
+      if List.exists
+           (fun (_, lbl, expr) ->
+             Typeopt.label_mutability lbl.lbl_mut = Mutable)
+           lbl_expr_list
       then Mutable
-      else Immutable in
+      else Immutable
+    in
     let lam =
       try
         if mut = Mutable then raise Not_constant;
@@ -1168,9 +1175,10 @@ and transl_record all_labels repres lbl_expr_list opt_init_expr =
        [check_recursive_recordwith] in this file. *)
     let copy_id = Ident.create "newrecord" in
     let update_field (_, lbl, expr) cont =
+      let mut = Typeopt.label_mutability lbl.lbl_mut in
       let upd =
         match lbl.lbl_repres with
-          Record_regular -> Psetfield(lbl.lbl_pos, maybe_pointer expr, lbl.lbl_mut)
+          Record_regular -> Psetfield(lbl.lbl_pos, maybe_pointer expr, mut)
         | Record_float -> Psetfloatfield lbl.lbl_pos in
       Lsequence(Lprim(upd, [Lvar copy_id; transl_exp expr]), cont) in
     begin match opt_init_expr with

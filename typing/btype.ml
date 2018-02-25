@@ -363,7 +363,14 @@ let type_iterators =
   and it_type_kind it = function
       Type_abstract -> ()
     | Type_record (ll, _) ->
-        List.iter (fun ld -> it.it_type_expr it ld.ld_type) ll
+        List.iter
+          (fun ld ->
+            it.it_type_expr it ld.ld_type;
+            match ld.ld_mutable with
+            | Lmut_immutable | Lmut_mutable None -> ()
+            | Lmut_mutable (Some rg) ->
+                it.it_type_expr it rg)
+          ll
     | Type_variant cl ->
         List.iter (fun cd ->
           List.iter (it.it_type_expr it) cd.cd_args;

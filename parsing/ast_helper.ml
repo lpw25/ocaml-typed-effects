@@ -418,7 +418,7 @@ module Type = struct
     }
 
   let field ?(loc = !default_loc) ?(attrs = []) ?(info = empty_info)
-        ?(mut = Immutable) name typ =
+        ?(mut = Plmut_immutable) name typ =
     {
      pld_name = name;
      pld_mutable = mut;

@@ -1969,14 +1969,14 @@ label_declarations:
   | label_declaration_semi label_declarations   { $1 :: $2 }
 ;
 label_declaration:
-    mutable_flag label COLON poly_type_no_attr attributes
+    label_mutability label COLON poly_type_no_attr attributes
       {
        Type.field (mkrhs $2 2) $4 ~mut:$1 ~attrs:$5
          ~loc:(symbol_rloc()) ~info:(symbol_info ())
       }
 ;
 label_declaration_semi:
-    mutable_flag label COLON poly_type_no_attr attributes SEMI attributes
+    label_mutability label COLON poly_type_no_attr attributes SEMI attributes
       {
        let info =
          match rhs_info 5 with
@@ -1986,6 +1986,11 @@ label_declaration_semi:
        Type.field (mkrhs $2 2) $4 ~mut:$1 ~attrs:($5 @ $7)
          ~loc:(symbol_rloc()) ~info
       }
+;
+label_mutability:
+    /* empty */                                 { Plmut_immutable }
+  | MUTABLE                                     { Plmut_mutable None }
+  | MUTABLE LPAREN core_type_no_attr RPAREN     { Plmut_mutable (Some $3) }
 ;
 
 /* Type Extensions */

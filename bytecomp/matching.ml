@@ -1754,15 +1754,16 @@ let make_record_matching env all_labels def = function
       let rec make_args pos =
         if pos >= Array.length all_labels then argl else begin
           let lbl = all_labels.(pos) in
+          let mut = Typeopt.label_mutability lbl.lbl_mut in
           let access =
             match lbl.lbl_repres with
               Record_regular ->
                 let ptr = Typeopt.maybe_pointer_type env lbl.lbl_arg in
-                  Pfield(lbl.lbl_pos, ptr, lbl.lbl_mut)
+                  Pfield(lbl.lbl_pos, ptr, mut)
             | Record_float -> Pfloatfield lbl.lbl_pos in
           let str =
-            match lbl.lbl_mut with
-              Immutable -> Alias
+            match mut with
+            | Immutable -> Alias
             | Mutable -> StrictOpt in
           (Lprim(access, [arg]), str) :: make_args(pos + 1)
         end in
@@ -3081,7 +3082,7 @@ let have_mutable_field p = match p with
 | Tpat_record (lps,_) ->
     List.exists
       (fun (_,lbl,_) ->
-        match lbl.Types.lbl_mut with
+        match Typeopt.label_mutability lbl.Types.lbl_mut with
         | Mutable -> true
         | Immutable -> false)
       lps

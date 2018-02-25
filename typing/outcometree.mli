@@ -56,7 +56,7 @@ type out_type =
   | Otyp_constr of out_ident * out_type list
   | Otyp_manifest of out_type * out_type
   | Otyp_object of (string * out_type) list * bool option
-  | Otyp_record of (string * bool * out_type) list
+  | Otyp_record of (string * out_label_mutability * out_type) list
   | Otyp_stuff of string
   | Otyp_sum of (string * out_type list * out_type option) list
   | Otyp_tuple of out_type list
@@ -78,6 +78,10 @@ and out_arrow =
   | Oarr_io_tilde
   | Oarr_pure_tilde
   | Oarr_row of out_type list * out_type option
+
+and out_label_mutability =
+  | Olmut_immutable
+  | Olmut_mutable of out_type option
 
 (* type out_effect =
  *   { oeff_manifest: out_ident option;

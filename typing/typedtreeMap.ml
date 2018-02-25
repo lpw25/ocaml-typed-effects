@@ -186,7 +186,16 @@ module MakeMap(Map : MapArgument) = struct
         let list =
           List.map
             (fun ld ->
-              {ld with ld_type = map_core_type ld.ld_type}
+              let typ = map_core_type ld.ld_type in
+              let mut =
+                match ld.ld_mutable with
+                | Tlmut_immutable -> Tlmut_immutable
+                | Tlmut_mutable None -> Tlmut_mutable None
+                | Tlmut_mutable (Some rg) ->
+                    let rg = map_core_type rg in
+                    Tlmut_mutable (Some rg)
+              in
+              {ld with ld_type = typ; ld_mutable = mut}
             ) list
         in
         Ttype_record list

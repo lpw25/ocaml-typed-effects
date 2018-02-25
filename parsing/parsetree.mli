@@ -412,17 +412,21 @@ and type_kind =
 and label_declaration =
     {
      pld_name: string loc;
-     pld_mutable: mutable_flag;
+     pld_mutable: label_mutability;
      pld_type: core_type;
      pld_loc: Location.t;
      pld_attributes: attributes; (* l [@id1] [@id2] : T *)
     }
 
-(*  { ...; l: T; ... }            (mutable=Immutable)
-    { ...; mutable l: T; ... }    (mutable=Mutable)
+(*  { ...; l: T; ... }            (mutable=Plmut_immutable)
+    { ...; mutable l: T; ... }    (mutable=Plmut_mutable)
 
     Note: T can be a Ptyp_poly.
 *)
+
+and label_mutability =
+  | Plmut_mutable of core_type option
+  | Plmut_immutable
 
 and constructor_declaration =
     {

@@ -17,6 +17,7 @@ open Types
 
 exception Unify of (type_expr * type_expr) list
 exception Tags of label * label
+exception Effect_tags of label * label
 exception Subtype of
         (type_expr * type_expr) list * (type_expr * type_expr) list
 exception Cannot_expand
@@ -94,18 +95,23 @@ val flatten_effects:
  *         Env.t -> effect_constructor ->
  *         effect_constructor -> bool *)
 
+val effect_state : type_expr -> type_expr -> type_expr
 val effect_io : type_expr -> type_expr
 val new_eff_constr : label -> int -> bool -> effect_constructor
 
-type effect_expectation =
-  | Toplevel of (Env.t * type_expr * Location.t * string) list ref * int
-  | Expected of type_expr
+type effect_expectation
 
 exception No_default_handler of
             Env.t * string * Location.t * string
 exception Unknown_effects of Env.t * type_expr * Location.t * string
+exception Unknown_region of Env.t * type_expr * Location.t * string
 
 val new_toplevel_expectation : unit -> effect_expectation
+
+val effect_expectation : type_expr -> effect_expectation
+
+val expectation_effect :
+  string -> Env.t -> Location.t -> effect_expectation -> type_expr
 
 val check_expectation: effect_expectation -> unit
 
@@ -162,7 +168,8 @@ val instance_poly:
         bool -> type_expr list -> type_expr -> type_expr list * type_expr
         (* Take an instance of a type scheme containing free univars *)
 val instance_label:
-        bool -> label_description -> type_expr list * type_expr * type_expr
+        bool -> label_description ->
+        type_expr list * type_expr * type_expr * type_expr option
         (* Same, for a label *)
 val apply:
         Env.t -> type_expr list -> type_expr -> type_expr list -> type_expr
@@ -178,6 +185,8 @@ val close_effects_covariant : Env.t -> type_expr -> unit
 val close_effects_contravariant : Env.t -> type_expr -> unit
 
 val close_effect_var : Env.t -> type_expr -> unit
+
+val remove_local_effects : Env.t -> type_expr -> type_expr
 
 val expand_head_once: Env.t -> type_expr -> type_expr
 val expand_head: Env.t -> type_expr -> type_expr
