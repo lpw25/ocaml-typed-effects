@@ -25,7 +25,7 @@
 type t = string
 (** The type of digests: 16-character strings. *)
 
-val compare : t -> t -> int
+val compare : t ->> t -> int
 (** The comparison function for 16-character digest, with the same
     specification as {!Pervasives.compare} and the implementation
     shared with {!String.compare}. Along with the type [t], this
@@ -40,16 +40,16 @@ val bytes : bytes -> t
 (** Return the digest of the given byte sequence.
     @since 4.02.0 *)
 
-val substring : string -> int -> int -> t
+val substring : string ->> int ->> int -> t
 (** [Digest.substring s ofs len] returns the digest of the substring
    of [s] starting at index [ofs] and containing [len] characters. *)
 
-val subbytes : bytes -> int -> int -> t
+val subbytes : bytes ->> int ->> int -> t
 (** [Digest.subbytes s ofs len] returns the digest of the subsequence
     of [s] starting at index [ofs] and containing [len] bytes.
     @since 4.02.0 *)
 
-external channel : in_channel -> int -> t = "caml_md5_chan"
+external channel : in_channel ->> int -> t = "caml_md5_chan"
 (** If [len] is nonnegative, [Digest.channel ic len] reads [len]
    characters from channel [ic] and returns their digest, or raises
    [End_of_file] if end-of-file is reached before [len] characters
@@ -60,7 +60,7 @@ external channel : in_channel -> int -> t = "caml_md5_chan"
 val file : string -> t
 (** Return the digest of the file whose name is given. *)
 
-val output : out_channel -> t -> unit
+val output : out_channel ->> t -> unit
 (** Write a digest on the given output channel. *)
 
 val input : in_channel -> t

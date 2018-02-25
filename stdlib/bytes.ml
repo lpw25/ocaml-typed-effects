@@ -13,21 +13,21 @@
 
 (* Byte sequence operations *)
 
-external length : bytes -> int = "%string_length"
-external string_length : string -> int = "%string_length"
-external get : bytes -> int -> char = "%string_safe_get"
-external set : bytes -> int -> char -> unit = "%string_safe_set"
+external length : bytes ->> int = "%string_length"
+external string_length : string ->> int = "%string_length"
+external get : bytes ->> int -> char = "%string_safe_get"
+external set : bytes ->> int ->> char -> unit = "%string_safe_set"
 external create : int -> bytes = "caml_create_string"
-external unsafe_get : bytes -> int -> char = "%string_unsafe_get"
-external unsafe_set : bytes -> int -> char -> unit = "%string_unsafe_set"
-external unsafe_fill : bytes -> int -> int -> char -> unit
+external unsafe_get : bytes ->> int -> char = "%string_unsafe_get"
+external unsafe_set : bytes ->> int ->> char -> unit = "%string_unsafe_set"
+external unsafe_fill : bytes ->> int ->> int ->> char -> unit
                      = "caml_fill_string" "noalloc"
 external unsafe_to_string : bytes -> string = "%identity"
 external unsafe_of_string : string -> bytes = "%identity"
 
-external unsafe_blit : bytes -> int -> bytes -> int -> int -> unit
+external unsafe_blit : bytes ->> int ->> bytes ->> int ->> int -> unit
                      = "caml_blit_string" "noalloc"
-external unsafe_blit_string : string -> int -> bytes -> int -> int -> unit
+external unsafe_blit_string : string ->> int ->> bytes ->> int ->> int -> unit
                      = "caml_blit_string" "noalloc"
 
 let make n c =
@@ -122,8 +122,9 @@ let cat s1 s2 =
   r
 ;;
 
-external char_code: char -> int = "%identity"
-external char_chr: int -> char = "%identity"
+external is_printable: char ->> bool = "caml_is_printable"
+external char_code: char ->> int = "%identity"
+external char_chr: int ->> char = "%identity"
 
 let is_space = function
   | ' ' | '\012' | '\n' | '\r' | '\t' -> true

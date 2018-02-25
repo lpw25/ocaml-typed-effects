@@ -56,7 +56,7 @@ val of_channel : in_channel -> char t
 
 (** {6 Stream iterator} *)
 
-val iter : ('a -> unit) -> 'a t -> unit
+val iter : ('a ~> unit) ->> 'a t ~> unit
 (** [Stream.iter f s] scans the whole stream s, applying function [f]
    in turn to each stream element encountered. *)
 
@@ -85,7 +85,7 @@ val count : 'a t -> int
 (** Return the current count of the stream elements, i.e. the number
    of the stream elements discarded. *)
 
-val npeek : int -> 'a t -> 'a list
+val npeek : int ->> 'a t -> 'a list
 (** [npeek n] returns the list of the [n] first elements of
    the stream, or all its remaining elements if less than [n]
    elements are available. *)
@@ -94,15 +94,15 @@ val npeek : int -> 'a t -> 'a list
 
 (* The following is for system use only. Do not call directly. *)
 
-val iapp : 'a t -> 'a t -> 'a t
-val icons : 'a -> 'a t -> 'a t
+val iapp : 'a t ->> 'a t -> 'a t
+val icons : 'a ->> 'a t -> 'a t
 val ising : 'a -> 'a t
 
-val lapp : (unit -> 'a t) -> 'a t -> 'a t
-val lcons : (unit -> 'a) -> 'a t -> 'a t
+val lapp : (unit -> 'a t) ->> 'a t -> 'a t
+val lcons : (unit -> 'a) ->> 'a t -> 'a t
 val lsing : (unit -> 'a) -> 'a t
 
 val sempty : 'a t
 val slazy : (unit -> 'a t) -> 'a t
 
-val dump : ('a -> unit) -> 'a t -> unit
+val dump : ('a -> unit) ->> 'a t -> unit

@@ -74,39 +74,39 @@ val reset : ('a, 'b) t -> unit
 val copy : ('a, 'b) t -> ('a, 'b) t
 (** Return a copy of the given hashtable. *)
 
-val add : ('a, 'b) t -> 'a -> 'b -> unit
+val add : ('a, 'b) t ->> 'a ->> 'b -> unit
 (** [Hashtbl.add tbl x y] adds a binding of [x] to [y] in table [tbl].
    Previous bindings for [x] are not removed, but simply
    hidden. That is, after performing {!Hashtbl.remove}[ tbl x],
    the previous binding for [x], if any, is restored.
    (Same behavior as with association lists.) *)
 
-val find : ('a, 'b) t -> 'a -> 'b
+val find : ('a, 'b) t ->> 'a -> 'b
 (** [Hashtbl.find tbl x] returns the current binding of [x] in [tbl],
    or raises [Not_found] if no such binding exists. *)
 
-val find_all : ('a, 'b) t -> 'a -> 'b list
+val find_all : ('a, 'b) t ->> 'a -> 'b list
 (** [Hashtbl.find_all tbl x] returns the list of all data
    associated with [x] in [tbl].
    The current binding is returned first, then the previous
    bindings, in reverse order of introduction in the table. *)
 
-val mem : ('a, 'b) t -> 'a -> bool
+val mem : ('a, 'b) t ->> 'a -> bool
 (** [Hashtbl.mem tbl x] checks if [x] is bound in [tbl]. *)
 
-val remove : ('a, 'b) t -> 'a -> unit
+val remove : ('a, 'b) t ->> 'a -> unit
 (** [Hashtbl.remove tbl x] removes the current binding of [x] in [tbl],
    restoring the previous binding if it exists.
    It does nothing if [x] is not bound in [tbl]. *)
 
-val replace : ('a, 'b) t -> 'a -> 'b -> unit
+val replace : ('a, 'b) t ->> 'a ->> 'b -> unit
 (** [Hashtbl.replace tbl x y] replaces the current binding of [x]
    in [tbl] by a binding of [x] to [y].  If [x] is unbound in [tbl],
    a binding of [x] to [y] is added to [tbl].
    This is functionally equivalent to {!Hashtbl.remove}[ tbl x]
    followed by {!Hashtbl.add}[ tbl x y]. *)
 
-val iter : ('a -> 'b -> unit) -> ('a, 'b) t -> unit
+val iter : ('a ~> 'b ~> unit) ->> ('a, 'b) t ~> unit
 (** [Hashtbl.iter f tbl] applies [f] to all bindings in table [tbl].
    [f] receives the key as first argument, and the associated value
    as second argument. Each binding is presented exactly once to [f].
@@ -122,7 +122,7 @@ val iter : ('a -> 'b -> unit) -> ('a, 'b) t -> unit
    of OCaml.  For randomized hash tables, the order of enumeration
    is entirely random. *)
 
-val fold : ('a -> 'b -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
+val fold : ('a ~> 'b ~> 'c ~> 'c) ->> ('a, 'b) t ->> 'c ~> 'c
 (** [Hashtbl.fold f tbl init] computes
    [(f kN dN ... (f k1 d1 init)...)],
    where [k1 ... kN] are the keys of all bindings in [tbl],
@@ -246,14 +246,14 @@ module type S =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy : 'a t -> 'a t
-    val add : 'a t -> key -> 'a -> unit
-    val remove : 'a t -> key -> unit
-    val find : 'a t -> key -> 'a
-    val find_all : 'a t -> key -> 'a list
-    val replace : 'a t -> key -> 'a -> unit
-    val mem : 'a t -> key -> bool
-    val iter : (key -> 'a -> unit) -> 'a t -> unit
-    val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+    val add : 'a t ->> key ->> 'a -> unit
+    val remove : 'a t ->> key -> unit
+    val find : 'a t ->> key -> 'a
+    val find_all : 'a t ->> key -> 'a list
+    val replace : 'a t ->> key ->> 'a -> unit
+    val mem : 'a t ->> key -> bool
+    val iter : (key ~> 'a ~> unit) ->> 'a t ~> unit
+    val fold : (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
     val length : 'a t -> int
     val stats: 'a t -> statistics
   end
@@ -295,14 +295,14 @@ module type SeededS =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy : 'a t -> 'a t
-    val add : 'a t -> key -> 'a -> unit
-    val remove : 'a t -> key -> unit
-    val find : 'a t -> key -> 'a
-    val find_all : 'a t -> key -> 'a list
-    val replace : 'a t -> key -> 'a -> unit
-    val mem : 'a t -> key -> bool
-    val iter : (key -> 'a -> unit) -> 'a t -> unit
-    val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+    val add : 'a t ->> key ->> 'a -> unit
+    val remove : 'a t ->> key -> unit
+    val find : 'a t ->> key -> 'a
+    val find_all : 'a t ->> key -> 'a list
+    val replace : 'a t ->> key ->> 'a -> unit
+    val mem : 'a t ->> key -> bool
+    val iter : (key ~> 'a ~> unit) ->> 'a t ~> unit
+    val fold : (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
     val length : 'a t -> int
     val stats: 'a t -> statistics
   end
@@ -333,12 +333,12 @@ val hash : 'a -> int
    if [x = y] or [Pervasives.compare x y = 0], then [hash x = hash y].
    Moreover, [hash] always terminates, even on cyclic structures. *)
 
-val seeded_hash : int -> 'a -> int
+val seeded_hash : int ->> 'a -> int
 (** A variant of {!Hashtbl.hash} that is further parameterized by
    an integer seed.
    @since 4.00.0 *)
 
-val hash_param : int -> int -> 'a -> int
+val hash_param : int ->> int ->> 'a -> int
 (** [Hashtbl.hash_param meaningful total x] computes a hash value for [x],
    with the same properties as for [hash]. The two extra integer
    parameters [meaningful] and [total] give more precise control over
@@ -357,7 +357,7 @@ val hash_param : int -> int -> 'a -> int
    choices, {!Hashtbl.hash} and {!Hashtbl.seeded_hash} take
    [meaningful = 10] and [total = 100]. *)
 
-val seeded_hash_param : int -> int -> int -> 'a -> int
+val seeded_hash_param : int ->> int ->> int ->> 'a -> int
 (** A variant of {!Hashtbl.hash_param} that is further parameterized by
    an integer seed.  Usage:
    [Hashtbl.seeded_hash_param meaningful total seed x].

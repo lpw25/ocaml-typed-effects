@@ -26,7 +26,7 @@ exception Empty
 val create : unit -> 'a t
 (** Return a new stack, initially empty. *)
 
-val push : 'a -> 'a t -> unit
+val push : 'a ->> 'a t -> unit
 (** [push x s] adds the element [x] at the top of stack [s]. *)
 
 val pop : 'a t -> 'a
@@ -49,7 +49,7 @@ val is_empty : 'a t -> bool
 val length : 'a t -> int
 (** Return the number of elements in a stack. *)
 
-val iter : ('a -> unit) -> 'a t -> unit
+val iter : ('a ~> unit) ->> 'a t ~> unit
 (** [iter f s] applies [f] in turn to all elements of [s],
    from the element at the top of the stack to the element at the
    bottom of the stack. The stack itself is unchanged. *)
