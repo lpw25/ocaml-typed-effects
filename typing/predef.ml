@@ -74,8 +74,8 @@ and type_float = newgenty (Tconstr(path_float, [], Stype, ref Mnil))
 and type_bool = newgenty (Tconstr(path_bool, [], Stype, ref Mnil))
 and type_unit = newgenty (Tconstr(path_unit, [], Stype, ref Mnil))
 and type_exn = newgenty (Tconstr(path_exn, [], Stype, ref Mnil))
-and type_continuation t1 t2 t3 =
-  newgenty (Tconstr(path_continuation, [t1; t2; t3], Stype, ref Mnil))
+and type_continuation t1 t2 t3 t4 =
+  newgenty (Tconstr(path_continuation, [t1; t2; t3; t4], Stype, ref Mnil))
 and type_array t = newgenty (Tconstr(path_array, [t], Stype, ref Mnil))
 and type_list t = newgenty (Tconstr(path_list, [t], Stype, ref Mnil))
 and type_option t = newgenty (Tconstr(path_option, [t], Stype, ref Mnil))
@@ -156,11 +156,13 @@ let common_initial_env add_type add_extension empty_env =
     let tvar1 = newgenvar Stype in
     let tvar2 = newgenvar Seffect in
     let tvar3 = newgenvar Stype in
+    let tvar4 = newgenvar Sregion in
     {decl_abstr with
-     type_params = [tvar1; tvar2; tvar3];
-     type_arity = 3;
+     type_params = [tvar1; tvar2; tvar3; tvar4];
+     type_arity = 4;
      type_variance =
-       [Variance.contravariant; Variance.covariant; Variance.covariant]}
+       [Variance.contravariant; Variance.covariant;
+        Variance.covariant; Variance.full]}
   and decl_array =
     let tvar = newgenvar Stype in
     {decl_abstr with

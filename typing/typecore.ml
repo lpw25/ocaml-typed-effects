@@ -936,12 +936,12 @@ let unify_head_only loc env ty constr =
 (* Typing of patterns *)
 
 (* Simplified patterns for effect continuations *)
-let type_continuation_pat env expected_eff expected_ty sp =
+let type_continuation_pat env expected_eff expected_ty reg_cont sp =
   let loc = sp.ppat_loc in
   match sp.ppat_desc with
   | Ppat_any -> None
   | Ppat_var name ->
-     let eff = instance_def (effect_io (newvar Seffect)) in
+     let eff = instance_def (effect_state reg_cont (newvar Seffect)) in
       unify_pat_effects loc env eff expected_eff;
       let id = enter_variable loc name expected_ty in
       Some (id, name)
@@ -1314,17 +1314,18 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
      in
      (* Type check the continuation argument *)
      let ty_arg = newvar Stype in
+     let reg_cont = newvar Sregion in
      let cont =
        match scont with
        | None -> None
        | Some scont ->
           let ty_cont =
-            (* Construct type ('a, !e, 'b) continuation *)
+            (* Construct type ('a, !e, 'b, @r) continuation *)
             instance_def
-              (Predef.type_continuation ty_arg expected_eff cont_ty)
+              (Predef.type_continuation ty_arg expected_eff cont_ty reg_cont)
           in
           (* Type check the continuation pattern with the constructed type *)
-          Some (type_continuation_pat !env expected_eff ty_cont scont)
+          Some (type_continuation_pat !env expected_eff ty_cont reg_cont scont)
      in
      (* Construct corresponding effect row *)
      let eff =
