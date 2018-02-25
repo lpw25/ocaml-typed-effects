@@ -1920,6 +1920,8 @@ optional_type_parameter_list:
 optional_type_variable:
     QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
+  | BANG TILDE                                  { mktyp(Ptyp_var("~", Effect)) }
+  | BANGTILDE                                   { mktyp(Ptyp_var("~", Effect)) }
   | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
   | UNDERSCORE                                  { mktyp(Ptyp_any) }
 ;
@@ -1941,6 +1943,8 @@ type_variance:
 type_variable:
     QUOTE ident                                 { mktyp(Ptyp_var($2, Type)) }
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
+  | BANG TILDE                                  { mktyp(Ptyp_var("~", Effect)) }
+  | BANGTILDE                                   { mktyp(Ptyp_var("~", Effect)) }
   | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
 ;
 type_parameter_list:
@@ -2156,6 +2160,10 @@ core_type_no_attr:
       { mktyp(Ptyp_alias($1, $4, Type)) }
   | core_type2 AS BANG ident
       { mktyp(Ptyp_alias($1, $4, Effect)) }
+  | core_type2 AS BANG TILDE
+      { mktyp(Ptyp_alias($1, "~", Effect)) }
+  | core_type2 AS BANGTILDE
+      { mktyp(Ptyp_alias($1, "~", Effect)) }
   | core_type2 AS AT ident
       { mktyp(Ptyp_alias($1, $4, Region)) }
 ;
