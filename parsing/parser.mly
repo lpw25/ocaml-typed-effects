@@ -463,9 +463,11 @@ let class_of_let_bindings lbs body =
 %token AT
 %token BACKQUOTE
 %token BANG
+%token BANGLBRACKET
 %token BANGTILDE
 %token BAR
 %token BARBAR
+%token BARDOTDOT
 %token BARRBRACKET
 %token BEGIN
 %token <char> CHAR
@@ -638,7 +640,7 @@ The precedences must be listed from low to high.
 %right    OR BARBAR                     /* expr (e || e || e) */
 %right    AMPERSAND AMPERAMPER          /* expr (e && e && e) */
 %nonassoc below_EQUAL
-%left     INFIXOP0 EQUAL LESS GREATER   /* expr (e OP e OP e) */
+%left     INFIXOP0 BARDOTDOT EQUAL LESS GREATER   /* expr (e OP e OP e) */
 %right    AT INFIXOP1                   /* expr (e OP e OP e) */
 %nonassoc below_LBRACKETAT
 %nonassoc LBRACKETAT
@@ -2235,6 +2237,8 @@ effect_row:
       { mkeffect $1 None }
   | effect_fields BAR DOTDOT AS core_type
       { mkeffect $1 (Some $5) }
+  | effect_fields BARDOTDOT AS core_type
+      { mkeffect $1 (Some $4) }
   | DOTDOT AS core_type
       { mkeffect [] (Some $3) }
   | effect_fields BAR DOTDOT
@@ -2326,6 +2330,8 @@ simple_core_type2:
       { mktyp(Ptyp_variant(List.rev $3, Closed, Some (List.rev $5))) }
   | BANG LBRACKET effect_row RBRACKET
       { mktyp(Ptyp_effect $3) }
+  | BANGLBRACKET effect_row RBRACKET
+      { mktyp(Ptyp_effect $2) }
   | LPAREN MODULE package_type RPAREN
       { mktyp(Ptyp_package $3) }
   | extension
@@ -2460,6 +2466,7 @@ operator:
   | GREATER                                     { ">" }
   | OR                                          { "or" }
   | BARBAR                                      { "||" }
+  | BARDOTDOT                                   { "|.." }
   | AMPERSAND                                   { "&" }
   | AMPERAMPER                                  { "&&" }
   | COLONEQUAL                                  { ":=" }

@@ -463,6 +463,7 @@ rule token = parse
   | "~[" { TILDELBRACKET }
   | "]~>" { RBRACKETTILDEGREATER }
   | "]~>>" { RBRACKETTILDEGREATERGREATER }
+  | "![" { BANGLBRACKET }
   | "."  { DOT }
   | ".." { DOTDOT }
   | ":"  { COLON }
@@ -484,6 +485,7 @@ rule token = parse
   | "|"  { BAR }
   | "||" { BARBAR }
   | "|]" { BARRBRACKET }
+  | "|.." { BARDOTDOT }
   | ">"  { GREATER }
   | ">]" { GREATERRBRACKET }
   | "}"  { RBRACE }
