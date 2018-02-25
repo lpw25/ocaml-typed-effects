@@ -27,7 +27,6 @@ type error =
     Unbound_type_variable of string
   | Unbound_type_constructor of Longident.t
   | Unbound_type_constructor_2 of Path.t
-  (* | Unbound_effect of Longident.t *)
   | Type_arity_mismatch of Longident.t * int * int
   | Bound_type_variable of string
   | Recursive_type
@@ -46,7 +45,6 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
-  (* | Unbound_effect_constructor of Longident.t *)
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -58,6 +56,7 @@ type error =
   | Unexpected_effect_type of bool
   | Unexpected_region_type of bool
   | Effect_tags of string * string
+  | Not_a_closed_effect of type_expr
 
 
 exception Error of Location.t * Env.t * error
@@ -270,18 +269,6 @@ let find_value env loc lid =
   in
   check_deprecated loc decl.val_attributes (Path.name path);
   r
-
-(* let find_effect env loc lid =
- *   let (path, eff) as r =
- *     find_component Env.lookup_effect (fun lid -> Unbound_effect lid)
- *       env loc lid
- *   in
- *   check_deprecated loc eff.eff_attributes (Path.name path);
- *   r
- * 
- * let find_effect_constructor =
- *   find_component Env.lookup_effect_constructor
- *                  (fun lid -> Unbound_effect_constructor lid) *)
 
 let lookup_module ?(load=false) env loc lid =
   let (path, decl) as r =
@@ -516,41 +503,9 @@ let rec transl_type env policy expected_sort (styp : Parsetree.core_type) : Type
     let ty = newty (Ttuple (List.map (fun ctyp -> ctyp.ctyp_type) ctys)) in
     ctyp (Ttyp_tuple ctys) ty
   | Ptyp_constr(lid, stl) ->
-      let (path, decl) = find_type env styp.ptyp_loc lid.txt in
-      check_sort styp.ptyp_loc env expected_sort decl.type_sort;
-      let stl =
-        match stl with
-        | [ {ptyp_desc=Ptyp_any} as t ] when decl.type_arity > 1 ->
-            List.map (fun _ -> t) decl.type_params
-        | _ -> stl
+      let path, args, constr =
+        transl_type_constructor env policy styp.ptyp_loc expected_sort lid stl
       in
-      if List.length stl <> decl.type_arity then
-        raise(Error(styp.ptyp_loc, env,
-                    Type_arity_mismatch(lid.txt, decl.type_arity,
-                                        List.length stl)));
-      let param_sorts =
-        List.map (fun ty -> Some (Btype.type_sort ty)) decl.type_params
-      in
-      let args = List.map2 (transl_type env policy) param_sorts stl in
-      let params = instance_list decl.type_params in
-      let unify_param =
-        match decl.type_manifest with
-          None -> unify_var
-        | Some ty ->
-            if (repr ty).level = Btype.generic_level then unify_var else unify
-      in
-      List.iter2
-        (fun (sty, cty) ty' ->
-           try unify_param env ty' cty.ctyp_type with Unify trace ->
-             raise (Error(sty.ptyp_loc, env, Type_mismatch (swap_list trace))))
-        (List.combine stl args) params;
-      let constr_args = List.map (fun ctyp -> ctyp.ctyp_type) args in
-      let constr = newconstr path constr_args decl.type_sort in
-      begin try
-        Ctype.enforce_constraints env constr
-      with Unify trace ->
-        raise (Error(styp.ptyp_loc, env, Type_mismatch trace))
-      end;
       ctyp (Ttyp_constr (path, lid, args)) constr
   | Ptyp_object (fields, o) ->
       check_sort styp.ptyp_loc env expected_sort Stype;
@@ -847,6 +802,44 @@ let rec transl_type env policy expected_sort (styp : Parsetree.core_type) : Type
   | Ptyp_extension ext ->
       raise (Error_forward (error_of_extension ext))
 
+and transl_type_constructor env policy loc expected_sort lid stl=
+  let (path, decl) = find_type env loc lid.txt in
+  check_sort loc env expected_sort decl.type_sort;
+  let stl =
+    match stl with
+    | [ {ptyp_desc=Ptyp_any} as t ] when decl.type_arity > 1 ->
+        List.map (fun _ -> t) decl.type_params
+    | _ -> stl
+  in
+  if List.length stl <> decl.type_arity then
+    raise(Error(loc, env,
+                Type_arity_mismatch(lid.txt, decl.type_arity,
+                                    List.length stl)));
+  let param_sorts =
+    List.map (fun ty -> Some (Btype.type_sort ty)) decl.type_params
+  in
+  let args = List.map2 (transl_type env policy) param_sorts stl in
+  let params = instance_list decl.type_params in
+  let unify_param =
+    match decl.type_manifest with
+      None -> unify_var
+    | Some ty ->
+        if (repr ty).level = Btype.generic_level then unify_var else unify
+  in
+  List.iter2
+    (fun (sty, cty) ty' ->
+       try unify_param env ty' cty.ctyp_type with Unify trace ->
+         raise (Error(sty.ptyp_loc, env, Type_mismatch (swap_list trace))))
+    (List.combine stl args) params;
+  let constr_args = List.map (fun ctyp -> ctyp.ctyp_type) args in
+  let constr = newconstr path constr_args decl.type_sort in
+  begin try
+    Ctype.enforce_constraints env constr
+  with Unify trace ->
+    raise (Error(loc, env, Type_mismatch trace))
+  end;
+  path, args, constr
+
 and transl_poly_type env policy t =
   transl_type env policy (Some Stype) (Ast_helper.Typ.force_poly t)
 
@@ -865,30 +858,70 @@ and transl_fields loc env policy seen o =
 
 and transl_effect_row_with_tail env policy row tail =
   let hfields = Hashtbl.create 17 in
-  let transl_effect_constructor env policy constr =
-    let loc = Location.none in (* TODO: FIXME effect_constructor in parsetree.mli does not carry location information *)
-    let lbl = constr.peff_label in
-    let () =
-      let h = Btype.hash_variant lbl in
-      match Hashtbl.find hfields h with
-      | lbl' ->
-          if lbl <> lbl' then raise(Error(loc, env, Effect_tags(lbl, lbl')))
-      | exception Not_found ->
-          Hashtbl.add hfields h lbl
-    in
-    let transl_type env policy sty =
-      let cty = transl_type env policy None sty in
-      cty
-    in
-    { ec_label = constr.peff_label;
-      ec_args = List.map (transl_type env policy) constr.peff_args;
-      ec_res  = Misc.may_map (transl_type env policy) constr.peff_res;
-      ec_loc = loc;
-      ec_attributes = constr.peff_attributes; }
+  let add_effect_constructor env loc lbl =
+    let h = Btype.hash_variant lbl in
+    match Hashtbl.find hfields h with
+    | lbl' ->
+        if lbl <> lbl' then raise(Error(loc, env, Effect_tags(lbl, lbl')))
+    | exception Not_found ->
+        Hashtbl.add hfields h lbl
   in
-  let tefr_effects =
-    List.map (transl_effect_constructor env policy) row.pefr_effects
+  let transl_effect_constructor loc eff =
+    let lbl = eff.peff_label in
+    add_effect_constructor env loc lbl;
+    let teff =
+      { eff_label = lbl;
+        eff_args = List.map (transl_type env policy None) eff.peff_args;
+        eff_res  = Misc.may_map (transl_type env policy None) eff.peff_res;
+        eff_attributes = eff.peff_attributes; }
+    in
+    let ec =
+      Eordinary
+        { ec_label = lbl;
+          ec_args = List.map (fun ctyp -> ctyp.ctyp_type) teff.eff_args;
+          ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) teff.eff_res; }
+    in
+    teff, ec
   in
+  let transl_effect_inherit loc lid stl =
+    begin_def ();
+    let path, args, constr =
+      transl_type_constructor env policy loc (Some Seffect) lid stl
+    in
+    end_def ();
+    match extract_effect_constructors env constr with
+    | None -> raise(Error(loc, env, Not_a_closed_effect constr))
+    | Some ecs ->
+        List.iter
+          (function
+             | Eordinary ec -> add_effect_constructor env loc ec.ec_label
+             | Estate _ -> ())
+          ecs;
+        path, args, ecs
+  in
+  let rec transl_effect_fields = function
+    | [] ->
+        [], []
+    | sefd :: rest ->
+        let loc = sefd.pefd_loc in
+        let tefds, ecs = transl_effect_fields rest in
+        let desc, ecs =
+          match sefd.pefd_desc with
+          | Pefd_inherit(lid, args) ->
+              let (path, args, ec) = transl_effect_inherit loc lid args in
+              let desc = Tefd_inherit(path, lid, args) in
+              let ecs = ec @ ecs in
+              desc, ecs
+          | Pefd_constructor constr ->
+              let teff, ec = transl_effect_constructor loc constr in
+              let desc = Tefd_constructor teff in
+              let ecs = ec :: ecs in
+              desc, ecs
+        in
+        let tefd = { efd_desc = desc; efd_loc = loc } in
+        tefd :: tefds, ecs
+  in
+  let teffs, ecs = transl_effect_fields row.pefr_effects in
   let tefr_next, row =
     match row.pefr_next with
     | None -> None, tail
@@ -898,16 +931,10 @@ and transl_effect_row_with_tail env policy row tail =
   in
   let tefr_type =
     List.fold_right
-      (fun ec tail ->
-        let tyec =
-          { ec_label = ec.Typedtree.ec_label;
-            ec_args = List.map (fun ctyp -> ctyp.ctyp_type) ec.ec_args;
-            ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) ec.ec_res; }
-        in
-        newty (Teffect(Eordinary tyec, tail)))
-      tefr_effects row
+      (fun ec tail -> newty (Teffect(ec, tail)))
+      ecs row
   in
-  { efr_effects = tefr_effects;
+  { efr_effects = teffs;
     efr_type = tefr_type;
     efr_next = tefr_next }
 
@@ -1236,7 +1263,10 @@ let report_error env ppf = function
       fprintf ppf
         "@[Effect constructors `%s@ and `%s have the same hash value.@ %s@]"
         lab1 lab2 "Change one of them."
-
+  | Not_a_closed_effect ty ->
+      Printtyp.reset_and_mark_loops ty;
+      fprintf ppf "@[The type %a@ is not a closed effect type@]"
+        Printtyp.type_expr ty
 
 let () =
   Location.register_error_of_exn

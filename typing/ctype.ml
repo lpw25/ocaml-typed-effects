@@ -1969,7 +1969,9 @@ let rec occur_rec env visited ty0 ty =
            (see change in rev. 1.58) *)
         if ty' == ty0 || List.memq ty' visited then raise Occur;
         match ty'.desc with
-          Tobject _ | Tvariant _ -> ()
+        | Tobject _ | Tvariant _ -> ()
+        | Teffect(_, rest) ->
+            occur_rec env (ty'::visited) ty0 rest
         | _ ->
             if not (!Clflags.recursive_types && is_contractive env ty') then
               iter_type_expr (occur_rec env (ty'::visited) ty0) ty'
@@ -1978,6 +1980,8 @@ let rec occur_rec env visited ty0 ty =
       end
   | Tobject _ | Tvariant _ ->
       ()
+  | Teffect(_, rest) ->
+      occur_rec env visited ty0 rest
   | _ ->
       if not occur_ok then
         iter_type_expr (occur_rec env visited ty0) ty
@@ -4601,6 +4605,14 @@ let rec remove_local_effects env ty =
 
 let remove_local_effects env ty =
   fst (remove_local_effects env ty)
+
+let extract_effect_constructors env ty =
+  let ecs, row = flatten_expanded_effects env ty in
+  let row_general = row.level > !current_level in
+  unify env ty (newvar Seffect);
+  match row.desc with
+  | Tenil when row_general -> Some ecs
+  | _ -> None
 
 (**** Check whether a type is a subtype of another type. ****)
 

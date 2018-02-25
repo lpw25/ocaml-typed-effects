@@ -162,6 +162,11 @@ let pr_var ppf ng (s, sort) =
     | Osrt_effect -> fprintf ppf "!%s%s" (if ng then "_" else "") s
     | Osrt_region -> fprintf ppf "@%s%s" (if ng then "_" else "") s
 
+let string_of_sort = function
+  | Osrt_type -> "type"
+  | Osrt_effect -> "effect"
+  | Osrt_region -> "region"
+
 let pr_gvar ppf v =
   pr_var ppf false v
 
@@ -266,7 +271,7 @@ and print_simple_out_type ppf =
       pp_print_string ppf "]"
   | Otyp_econstr (label, args, res_opt) ->
      let print_args ppf args =
-       print_list print_out_type (fun ppf -> fprintf ppf " * ") ppf args;
+       print_typlist print_simple_out_type " * " ppf args
      in
      match res_opt, args with
      | None, [] ->
@@ -489,14 +494,13 @@ and print_out_sig_item ppf =
                      | Orec_first -> "module rec"
                      | Orec_next -> "and")
         name !out_module_type mty
-  (* | Osig_effect (name, eff) ->
-   *     fprintf ppf "@[<2>effect %s%a@]" name print_out_effect_decl eff *)
   | Osig_type(td, rs) ->
         print_out_type_decl
           (match rs with
-           | Orec_not   -> "type nonrec"
-           | Orec_first -> "type"
-           | Orec_next  -> "and")
+           | Otype_not sort  -> string_of_sort sort ^ " nonrec"
+           | Otype_first sort -> string_of_sort sort
+           | Otype_next None -> "and"
+           | Otype_next (Some sort) -> "and " ^ string_of_sort sort)
           ppf td
   | Osig_value (name, ty, prims) ->
       let kwd = if prims = [] then "val" else "external" in

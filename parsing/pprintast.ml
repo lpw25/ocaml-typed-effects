@@ -93,9 +93,18 @@ let type_variance = function
   | Contravariant -> "-"
 
 let type_sort = function
-  | Type -> ""
-  | Effect -> ": effect"
-  | Region -> ": region"
+  | Type -> "type"
+  | Effect -> "effect"
+  | Region -> "region"
+
+let and_type_sort default sort =
+  match default, sort with
+  | Type, Type -> "and"
+  | (Effect | Region), Type -> "and type"
+  | Effect, Effect -> "and"
+  | (Type | Region), Effect -> "and effect"
+  | Region, Region -> "and"
+  | (Type | Effect), Region -> "and region"
 
 type construct =
   [ `cons of expression list
@@ -261,24 +270,36 @@ class printer  ()= object(self:'self)
           pp f "%s[%a]%s%s" tail self#effects row tail head
 
   method effects f x =
-    let effect_constructors f x =
-      self#list ~sep:" | " self#effect_constructor f x
+    let effect_fields f x =
+      self#list ~sep:" | " self#effect_field f x
     in
     match x.pefr_effects, x.pefr_next with
     | effs, None ->
-        pp f "%a" effect_constructors effs
+        pp f "%a" effect_fields effs
     | [], Some { ptyp_desc = Ptyp_var(s, Effect) } ->
         pp f "!%s" s
     | effs, Some { ptyp_desc = Ptyp_var(s, Effect) } ->
-        pp f "%a|!%s>" effect_constructors effs s
+        pp f "%a|!%s>" effect_fields effs s
     | [], Some { ptyp_desc = Ptyp_any } ->
         pp f ".."
     | effs, Some { ptyp_desc = Ptyp_any } ->
-        pp f "%a | .." effect_constructors effs
+        pp f "%a | .." effect_fields effs
     | [], Some t ->
         pp f ".. as %a" self#core_type t
     | effs, Some t ->
-        pp f "%a | .. as %a" effect_constructors effs self#core_type t
+        pp f "%a | .. as %a" effect_fields effs self#core_type t
+
+  method effect_field f x =
+    match x.pefd_desc with
+    | Pefd_inherit(li, l) ->
+        pp f "%a%a"
+          (fun f l -> match l with
+          |[] -> ()
+          |[x] -> pp f "%a@;" self#core_type1  x
+          | _ -> self#list ~first:"(" ~last:")@;" self#core_type ~sep:"," f l)
+          l self#longident_loc li
+    | Pefd_constructor eff ->
+        self#effect_constructor f eff
 
   method effect_constructor f x =
     match x.peff_res with
@@ -730,7 +751,7 @@ class printer  ()= object(self:'self)
     | Pexp_pack me ->
         pp f "(module@;%a)"  self#module_expr me
     | Pexp_newtype (lid, s, e) ->
-        pp f "fun@;(type@;%s%s)@;->@;%a" lid (type_sort s) self#expression e
+        pp f "fun@;(%s@;%s)@;->@;%a" (type_sort s) lid self#expression e
     | Pexp_tuple l ->
         pp f "@[<hov2>(%a)@]"  (self#list self#simple_expr  ~sep:",@;")  l
     | Pexp_constraint (e, ct) ->
@@ -1144,7 +1165,7 @@ class printer  ()= object(self:'self)
           else
             pp f "%a@ %a" self#label_exp (label,eo,p) pp_print_pexp_function e
       | Pexp_newtype (str,s,e) ->
-          pp f "(type@ %s%s)@ %a" str (type_sort s) pp_print_pexp_function e
+          pp f "(%s@ %s)@ %a" (type_sort s) str pp_print_pexp_function e
       | _ -> pp f "=@;%a" self#expression x in
     if x.pexp_attributes <> [] then
       pp f "%a@;=@;%a" self#pattern p self#expression x
@@ -1323,7 +1344,7 @@ class printer  ()= object(self:'self)
            && (x.ptype_manifest = None) then ""
         else " ="
       in
-      pp f "@[<2>%s %a%a%s%s%a@]%a" kwd
+      pp f "@[<2>%s %a%a%s%s%a@]%a" (kwd x.ptype_sort)
         self#nonrec_flag rf
         self#type_params x.ptype_params
         x.ptype_name.txt eq
@@ -1332,10 +1353,11 @@ class printer  ()= object(self:'self)
     in
     match l with
     | [] -> assert false
-    | [x] -> type_decl "type" rf f x
+    | [x] -> type_decl type_sort rf f x
     | x :: xs -> pp f "@[<v>%a@,%a@]"
-          (type_decl "type" rf) x
-          (self#list ~sep:"@," (type_decl "and" Recursive)) xs
+          (type_decl type_sort rf) x
+          (self#list ~sep:"@,"
+             (type_decl (and_type_sort x.ptype_sort) Recursive)) xs
   method type_declaration f x =
     let priv f =
       match x.ptype_private with

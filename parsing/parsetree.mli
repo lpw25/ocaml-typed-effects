@@ -145,17 +145,23 @@ and effect_type =
 
 and effect_row =
   {
-    pefr_effects : effect_constructor list;
+    pefr_effects : effect_field list;
     pefr_next : core_type option;
   }
 
+and effect_field =
+  { pefd_desc : effect_field_desc;
+    pefd_loc : Location.t }
+
+and effect_field_desc =
+  | Pefd_inherit of Longident.t loc * core_type list
+  | Pefd_constructor of effect_constructor
+
 and effect_constructor =
-  {
-    peff_label: label;
+  { peff_label: label;
     peff_args: core_type list;
     peff_res: core_type option;
-    peff_attributes: attributes;
-  }
+    peff_attributes: attributes; }
 
 (* Patterns *)
 

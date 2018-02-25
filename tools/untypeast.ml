@@ -183,26 +183,21 @@ and untype_extension_constructor ext =
     pext_attributes = ext.ext_attributes;
   }
 
-(* and untype_effect_declaration eff =
- *   {
- *     peff_name = eff.eff_name;
- *     peff_kind = untype_effect_kind eff.eff_kind;
- *     peff_manifest = Misc.may_map fst eff.eff_manifest;
- *     peff_loc = eff.eff_loc;
- *     peff_attributes = eff.eff_attributes;
- *   }
- * 
- * and untype_effect_kind = function
- *   | Teff_abstract -> Peff_abstract
- *   | Teff_variant ecs -> Peff_variant (List.map untype_effect_constructor ecs) *)
+and untype_effect_field efd =
+  { pefd_loc = efd.efd_loc;
+    pefd_desc =
+      match efd.efd_desc with
+      | Tefd_inherit(_, lid, args) ->
+          Pefd_inherit(lid, List.map untype_core_type args)
+      | Tefd_constructor eff ->
+          Pefd_constructor (untype_effect_constructor eff); }
 
-and untype_effect_constructor ec =
+and untype_effect_constructor eff =
   {
-    peff_label = ec.ec_label;
-    peff_args = List.map untype_core_type ec.ec_args;
-    peff_res = Misc.may_map untype_core_type ec.ec_res;
-    (* pec_loc = ec.ec_loc; *)
-    peff_attributes = ec.ec_attributes;
+    peff_label = eff.eff_label;
+    peff_args = List.map untype_core_type eff.eff_args;
+    peff_res = Misc.may_map untype_core_type eff.eff_res;
+    peff_attributes = eff.eff_attributes;
   }
 
 and untype_pattern pat =
@@ -637,7 +632,7 @@ and untype_row_field rf =
   | Tinherit ct -> Rinherit (untype_core_type ct)
 
 and untype_effect_row efr =
-  { pefr_effects = List.map untype_effect_constructor efr.efr_effects;
+  { pefr_effects = List.map untype_effect_field efr.efr_effects;
     pefr_next = Misc.may_map untype_core_type efr.efr_next; }
 
 and untype_effect_type eft =

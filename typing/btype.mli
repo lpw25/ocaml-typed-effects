@@ -104,6 +104,8 @@ val iter_type_expr: (type_expr -> unit) -> type_expr -> unit
         (* Iteration on types *)
 val iter_row: (type_expr -> unit) -> row_desc -> unit
         (* Iteration on types in a row *)
+val iter_effect_constructor: (type_expr -> unit) -> effect_constructor -> unit
+        (* Iteration on types in an effect constructor *)
 val iter_abbrev: (type_expr -> unit) -> abbrev_memo -> unit
         (* Iteration on types in an abbreviation list *)
 

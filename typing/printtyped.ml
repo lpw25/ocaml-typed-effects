@@ -222,7 +222,7 @@ and effect_row i ppf x =
   line i ppf "effect_row\n";
   let i = i+1 in
   line i ppf "pefr_constrs =\n";
-  list (i+1) effect_constructor ppf x.efr_effects;
+  list (i+1) effect_field ppf x.efr_effects;
   line i ppf "pefr_next =\n";
   option (i+1) core_type ppf x.efr_next
 
@@ -480,29 +480,23 @@ and extension_constructor_kind i ppf x =
         line i ppf "Pext_rebind\n";
         line (i+1) ppf "%a\n" fmt_path p;
 
-(* and effect_declaration i ppf x =
- *   line i ppf "effect_declaration %a %a\n" fmt_ident x.eff_id fmt_location x.eff_loc;
- *   attributes i ppf x.eff_attributes;
- *   let i = i+1 in
- *   line i ppf "peff_kind =\n";
- *   effect_kind (i+1) ppf x.eff_kind;
- *   line i ppf "peff_manifest =\n";
- *   option (i+1) longident_x_path ppf x.eff_manifest; *)
-
-(* and effect_kind i ppf x =
- *   match x with
- *   | Teff_abstract ->
- *       line i ppf "Peff_abstract\n"
- *   | Teff_variant l ->
- *       line i ppf "Peff_variant\n";
- *       list (i+1) effect_constructor ppf l; *)
+and effect_field i ppf x =
+  line i ppf "effect_field %a" fmt_location x.efd_loc;
+  let i = i+1 in
+  match x.efd_desc with
+  | Tefd_inherit(lid, _, args) ->
+      line i ppf "Pefd_inherit %a\n" fmt_path lid;
+      list (i+1) core_type ppf args
+  | Tefd_constructor eff ->
+      line i ppf "Pefd_constructor\n";
+      effect_constructor (i+1) ppf eff
 
 and effect_constructor i ppf x =
-  line i ppf "%a\n" fmt_location x.ec_loc;
-  label (i+1) ppf x.ec_label;
-  attributes i ppf x.ec_attributes;
-  list (i+1) core_type ppf x.ec_args;
-  option (i+1) core_type ppf x.ec_res
+  line i ppf "effect_constructor\n";
+  label (i+1) ppf x.eff_label;
+  attributes i ppf x.eff_attributes;
+  list (i+1) core_type ppf x.eff_args;
+  option (i+1) core_type ppf x.eff_res
 
 and class_type i ppf x =
   line i ppf "class_type %a\n" fmt_location x.cltyp_loc;

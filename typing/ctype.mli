@@ -187,6 +187,8 @@ val close_effects_contravariant : Env.t -> type_expr -> unit
 val close_effect_var : Env.t -> type_expr -> unit
 
 val remove_local_effects : Env.t -> type_expr -> type_expr
+val extract_effect_constructors :
+  Env.t -> type_expr -> effect_constructor list option
 
 val expand_head_once: Env.t -> type_expr -> type_expr
 val expand_head: Env.t -> type_expr -> type_expr

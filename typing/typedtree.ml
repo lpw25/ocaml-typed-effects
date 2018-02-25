@@ -386,7 +386,7 @@ and effect_type = {
 }
 
 and effect_row = {
-  efr_effects: effect_constructor list;
+  efr_effects: effect_field list;
   efr_type: Types.type_expr;
   efr_next: core_type option;
 }
@@ -459,9 +459,9 @@ and extension_constructor =
   {
     ext_id: Ident.t;
     ext_name: string loc;
-    ext_type : Types.extension_constructor;
-    ext_kind : extension_constructor_kind;
-    ext_loc : Location.t;
+    ext_type: Types.extension_constructor;
+    ext_kind: extension_constructor_kind;
+    ext_loc: Location.t;
     ext_attributes: attribute list;
   }
 
@@ -469,27 +469,22 @@ and extension_constructor_kind =
     Text_decl of core_type list * core_type option
   | Text_rebind of Path.t * Longident.t loc
 
-(* and effect_declaration =
- *   { eff_id: Ident.t;
- *     eff_name: string loc;
- *     eff_type: Types.effect_declaration;
- *     eff_kind: effect_kind;
- *     eff_manifest: (Longident.t loc * Path.t) option;
- *     eff_loc: Location.t;
- *     eff_attributes: attribute list;
- *    }
- * 
- * and effect_kind =
- *     Teff_abstract
- *   | Teff_variant of effect_constructor list *)
+and effect_field =
+  {
+    efd_desc: effect_field_desc;
+    efd_loc: Location.t;
+  }
+
+and effect_field_desc =
+  | Tefd_inherit of Path.t * Longident.t loc * core_type list
+  | Tefd_constructor of effect_constructor
 
 and effect_constructor =
     {
-     ec_label: label;
-     ec_args: core_type list;
-     ec_res: core_type option;
-     ec_loc: Location.t;
-     ec_attributes: attribute list;
+     eff_label: label;
+     eff_args: core_type list;
+     eff_res: core_type option;
+     eff_attributes: attribute list;
     }
 
 and class_type =

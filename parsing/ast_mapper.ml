@@ -41,6 +41,7 @@ type mapper = {
   constructor_declaration: mapper -> constructor_declaration
                            -> constructor_declaration;
   effect_constructor: mapper -> effect_constructor -> effect_constructor;
+  effect_field: mapper -> effect_field -> effect_field;
   effect_row: mapper -> effect_row -> effect_row;
   effect_type: mapper -> effect_type -> effect_type;
   expr: mapper -> expression -> expression;
@@ -125,8 +126,17 @@ module T = struct
 
   let map_effect_row sub {pefr_effects; pefr_next} =
     { pefr_effects =
-        List.map (sub.effect_constructor sub) pefr_effects;
+        List.map (sub.effect_field sub) pefr_effects;
       pefr_next = map_opt (sub.typ sub) pefr_next; }
+
+  let map_effect_field sub {pefd_loc; pefd_desc} =
+    { pefd_loc = sub.location sub pefd_loc;
+      pefd_desc =
+        match pefd_desc with
+        | Pefd_inherit(lid, args) ->
+            Pefd_inherit(map_loc sub lid, List.map (sub.typ sub) args)
+        | Pefd_constructor eff ->
+            Pefd_constructor (sub.effect_constructor sub eff); }
 
   let map_effect_constructor sub
       {peff_label; peff_args; peff_res; peff_attributes} =
@@ -528,6 +538,7 @@ let default_mapper =
     type_extension = T.map_type_extension;
     extension_constructor = T.map_extension_constructor;
     effect_constructor = T.map_effect_constructor;
+    effect_field = T.map_effect_field;
     effect_row = T.map_effect_row;
     effect_type = T.map_effect_type;
     value_description =

@@ -19,7 +19,7 @@ module type MapArgument = sig
   val enter_type_extension : type_extension -> type_extension
   val enter_extension_constructor :
     extension_constructor -> extension_constructor
-  (* val enter_effect_declaration : effect_declaration -> effect_declaration *)
+  val enter_effect_field : effect_field -> effect_field
   val enter_effect_row : effect_row -> effect_row
   val enter_effect_type : effect_type -> effect_type
   val enter_pattern : pattern -> pattern
@@ -50,7 +50,7 @@ module type MapArgument = sig
   val leave_type_extension : type_extension -> type_extension
   val leave_extension_constructor :
     extension_constructor -> extension_constructor
-  (* val leave_effect_declaration : effect_declaration -> effect_declaration *)
+  val leave_effect_field : effect_field -> effect_field
   val leave_effect_row : effect_row -> effect_row
   val leave_effect_type : effect_type -> effect_type
   val leave_pattern : pattern -> pattern
@@ -129,8 +129,6 @@ module MakeMap(Map : MapArgument) = struct
           Tstr_typext (map_type_extension tyext)
         | Tstr_exception ext ->
           Tstr_exception (map_extension_constructor ext)
-        (* | Tstr_effect eff ->
-         *   Tstr_effect (map_effect_declaration eff) *)
         | Tstr_module x ->
           Tstr_module (map_module_binding x)
         | Tstr_recmodule list ->
@@ -231,21 +229,6 @@ module MakeMap(Map : MapArgument) = struct
       | Text_rebind(p, lid) -> Text_rebind(p, lid)
     in
     Map.leave_extension_constructor {ext with ext_kind = ext_kind}
-
-  (* and map_effect_declaration eff =
-   *   let eff = Map.enter_effect_declaration eff in
-   *   let eff_kind =
-   *     match eff.eff_kind with
-   *     | Teff_abstract -> Teff_abstract
-   *     | Teff_variant list ->
-   *         let list = List.map map_effect_constructor list in
-   *         Teff_variant list
-   *   in
-   *   Map.leave_effect_declaration { eff with eff_kind } *)
-
-  and map_effect_constructor ec =
-    { ec with ec_args = List.map map_core_type ec.ec_args;
-      ec_res = may_map map_core_type ec.ec_res }
 
   and map_pattern pat =
     let pat = Map.enter_pattern pat in
@@ -449,8 +432,6 @@ module MakeMap(Map : MapArgument) = struct
           Tsig_typext (map_type_extension tyext)
         | Tsig_exception ext ->
           Tsig_exception (map_extension_constructor ext)
-        (* | Tsig_effect eff ->
-         *   Tsig_effect (map_effect_declaration eff) *)
         | Tsig_module md ->
           Tsig_module {md with md_type = map_module_type md.md_type}
         | Tsig_recmodule list ->
@@ -624,13 +605,29 @@ module MakeMap(Map : MapArgument) = struct
 
   and map_effect_row efr =
     let efr = Map.enter_effect_row efr in
+    let efr_effects = List.map map_effect_field efr.efr_effects in
     let efr_next = may_map map_core_type efr.efr_next in
-    Map.leave_effect_row { efr with efr_next = efr_next }
+    Map.leave_effect_row
+      { efr with efr_effects = efr_effects; efr_next = efr_next; }
 
   and map_effect_type eft =
     let eft = Map.enter_effect_type eft in
     let eft_row = Misc.may_map map_effect_row eft.eft_row in
     Map.leave_effect_type { eft with eft_row }
+
+  and map_effect_field efd =
+    let efd = Map.enter_effect_field efd in
+    let efd_desc =
+      match efd.efd_desc with
+      | Tefd_inherit(lid, path, args) ->
+          Tefd_inherit(lid, path, List.map map_core_type args)
+      | Tefd_constructor eff ->
+          Tefd_constructor
+            { eff with
+                eff_args = List.map map_core_type eff.eff_args;
+                eff_res = may_map map_core_type eff.eff_res }
+    in
+    Map.leave_effect_field { efd with efd_desc = efd_desc }
 
   and map_core_type ct =
     let ct = Map.enter_core_type ct in
@@ -700,7 +697,7 @@ module DefaultMapArgument = struct
   let enter_type_declaration t = t
   let enter_type_extension t = t
   let enter_extension_constructor t = t
-  (* let enter_effect_declaration t = t *)
+  let enter_effect_field t = t
   let enter_effect_row t = t
   let enter_effect_type t = t
   let enter_pattern t = t
@@ -730,7 +727,7 @@ module DefaultMapArgument = struct
   let leave_type_declaration t = t
   let leave_type_extension t = t
   let leave_extension_constructor t = t
-  (* let leave_effect_declaration t = t *)
+  let leave_effect_field t = t
   let leave_effect_row t = t
   let leave_effect_type t = t
   let leave_pattern t = t

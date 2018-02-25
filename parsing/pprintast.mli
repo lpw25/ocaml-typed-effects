@@ -49,6 +49,8 @@ class printer :
       Format.formatter -> Parsetree.effect_row -> unit
     method effect_constructor :
       Format.formatter -> Parsetree.effect_constructor -> unit
+    method effect_field :
+      Format.formatter -> Parsetree.effect_field -> unit
     method exception_declaration :
       Format.formatter -> Parsetree.extension_constructor -> unit
     method expression : Format.formatter -> Parsetree.expression -> unit

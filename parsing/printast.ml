@@ -217,9 +217,20 @@ and effect_row i ppf x =
   line i ppf "effect_row\n";
   let i = i+1 in
   line i ppf "pefr_constrs =\n";
-  list (i+1) effect_constructor ppf x.pefr_effects;
+  list (i+1) effect_field ppf x.pefr_effects;
   line i ppf "pefr_next =\n";
   option (i+1) core_type ppf x.pefr_next
+
+and effect_field i ppf x =
+  line i ppf "effect_field %a\n" fmt_location x.pefd_loc;
+  let i = i+1 in
+  match x.pefd_desc with
+  | Pefd_inherit(lid, args) ->
+      line i ppf "Pefd_inherit %a\n" fmt_longident_loc lid;
+      list (i+1) core_type ppf args
+  | Pefd_constructor eff ->
+      line i ppf "Pefd_constructor\n";
+      effect_constructor (i+1) ppf eff
 
 and effect_constructor i ppf x =
   line i ppf "effect_constructor\n";

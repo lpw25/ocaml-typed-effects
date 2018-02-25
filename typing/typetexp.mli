@@ -46,7 +46,6 @@ type error =
     Unbound_type_variable of string
   | Unbound_type_constructor of Longident.t
   | Unbound_type_constructor_2 of Path.t
-  (* | Unbound_effect of Longident.t *)
   | Type_arity_mismatch of Longident.t * int * int
   | Bound_type_variable of string
   | Recursive_type
@@ -65,7 +64,6 @@ type error =
   | Unbound_value of Longident.t
   | Unbound_constructor of Longident.t
   | Unbound_label of Longident.t
-  (* | Unbound_effect_constructor of Longident.t *)
   | Unbound_module of Longident.t
   | Unbound_class of Longident.t
   | Unbound_modtype of Longident.t
@@ -77,6 +75,7 @@ type error =
   | Unexpected_effect_type of bool
   | Unexpected_region_type of bool
   | Effect_tags of string * string
+  | Not_a_closed_effect of type_expr
 
 exception Error of Location.t * Env.t * error
 

@@ -249,6 +249,14 @@ let rec iter_row f row =
       Misc.may (fun (_,l) -> List.iter f l) row.row_name
   | _ -> assert false
 
+let iter_effect_constructor f ec =
+  match ec with
+  | Estate { ec_region } ->
+     f ec_region
+  | Eordinary { ec_args; ec_res; _ } ->
+     List.iter f ec_args;
+     Misc.may f ec_res
+
 let iter_type_expr f ty =
   match ty.desc with
     Tvar _              -> ()
@@ -266,15 +274,7 @@ let iter_type_expr f ty =
   | Tunivar _           -> ()
   | Tpoly (ty, tyl)     -> f ty; List.iter f tyl
   | Tpackage (_, _, l)  -> List.iter f l
-  | Teffect(ec, ty)     ->
-     begin match ec with
-     | Estate { ec_region } ->
-        f ec_region
-     | Eordinary { ec_args; ec_res; _ } ->
-        List.iter f ec_args;
-        Misc.may f ec_res
-     end;
-     f ty
+  | Teffect(ec, ty)     -> iter_effect_constructor f ec; f ty
   | Tenil               -> ()
 
 let rec iter_abbrev f = function
@@ -377,13 +377,7 @@ let type_iterators =
           may (it.it_type_expr it) cd.cd_res)
           cl
     | Type_open -> ()
-  (* and it_effect_kind it = function
-   *   | Eff_abstract -> ()
-   *   | Eff_variant ecs ->
-   *       List.iter (fun ec ->
-   *         List.iter (it.it_type_expr it) ec.ec_args;
-   *         may (it.it_type_expr it) ec.ec_res)
-   *         ecs *)
+
   and it_do_type_expr it ty =
     iter_type_expr (it.it_type_expr it) ty;
     match ty.desc with

@@ -85,6 +85,24 @@ let tree_of_rec = function
   | Trec_first -> Orec_first
   | Trec_next -> Orec_next
 
+let tree_of_sort = function
+  | Stype -> Osrt_type
+  | Seffect -> Osrt_effect
+  | Sregion -> Osrt_region
+
+let tree_of_type_rec default_sort sort = function
+  | Trec_not -> Otype_not (tree_of_sort sort)
+  | Trec_first -> Otype_first (tree_of_sort sort)
+  | Trec_next ->
+      match default_sort, sort with
+      | None, _ -> Otype_next (Some (tree_of_sort sort))
+      | Some Stype, Stype -> Otype_next None
+      | Some (Seffect | Sregion), Stype -> Otype_next (Some (Osrt_type))
+      | Some Seffect, Seffect -> Otype_next None
+      | Some (Stype | Sregion), Seffect -> Otype_next (Some (Osrt_effect))
+      | Some Sregion, Sregion -> Otype_next None
+      | Some (Stype | Seffect), Sregion -> Otype_next (Some (Osrt_region))
+
 (* Print a raw type expression, with sharing *)
 
 let raw_list pr ppf = function
@@ -418,10 +436,8 @@ let reset_names () =
   tilde_effect_var := None;
   single_effect_var := true
 
-let tree_of_name = function
-  | (name, Stype) -> (name, Osrt_type)
-  | (name, Seffect) -> (name, Osrt_effect)
-  | (name, Sregion) -> (name, Osrt_region)
+let tree_of_name (name, sort) =
+  (name, tree_of_sort sort)
 
 let add_named_var ty =
   match ty.desc with
@@ -1043,7 +1059,8 @@ and tree_of_label l =
    tree_of_typexp false l.ld_type)
 
 let tree_of_type_declaration id decl rs =
-  Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
+  Osig_type (tree_of_type_decl id decl,
+             tree_of_type_rec None decl.type_sort rs)
 
 let type_declaration id ppf decl =
   !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
@@ -1375,16 +1392,17 @@ let rec tree_of_modtype = function
       Omty_alias (tree_of_path p)
 
 and tree_of_signature sg =
-  wrap_env (fun env -> env) (tree_of_signature_rec !printing_env false) sg
+  wrap_env (fun env -> env) (tree_of_signature_rec !printing_env None) sg
 
-and tree_of_signature_rec env' in_type_group = function
+and tree_of_signature_rec env' type_group_sort = function
     [] -> []
   | item :: rem ->
-      let in_type_group =
-        match in_type_group, item with
-          true, Sig_type (_, _, Trec_next) -> true
-        | _, Sig_type (_, _, (Trec_not | Trec_first)) -> set_printing_env env'; true
-        | _ -> set_printing_env env'; false
+      let type_group_sort =
+        match type_group_sort, item with
+        | Some sort, Sig_type (_, _, Trec_next) -> Some sort
+        | _, Sig_type (_, decl, (Trec_not | Trec_first)) ->
+            set_printing_env env'; Some (decl.type_sort)
+        | _ -> set_printing_env env'; None
       in
       let (sg, rem) = filter_rem_sig item rem in
       let trees =
@@ -1395,7 +1413,9 @@ and tree_of_signature_rec env' in_type_group = function
             []
         | Sig_type(id, decl, rs) ->
             hide_rec_items (item :: rem);
-            [Osig_type(tree_of_type_decl id decl, tree_of_rec rs)]
+            let rs = tree_of_type_rec type_group_sort decl.type_sort rs in
+            let decl = tree_of_type_decl id decl in
+            [Osig_type(decl, rs)]
         | Sig_typext(id, ext, es) ->
             [tree_of_extension_constructor id ext es]
         (* | Sig_effect(id, eff) ->
@@ -1411,7 +1431,7 @@ and tree_of_signature_rec env' in_type_group = function
             [tree_of_cltype_declaration id decl rs]
       in
       let env' = Env.add_signature (item :: sg) env' in
-      trees @ tree_of_signature_rec env' in_type_group rem
+      trees @ tree_of_signature_rec env' type_group_sort rem
 
 and tree_of_modtype_declaration id decl =
   let mty =

@@ -116,8 +116,7 @@ and out_sig_item =
   | Osig_typext of out_extension_constructor * out_ext_status
   | Osig_modtype of string * out_module_type
   | Osig_module of string * out_module_type * out_rec_status
-  (* | Osig_effect of string * out_effect *)
-  | Osig_type of out_type_decl * out_rec_status
+  | Osig_type of out_type_decl * out_type_status
   | Osig_value of string * out_type * string list
 and out_type_decl =
   { otype_name: string;
@@ -141,6 +140,10 @@ and out_rec_status =
   | Orec_not
   | Orec_first
   | Orec_next
+and out_type_status =
+  | Otype_not of out_sort
+  | Otype_first of out_sort
+  | Otype_next of out_sort option
 and out_ext_status =
   | Oext_first
   | Oext_next
