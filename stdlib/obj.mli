@@ -75,5 +75,6 @@ val unmarshal : bytes -> int -> t * int
 
 
 external clone_continuation :
-  ('a, !p, 'b) continuation -> ('a, !p, 'b) continuation =
+  ('a, !p, 'b, @r) continuation -> ('a, !p, 'b, @q) continuation =
   "caml_clone_continuation"
+
