@@ -648,6 +648,26 @@ let reset_and_mark_loops ty =
 let reset_and_mark_loops_list tyl =
   reset (); List.iter mark_loops tyl
 
+(* Printing effects *)
+let is_global ty =
+  let ty = repr ty in
+  match ty.desc with
+  | Tconstr(p, [], _, _) ->
+      Path.same p Predef.path_global
+  | _ -> false
+
+let rec split_global_state ecs =
+  match ecs with
+  | [] -> None
+  | Eordinary _ as ec :: rest -> begin
+      match split_global_state rest with
+      | None -> None
+      | Some rest -> Some (ec :: rest)
+    end
+  | Estate { ec_region } :: rest ->
+      if is_global ec_region then Some rest
+      else None
+
 (* Disabled in classic mode when printing an unification error *)
 let print_labels = ref true
 let print_label ppf l =
@@ -850,13 +870,6 @@ and tree_of_typfields sch rest = function
       let (fields, rest) = tree_of_typfields sch rest l in
       (field :: fields, rest)
 
-and is_global ty =
-  let ty = repr ty in
-  match ty.desc with
-  | Tconstr(p, [], _, _) ->
-      Path.same p Predef.path_global
-  | _ -> false
-
 and tree_of_typeffect sch ty =
   let (effects, row) = Ctype.flatten_effects ty in
   let row = repr row in
@@ -865,19 +878,28 @@ and tree_of_typeffect sch ty =
     | Tenil -> None
     | _ -> Some (tree_of_typexp sch row)
   in
-  match effects, row with
-  | [], None -> Oarr_pure
-  | [Estate { ec_region }], None when is_global ec_region -> Oarr_io
-  | [], Some (Otyp_var(false, ("~", Osrt_effect))) -> Oarr_pure_tilde
-  | [Estate { ec_region }], Some (Otyp_var(false, ("~", Osrt_effect)))
-        when is_global ec_region ->
-      Oarr_io_tilde
-  | _, _ ->
-     let effects =
-       List.map (tree_of_effect_constructor sch) effects
-     in
-     Oarr_row(effects, row)
-
+  let io, effects =
+    match split_global_state effects with
+    | None -> false, effects
+    | Some effects_no_io -> true, effects_no_io
+  in
+  let tilde, row =
+    match row with
+    | Some (Otyp_var(false, ("~", Osrt_effect))) -> true, None
+    | _ -> false, row
+  in
+  let effects = List.map (tree_of_effect_constructor sch) effects in
+  match effects, io, tilde, row with
+  | [], false, false, None -> Oarr_pure
+  | [], false, false, Some _ -> Oarr_pure_row([], row)
+  | [], false, true, _ -> Oarr_pure_tilde
+  | [], true, false, None -> Oarr_io
+  | [], true, false, Some _ -> Oarr_io_row([], row)
+  | [], true, true, _ -> Oarr_io_tilde
+  | _, false, false, _ -> Oarr_pure_row(effects, row)
+  | _, false, true, _ -> Oarr_pure_tilde_row effects
+  | _, true, false, _ -> Oarr_io_row(effects, row)
+  | _, true, true, _ -> Oarr_io_tilde_row effects
 
 let typexp sch prio ppf ty =
   !Oprint.out_type ppf (tree_of_typexp sch ty)

@@ -73,11 +73,14 @@ and out_variant =
   | Ovar_name of out_ident * out_type list
 
 and out_arrow =
-  | Oarr_io
   | Oarr_pure
-  | Oarr_io_tilde
+  | Oarr_io
   | Oarr_pure_tilde
-  | Oarr_row of out_type list * out_type option
+  | Oarr_io_tilde
+  | Oarr_pure_row of out_type list * out_type option
+  | Oarr_io_row of out_type list * out_type option
+  | Oarr_pure_tilde_row of out_type list
+  | Oarr_io_tilde_row of out_type list
 
 and out_label_mutability =
   | Olmut_immutable
