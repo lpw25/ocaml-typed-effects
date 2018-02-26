@@ -572,7 +572,7 @@ let check_well_founded env loc path to_check ty =
           | Tvariant _ -> Btype.iter_type_expr (check ty0 TypeSet.empty) ty
           | Teffect(ec, ty) ->
               Btype.iter_effect_constructor (check ty0 TypeSet.empty) ec;
-              Btype.iter_type_expr (check ty0 exp_nodes) ty
+              check ty0 exp_nodes ty
           | _ -> Btype.iter_type_expr (check ty0 exp_nodes) ty
           end
     | Ctype.Unify _ ->
