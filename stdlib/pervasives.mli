@@ -979,26 +979,28 @@ module LargeFile :
 
 (** {6 References} *)
 
-type 'a ref = { mutable contents : 'a }
+type ('a, @r) rref = { mutable(@r) contents : 'a }
+
+type 'a ref = ('a, global) rref
 (** The type of references (mutable indirection cells) containing
    a value of type ['a]. *)
 
-external ref : 'a -> 'a ref = "%makemutable"
+external ref : 'a -[@r state]->> ('a, @r) rref = "%makemutable"
 (** Return a fresh reference containing the given value. *)
 
-external ( ! ) : 'a ref -> 'a = "%field0"
+external ( ! ) : ('a, @r) rref -[@r state]->> 'a = "%field0"
 (** [!r] returns the current contents of reference [r].
    Equivalent to [fun r -> r.contents]. *)
 
-external ( := ) : 'a ref ->> 'a -> unit = "%setfield0"
+external ( := ) : ('a, @r) rref ->> 'a -[@r state]->> unit = "%setfield0"
 (** [r := a] stores the value of [a] in reference [r].
    Equivalent to [fun r v -> r.contents <- v]. *)
 
-external incr : int ref -> unit = "%incr"
+external incr : (int, @r) rref -[@r state]->> unit = "%incr"
 (** Increment the integer contained in the given reference.
    Equivalent to [fun r -> r := succ !r]. *)
 
-external decr : int ref -> unit = "%decr"
+external decr : (int, @r) rref -[@r state]->> unit = "%decr"
 (** Decrement the integer contained in the given reference.
    Equivalent to [fun r -> r := pred !r]. *)
 

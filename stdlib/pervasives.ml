@@ -241,12 +241,13 @@ external snd : 'a * 'b ->> 'b = "%field1"
 
 (* References *)
 
-type 'a ref = { mutable contents : 'a }
-external ref : 'a -> 'a ref = "%makemutable"
-external ( ! ) : 'a ref -> 'a = "%field0"
-external ( := ) : 'a ref ->> 'a -> unit = "%setfield0"
-external incr : int ref -> unit = "%incr"
-external decr : int ref -> unit = "%decr"
+type ('a, @r) rref = { mutable(@r) contents : 'a }
+type 'a ref = ('a, global) rref
+external ref : 'a -[@r state]->> ('a, @r) rref = "%makemutable"
+external ( ! ) : ('a, @r) rref -[@r state]->> 'a = "%field0"
+external ( := ) : ('a, @r) rref ->> 'a -[@r state]->> unit = "%setfield0"
+external incr : (int, @r) rref -[@r state]->> unit = "%incr"
+external decr : (int, @r) rref -[@r state]->> unit = "%decr"
 
 (* Result type *)
 
