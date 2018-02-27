@@ -586,43 +586,6 @@ let rec filter_row_fields erase = function
                     (*  Check genericity of type schemes  *)
                     (**************************************)
 
-
-exception Non_closed
-
-let rec closed_schema_rec ty =
-  let ty = repr ty in
-  if ty.level >= lowest_level then begin
-    let level = ty.level in
-    ty.level <- pivot_level - level;
-    match ty.desc with
-    | Tvar(_, Stype) when level <> generic_level ->
-        raise Non_closed
-    | Tvar(_, Seffect) when level <> generic_level ->
-        (* TODO: Remove this hack (or at least give a warning) *)
-       let eff = Predef.type_io ty.level in
-       link_type ty eff
-    | Tfield(_, kind, t1, t2) ->
-        if field_kind_repr kind = Fpresent then
-          closed_schema_rec t1;
-        closed_schema_rec t2
-    | Tvariant row ->
-        let row = row_repr row in
-        iter_row closed_schema_rec row;
-        if not (static_row row) then closed_schema_rec row.row_more
-    | _ ->
-        iter_type_expr closed_schema_rec ty
-  end
-
-(* Return whether all variables of type [ty] are generic. *)
-let closed_schema ty =
-  try
-    closed_schema_rec ty;
-    unmark_type ty;
-    true
-  with Non_closed ->
-    unmark_type ty;
-    false
-
 exception Non_closed of type_expr * bool
 
 let free_variables = ref []
@@ -733,24 +696,6 @@ let closed_extension_constructor ext =
     unmark_extension_constructor ext;
     Some ty
 
-(* let closed_effect_decl eff =
- *   try
- *     begin match eff.eff_kind with
- *     | Eff_abstract -> ()
- *     | Eff_variant ecs ->
- *         List.iter
- *           (fun {ec_args; ec_res; _} ->
- *             match ec_res with
- *             | Some _ -> ()
- *             | None -> List.iter closed_type ec_args)
- *           ecs
- *     end;
- *     unmark_effect_decl eff;
- *     None
- *   with Non_closed (ty, _) ->
- *     unmark_effect_decl eff;
- *     Some ty *)
-
 let is_evar ty =
   let ty = repr ty in
   match ty.desc with
@@ -763,35 +708,37 @@ let rec mem_close_pure_visited ty pure = function
       if ty == ty' && pure = pure' then true
       else mem_close_pure_visited ty pure rest
 
-let rec close_pure_evars env visited evars pure ty =
+let rec close_pure_evars sch visited evars pure ty =
   let ty = repr ty in
   if mem_close_pure_visited ty pure !visited then ()
   else begin
     visited := (ty, pure) :: !visited;
     match ty.desc with
     | Tvar(_, Seffect) ->
-        if pure && List.memq ty evars then begin
-          link_type ty (newty2 ty.level Tenil)
+        if not sch || ty.level <> generic_level then begin
+          if pure && List.memq ty evars then begin
+            link_type ty (newty2 ty.level Tenil)
+          end
         end
     | Teffect(p, ty) ->
        begin match p with
        | Eordinary { ec_args; ec_res; _ } ->
-          List.iter (close_pure_evars env visited evars pure) ec_args;
-          Misc.may (close_pure_evars env visited evars pure) ec_res;
-          close_pure_evars env visited evars pure ty
+          List.iter (close_pure_evars sch visited evars pure) ec_args;
+          Misc.may (close_pure_evars sch visited evars pure) ec_res;
+          close_pure_evars sch visited evars pure ty
        | Estate { ec_region } ->
-          close_pure_evars env visited evars pure ec_region;
-          close_pure_evars env visited evars true ty
+          close_pure_evars sch visited evars pure ec_region;
+          close_pure_evars sch visited evars true ty
        end
     | _    ->
-        iter_type_expr (close_pure_evars env visited evars pure) ty
+        iter_type_expr (close_pure_evars sch visited evars pure) ty
   end
 
 let close_type env ty =
   let vars = free_vars ty in
   let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
   if List.length evars > 0 then
-    close_pure_evars env (ref []) (List.map fst evars) false ty;
+    close_pure_evars false (ref []) (List.map fst evars) false ty;
   List.iter
     (fun (v, _) ->
       (* TODO unify free vars in the region with global *)
@@ -834,6 +781,46 @@ let closed_class env params sign =
     unmark_class_signature sign;
     Some reason
 
+
+exception Non_closed
+
+let rec closed_schema_rec ty =
+  let ty = repr ty in
+  if ty.level >= lowest_level then begin
+    let level = ty.level in
+    ty.level <- pivot_level - level;
+    match ty.desc with
+    | Tvar(_, Stype) when level <> generic_level ->
+        raise Non_closed
+    | Tvar(_, Seffect) when level <> generic_level ->
+        (* TODO: Remove this hack (or at least give a warning) *)
+       let eff = Predef.type_io ty.level in
+       link_type ty eff
+    | Tfield(_, kind, t1, t2) ->
+        if field_kind_repr kind = Fpresent then
+          closed_schema_rec t1;
+        closed_schema_rec t2
+    | Tvariant row ->
+        let row = row_repr row in
+        iter_row closed_schema_rec row;
+        if not (static_row row) then closed_schema_rec row.row_more
+    | _ ->
+        iter_type_expr closed_schema_rec ty
+  end
+
+(* Return whether all variables of type [ty] are generic. *)
+let closed_schema ty =
+  let vars = free_vars ty in
+  let evars, others = List.partition (fun (v, _) -> is_evar v) vars in
+  if List.length evars > 0 then
+    close_pure_evars true (ref []) (List.map fst evars) false ty;
+  try
+    closed_schema_rec ty;
+    unmark_type ty;
+    true
+  with Non_closed ->
+    unmark_type ty;
+    false
 
                             (**********************)
                             (*  Type duplication  *)
