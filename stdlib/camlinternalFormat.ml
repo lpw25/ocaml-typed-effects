@@ -39,9 +39,9 @@ let is_in_char_set char_set c =
 
 (* GADT used to abstract an existential type parameter. *)
 (* See param_format_of_ignored_format. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) param_format_ebb = Param_format_EBB :
-    ('x -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) param_format_ebb
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) param_format_ebb = Param_format_EBB :
+    ('x ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) param_format_ebb
 
 (* Compute a padding associated to a pad_option (see "%_42d"). *)
 let pad_of_pad_opt pad_opt = match pad_opt with
@@ -110,94 +110,94 @@ type ('b, 'c, !p) acc_formatting_gen =
 
 (* Reversed list of printing atoms. *)
 (* Used to accumulate printf arguments. *)
-and ('b, 'c, !p) acc =
-  | Acc_formatting_lit of ('b, 'c, !p) acc * formatting_lit (* Special fmtting (box)      *)
-  | Acc_formatting_gen of ('b, 'c, !p) acc * ('b, 'c, !p) acc_formatting_gen (* Special fmtting (box) *)
-  | Acc_string_literal of ('b, 'c, !p) acc * string         (* Literal string             *)
-  | Acc_char_literal   of ('b, 'c, !p) acc * char           (* Literal char               *)
-  | Acc_data_string    of ('b, 'c, !p) acc * string         (* Generated string           *)
-  | Acc_data_char      of ('b, 'c, !p) acc * char           (* Generated char             *)
-  | Acc_delay          of ('b, 'c, !p) acc * ('b -[!p]->> 'c)     (* Delayed printing (%a, %t)  *)
-  | Acc_flush          of ('b, 'c, !p) acc                  (* Flush                      *)
-  | Acc_invalid_arg    of ('b, 'c, !p) acc * string         (* Raise Invalid_argument msg *)
+and ('b, 'c, !~) acc =
+  | Acc_formatting_lit of ('b, 'c, !~) acc * formatting_lit (* Special fmtting (box)      *)
+  | Acc_formatting_gen of ('b, 'c, !~) acc * ('b, 'c, !~) acc_formatting_gen (* Special fmtting (box) *)
+  | Acc_string_literal of ('b, 'c, !~) acc * string         (* Literal string             *)
+  | Acc_char_literal   of ('b, 'c, !~) acc * char           (* Literal char               *)
+  | Acc_data_string    of ('b, 'c, !~) acc * string         (* Generated string           *)
+  | Acc_data_char      of ('b, 'c, !~) acc * char           (* Generated char             *)
+  | Acc_delay          of ('b, 'c, !~) acc * ('b ~>> 'c)     (* Delayed printing (%a, %t)  *)
+  | Acc_flush          of ('b, 'c, !~) acc                  (* Flush                      *)
+  | Acc_invalid_arg    of ('b, 'c, !~) acc * string         (* Raise Invalid_argument msg *)
   | End_of_acc
 
 (* List of heterogeneous values. *)
 (* Used to accumulate scanf callback arguments. *)
-type ('a, 'b, !p) heter_list =
-  | Cons : 'c * ('a, 'b, !p) heter_list -> ('c -[!p]->> 'a, 'b, !p) heter_list
-  | Nil : ('b, 'b, !p) heter_list
+type ('a, 'b, !~) heter_list =
+  | Cons : 'c * ('a, 'b, !~) heter_list -> ('c ~>> 'a, 'b, !~) heter_list
+  | Nil : ('b, 'b, !~) heter_list
 
 (* Existential Black Boxes. *)
 (* Used to abstract some existential type parameters. *)
 
 (* GADT type associating a padding and an fmtty. *)
 (* See the type_padding function. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) padding_fmtty_ebb = Padding_fmtty_EBB :
-     ('x, 'y, !p) padding * ('y, 'b, 'c, 'd, 'e, 'f, !p) fmtty ->
-     ('x, 'b, 'c, 'd, 'e, 'f, !p) padding_fmtty_ebb
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) padding_fmtty_ebb = Padding_fmtty_EBB :
+     ('x, 'y, !~) padding * ('y, 'b, 'c, 'd, 'e, 'f, !~) fmtty ->
+     ('x, 'b, 'c, 'd, 'e, 'f, !~) padding_fmtty_ebb
 
 (* GADT type associating a padding, a precision and an fmtty. *)
 (* See the type_padprec function. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) padprec_fmtty_ebb = Padprec_fmtty_EBB :
-     ('x, 'y, !p) padding * ('y, 'z, !p) precision *
-       ('z, 'b, 'c, 'd, 'e, 'f, !p) fmtty ->
-     ('x, 'b, 'c, 'd, 'e, 'f, !p) padprec_fmtty_ebb
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) padprec_fmtty_ebb = Padprec_fmtty_EBB :
+     ('x, 'y, !~) padding * ('y, 'z, !~) precision *
+       ('z, 'b, 'c, 'd, 'e, 'f, !~) fmtty ->
+     ('x, 'b, 'c, 'd, 'e, 'f, !~) padprec_fmtty_ebb
 
 (* GADT type associating a padding and an fmt. *)
 (* See make_padding_fmt_ebb and parse_format functions. *)
-type ('a, 'b, 'c, 'e, 'f, !p) padding_fmt_ebb = Padding_fmt_EBB :
-     (_, 'x -[!p]->> 'a, !p) padding *
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-     ('x, 'b, 'c, 'e, 'f, !p) padding_fmt_ebb
+type ('a, 'b, 'c, 'e, 'f, !~) padding_fmt_ebb = Padding_fmt_EBB :
+     (_, 'x ~>> 'a, !~) padding *
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+     ('x, 'b, 'c, 'e, 'f, !~) padding_fmt_ebb
 
 (* GADT type associating a precision and an fmt. *)
 (* See make_precision_fmt_ebb and parse_format functions. *)
-type ('a, 'b, 'c, 'e, 'f, !p) precision_fmt_ebb = Precision_fmt_EBB :
-     (_, 'x -[!p]->> 'a, !p) precision *
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-     ('x, 'b, 'c, 'e, 'f, !p) precision_fmt_ebb
+type ('a, 'b, 'c, 'e, 'f, !~) precision_fmt_ebb = Precision_fmt_EBB :
+     (_, 'x ~>> 'a, !~) precision *
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+     ('x, 'b, 'c, 'e, 'f, !~) precision_fmt_ebb
 
 (* GADT type associating a padding, a precision and an fmt. *)
 (* See make_padprec_fmt_ebb and parse_format functions. *)
-type ('p, 'b, 'c, 'e, 'f, !p) padprec_fmt_ebb = Padprec_fmt_EBB :
-     ('x, 'y, !p) padding * ('y, 'p -[!p]->> 'a, !p) precision *
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-     ('p, 'b, 'c, 'e, 'f, !p) padprec_fmt_ebb
+type ('p, 'b, 'c, 'e, 'f, !~) padprec_fmt_ebb = Padprec_fmt_EBB :
+     ('x, 'y, !~) padding * ('y, 'p ~>> 'a, !~) precision *
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+     ('p, 'b, 'c, 'e, 'f, !~) padprec_fmt_ebb
 
 (* Abstract the 'a and 'd parameters of an fmt. *)
 (* Output type of the format parsing function. *)
-type ('b, 'c, 'e, 'f, !p) fmt_ebb = Fmt_EBB :
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-     ('b, 'c, 'e, 'f, !p) fmt_ebb
+type ('b, 'c, 'e, 'f, !~) fmt_ebb = Fmt_EBB :
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+     ('b, 'c, 'e, 'f, !~) fmt_ebb
 
 (* GADT type associating an fmtty and an fmt. *)
 (* See the type_format_gen function. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt_fmtty_ebb =
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt_fmtty_ebb =
   Fmt_fmtty_EBB :
-     ('a, 'b, 'c, 'd, 'y, 'x, !p) fmt *
-     ('x, 'b, 'c, 'y, 'e, 'f, !p) fmtty ->
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt_fmtty_ebb
+     ('a, 'b, 'c, 'd, 'y, 'x, !~) fmt *
+     ('x, 'b, 'c, 'y, 'e, 'f, !~) fmtty ->
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt_fmtty_ebb
 
 (* GADT type associating an fmtty and an fmt. *)
 (* See the type_ignored_format_substitution function. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) fmtty_fmt_ebb = Fmtty_fmt_EBB :
-     ('a, 'b, 'c, 'd, 'y, 'x, !p) fmtty *
-     ('x, 'b, 'c, 'y, 'e, 'f, !p) fmt_fmtty_ebb ->
-     ('a, 'b, 'c, 'd, 'e, 'f, !p) fmtty_fmt_ebb
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) fmtty_fmt_ebb = Fmtty_fmt_EBB :
+     ('a, 'b, 'c, 'd, 'y, 'x, !~) fmtty *
+     ('x, 'b, 'c, 'y, 'e, 'f, !~) fmt_fmtty_ebb ->
+     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmtty_fmt_ebb
 
 (* Abstract all format type parameters. *)
 (* Used to compare paddings. *)
 type fmtty_ebb =
-  Fmtty_EBB : ('a, 'b, 'c, 'd, 'y, 'x, !p) fmtty -> fmtty_ebb
+  Fmtty_EBB : ('a, 'b, 'c, 'd, 'y, 'x, !~) fmtty -> fmtty_ebb
 
 (* Abstract all padding type parameters. *)
 (* Used to compare paddings. *)
-type padding_ebb = Padding_EBB : ('a, 'b, !p) padding -> padding_ebb
+type padding_ebb = Padding_EBB : ('a, 'b, !~) padding -> padding_ebb
 
 (* Abstract all precision type parameters. *)
 (* Used to compare precisions. *)
-type precision_ebb = Precision_EBB : ('a, 'b, !p) precision -> precision_ebb
+type precision_ebb = Precision_EBB : ('a, 'b, !~) precision -> precision_ebb
 
 (******************************************************************************)
                                (* Constants *)
@@ -1472,7 +1472,7 @@ let string_of_fmtty fmtty =
 (******************************************************************************)
                         (* Generic printing function *)
 
-effect !p wio = ![io | !p]
+effect !~ wio = ![io | !~]
 
 (* Make a generic printing function. *)
 (* Used to generate Printf and Format printing functions. *)
@@ -1483,9 +1483,9 @@ effect !p wio = ![io | !p]
      fmt: the format. *)
 let rec make_printf :
   type a b c d e f effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->>
       b ->> (b, c, p wio) acc ->> (a, b, c, d, e, f, p wio) fmt
-       -[io | .. as p]->> a =
+       -[.. as p]-> a =
 fun k o acc fmt -> match fmt with
   | Char rest ->
     fun c ->
@@ -1578,9 +1578,9 @@ fun k o acc fmt -> match fmt with
 (* Generate functions to take remaining arguments (after the "%_"). *)
 and make_ignored_param :
   type a b c d e f x y effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->> b ->> (b, c, p wio) acc ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->> b ->> (b, c, p wio) acc ->>
     (a, b, c, d, y, x, p wio) ignored ->>
-    (x, b, c, y, e, f, p wio) fmt -[io | .. as p]->> a =
+    (x, b, c, y, e, f, p wio) fmt -[.. as p]-> a =
 fun k o acc ign fmt -> match ign with
   | Ignored_char                    -> make_invalid_arg k o acc fmt
   | Ignored_caml_char               -> make_invalid_arg k o acc fmt
@@ -1603,9 +1603,9 @@ fun k o acc ign fmt -> match ign with
 (* Special case of printf "%_(". *)
 and make_from_fmtty :
   type a b c d e f x y effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->>
        b ->> (b, c, p wio) acc ->> (a, b, c, d, y, x, p wio) fmtty ->>
-         (x, b, c, y, e, f, p wio) fmt -[io | .. as p]->> a =
+         (x, b, c, y, e, f, p wio) fmt -[.. as p]-> a =
 fun k o acc fmtty fmt -> match fmtty with
   | Char_ty rest            -> fun _ -> make_from_fmtty k o acc rest fmt
   | String_ty rest          -> fun _ -> make_from_fmtty k o acc rest fmt
@@ -1630,19 +1630,19 @@ fun k o acc fmtty fmt -> match fmtty with
    closures to get the remaining arguments. *)
 and make_invalid_arg :
   type a b c d e f effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->>
        b ->> (b, c, p wio) acc -> (a, b, c, d, e, f, p wio) fmt
-         -[io | .. as p]->> a =
+         -[.. as p]-> a =
 fun k o acc fmt ->
   make_printf k o (Acc_invalid_arg (acc, "Printf: bad conversion %_")) fmt
 
 (* Fix padding, take it as an extra integer argument if needed. *)
 and make_string_padding :
   type a b c d e f x z effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->>
        b ->> (b, c, p wio) acc ->> (a, b, c, d, e, f, p wio) fmt ->>
-         (x, z -[io | .. as p]->> a, p wio) padding ->>
-           (z -> string) -[io | .. as p]->> x =
+         (x, z -[.. as p]-> a, p wio) padding ->>
+           (z -> string) -[.. as p]-> x =
   fun k o acc fmt pad trans -> match pad with
   | No_padding ->
     fun x ->
@@ -1661,10 +1661,10 @@ and make_string_padding :
 (* Take one or two extra integer arguments if needed. *)
 and make_int_padding_precision :
   type a b c d e f x y z effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->> b ->> (b, c, p wio) acc ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->> b ->> (b, c, p wio) acc ->>
     (a, b, c, d, e, f, p wio) fmt ->>
-    (x, y, p wio) padding ->> (y, z -[io | .. as p]->> a, p wio) precision ->> (int_conv -> z -> string) ->>
-    int_conv -[io | .. as p]->> x =
+    (x, y, p wio) padding ->> (y, z -[.. as p]-> a, p wio) precision ->> (int_conv -> z -> string) ->>
+    int_conv -[.. as p]-> x =
   fun k o acc fmt pad prec trans iconv -> match pad, prec with
   | No_padding, No_precision ->
     fun x ->
@@ -1707,9 +1707,9 @@ and make_int_padding_precision :
 (* Take the float argument and one or two extra integer arguments if needed. *)
 and make_float_padding_precision :
   type a b c d e f x y effect p.
-    (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->> b ->> (b, c, p wio) acc ->>
+    (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->> b ->> (b, c, p wio) acc ->>
     (a, b, c, d, e, f, p wio) fmt ->>
-    (x, y, p wio) padding ->> (y, float -[io | .. as p]->> a, p wio) precision ->> float_conv -[io | .. as p]->> x =
+    (x, y, p wio) padding ->> (y, float -[.. as p]-> a, p wio) precision ->> float_conv -[.. as p]-> x =
   fun k o acc fmt pad prec fconv -> match pad, prec with
   | No_padding, No_precision ->
     fun x ->
@@ -1752,9 +1752,9 @@ and make_float_padding_precision :
 
 and make_custom :
   type a b c d e f x y effect p.
-  (b -[io | .. as p]->> (b, c, p wio) acc -[io | .. as p]->> f) ->>
+  (b -[.. as p]-> (b, c, p wio) acc -[.. as p]-> f) ->>
     b ->> (b, c, p wio) acc ->> (a, b, c, d, e, f, p wio) fmt ->>
-      (a, x, y, p wio) custom_arity ->> x -[io | .. as p]->> y =
+      (a, x, y, p wio) custom_arity ->> x -[.. as p]-> y =
   fun k o acc rest arity f -> match arity with
   | Custom_zero -> make_printf k o (Acc_data_string (acc, f)) rest
   | Custom_succ arity ->

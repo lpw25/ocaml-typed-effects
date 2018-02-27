@@ -413,9 +413,9 @@ end
 
 (* Formatted input functions. *)
 
-type ('a, 'b, 'c, 'd, !p) scanner =
+type ('a, 'b, 'c, 'd, !~) scanner =
   ('a, Scanning.in_channel, 'b, 'c,
-   'a -[io | !p]->> 'd, 'd, ![io | !p]) format6e -[io | !p]->> 'c
+   'a ~> 'd, 'd, ![io | !~]) format6e ~> 'c
 
 (* Reporting errors. *)
 exception Scan_failure of string;;
@@ -1007,8 +1007,8 @@ let stopper_of_formatting_lit fmting =
 (* When all readers are taken, finally pass the list of the readers to the
    continuation k. *)
 let rec take_format_readers : type a c d e f effect p.
-    ((d, e, p wio) heter_list -[io | .. as p]->> e) ->>
-    (a, Scanning.in_channel, c, d, e, f, p wio) fmt -[io | .. as p]->>
+    ((d, e, p wio) heter_list -[.. as p]-> e) ->>
+    (a, Scanning.in_channel, c, d, e, f, p wio) fmt -[.. as p]->
     d =
 fun k fmt -> match fmt with
   | Reader fmt_rest ->
@@ -1049,9 +1049,9 @@ fun k fmt -> match fmt with
 
 (* Take readers associated to an fmtty coming from a Format_subst "%(...%)". *)
 and take_fmtty_format_readers : type x y a c d e f effect p.
-    ((d, e, p wio) heter_list -[io | .. as p]->> e) ->>
+    ((d, e, p wio) heter_list -[.. as p]-> e) ->>
       (a, Scanning.in_channel, c, d, x, y, p wio) fmtty ->>
-      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[io | .. as p]->> d =
+      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[.. as p]-> d =
 fun k fmtty fmt -> match fmtty with
   | Reader_ty fmt_rest ->
     fun reader ->
@@ -1080,9 +1080,9 @@ fun k fmtty fmt -> match fmtty with
 
 (* Take readers associated to an ignored parameter. *)
 and take_ignored_format_readers : type x y a c d e f effect p.
-    ((d, e, p wio) heter_list -[io | .. as p]->> e) ->
+    ((d, e, p wio) heter_list -[.. as p]-> e) ->
       (a, Scanning.in_channel, c, d, x, y, p wio) ignored ->
-      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[io | .. as p]->> d =
+      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[.. as p]-> d =
 fun k ign fmt -> match ign with
   | Ignored_reader ->
     fun reader ->
@@ -1114,7 +1114,7 @@ fun k ign fmt -> match ign with
 (* Return the heterogeneous list of scanned values. *)
 let rec make_scanf : type a c d e f effect p.
     Scanning.in_channel ->> (a, Scanning.in_channel, c, d, e, f, p wio) fmt ->>
-      (d, _, p wio) heter_list -[io | .. as p]->> (a, f, p wio) heter_list =
+      (d, _, p wio) heter_list -[.. as p]-> (a, f, p wio) heter_list =
 fun ib fmt readers -> match fmt with
   | Char rest ->
     let _ = scan_char 0 ib in
@@ -1270,9 +1270,9 @@ fun ib fmt readers -> match fmt with
 and pad_prec_scanf : type a c d e f x y z t effect p.
     Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p wio) fmt ->
       (d, _, p wio) heter_list -> (x, y, p wio) padding ->
-      (y, z -[io | .. as p]->> a, p wio) precision ->
+      (y, z -[.. as p]-> a, p wio) precision ->
       (int -> int -> Scanning.in_channel -> t) ->
-      (Scanning.in_channel -> z) -[io | .. as p]->>
+      (Scanning.in_channel -> z) -[.. as p]->
       (x, f, p wio) heter_list =
 fun ib fmt readers pad prec scan token -> match pad, prec with
   | No_padding, No_precision ->

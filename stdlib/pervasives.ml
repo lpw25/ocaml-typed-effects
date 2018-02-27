@@ -39,7 +39,7 @@ type ('a, !p, 'b) stack
 external take_cont :
   ('a, !p, 'b, @r) continuation -[@r state]->> ('a, !p, 'b) stack =
   "caml_bvar_take"
-external resume : ('a, !p, 'b) stack ->> ('c -[!p]-> 'a) ->> 'c -[!p]->> 'b =
+external resume : ('a, !~, 'b) stack ->> ('c ~>> 'a) ->> 'c ~>> 'b =
   "%resume"
 
 let continue k v =

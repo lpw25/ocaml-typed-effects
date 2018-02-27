@@ -41,36 +41,36 @@ type counter =
 (***)
 
 (* Padding of strings and numbers. *)
-type ('a, 'b, !p) padding =
+type ('a, 'b, !~) padding =
   (* No padding (ex: "%d") *)
-  | No_padding  : ('a, 'a, !p) padding
+  | No_padding  : ('a, 'a, !~) padding
   (* Literal padding (ex: "%8d") *)
-  | Lit_padding : padty * int -> ('a, 'a, !p) padding
+  | Lit_padding : padty * int -> ('a, 'a, !~) padding
   (* Padding as extra argument (ex: "%*d") *)
-  | Arg_padding : padty -> (int -[!p]->> 'a, 'a, !p) padding
+  | Arg_padding : padty -> (int ~>> 'a, 'a, !~) padding
 
 (* Some formats, such as %_d,
    only accept an optional number as padding option (no extra argument) *)
 type pad_option = int option
 
 (* Precision of floats and '0'-padding of integers. *)
-type ('a, 'b, !p) precision =
+type ('a, 'b, !~) precision =
   (* No precision (ex: "%f") *)
-  | No_precision : ('a, 'a, !p) precision
+  | No_precision : ('a, 'a, !~) precision
   (* Literal precision (ex: "%.3f") *)
-  | Lit_precision : int -> ('a, 'a, !p) precision
+  | Lit_precision : int -> ('a, 'a, !~) precision
   (* Precision as extra argument (ex: "%.*f") *)
-  | Arg_precision : (int -[!p]->> 'a, 'a, !p) precision
+  | Arg_precision : (int ~>> 'a, 'a, !~) precision
 
 (* Some formats, such as %_f,
    only accept an optional number as precision option (no extra argument) *)
 type prec_option = int option
 
 (* see the Custom format combinator *)
-type ('a, 'b, 'c, !p) custom_arity =
-  | Custom_zero : ('a, string, 'a, !p) custom_arity
-  | Custom_succ : ('a, 'b, 'c, !p) custom_arity ->
-    ('a, 'x -[!p]->> 'b, 'x -[!p]->> 'c, !p) custom_arity
+type ('a, 'b, 'c, !~) custom_arity =
+  | Custom_zero : ('a, string, 'a, !~) custom_arity
+  | Custom_succ : ('a, 'b, 'c, !~) custom_arity ->
+    ('a, 'x ~>> 'b, 'x ~>> 'c, !~) custom_arity
 
 (***)
 
@@ -230,11 +230,11 @@ type formatting_lit =
   | Scan_indic of char                                  (* @X   *)
 
 (* Formatting element used by the Format pretty-printter. *)
-type ('a, 'b, 'c, 'd, 'e, 'f, !p) formatting_gen =
-  | Open_tag :  ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->    (* @{   *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) formatting_gen
-  | Open_box : ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->     (* @[   *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) formatting_gen
+type ('a, 'b, 'c, 'd, 'e, 'f, !~) formatting_gen =
+  | Open_tag :  ('a, 'b, 'c, 'd, 'e, 'f, !~) format6e ->    (* @{   *)
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) formatting_gen
+  | Open_box : ('a, 'b, 'c, 'd, 'e, 'f, !~) format6e ->     (* @[   *)
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) formatting_gen
 
 (***)
 
@@ -347,105 +347,105 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
 (***)
 
 (* List of format elements. *)
-and ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt =
+and ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt =
 | Char :                                                   (* %c *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (char -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Caml_char :                                              (* %C *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (char -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | String :                                                 (* %s *)
-    ('x, string -[!p]->> 'a, !p) padding
-    * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('x, string ~>> 'a, !~) padding
+    * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Caml_string :                                            (* %S *)
-    ('x, string -[!p]->> 'a, !p) padding
-    * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('x, string ~>> 'a, !~) padding
+    * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int :                                                    (* %[dixXuo] *)
-    int_conv * ('x, 'y, !p) padding * ('y, int -[!p]->> 'a, !p) precision *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    int_conv * ('x, 'y, !~) padding * ('y, int ~>> 'a, !~) precision *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int32 :                                                  (* %l[dixXuo] *)
-    int_conv * ('x, 'y, !p) padding * ('y, int32 -[!p]->> 'a, !p) precision *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    int_conv * ('x, 'y, !~) padding * ('y, int32 ~>> 'a, !~) precision *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Nativeint :                                              (* %n[dixXuo] *)
-    int_conv * ('x, 'y, !p) padding
-    * ('y, nativeint -[!p]->> 'a, !p) precision *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    int_conv * ('x, 'y, !~) padding
+    * ('y, nativeint ~>> 'a, !~) precision *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int64 :                                                  (* %L[dixXuo] *)
-    int_conv * ('x, 'y, !p) padding * ('y, int64 -[!p]->> 'a, !p) precision *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    int_conv * ('x, 'y, !~) padding * ('y, int64 ~>> 'a, !~) precision *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Float :                                                  (* %[feEgGF] *)
-    float_conv * ('x, 'y, !p) padding * ('y, float -[!p]->> 'a, !p) precision *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    float_conv * ('x, 'y, !~) padding * ('y, float ~>> 'a, !~) precision *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Bool :                                                   (* %[bB] *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (bool -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (bool ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Flush :                                                  (* %! *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
 | String_literal :                                         (* abc *)
-    string * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    string * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Char_literal :                                           (* x *)
-    char * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    char * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
 | Format_arg :                                             (* %{...%} *)
-    pad_option * ('g, 'h, 'i, 'j, 'k, 'l, !q) fmtty *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p]->>
-       'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    pad_option * ('g, 'h, 'i, 'j, 'k, 'l, !p) fmtty *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (('g, 'h, 'i, 'j, 'k, 'l, !p) format6e ~>>
+       'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Format_subst :                                           (* %(...%) *)
     pad_option *
     ('g, 'h, 'i, 'j, 'k, 'l, !q,
-     'g2, 'b, 'c, 'j2, 'd, 'a, !p) fmtty_rel *
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p]->>
-      'g2, 'b, 'c, 'j2, 'e, 'f, !p) fmt
+     'g2, 'b, 'c, 'j2, 'd, 'a, !~) fmtty_rel *
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e ~>>
+      'g2, 'b, 'c, 'j2, 'e, 'f, !~) fmt
 
 (* Printf and Format specific constructor. *)
 | Alpha :                                                  (* %a *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (('b -[!p]->> 'x -[!p]->> 'c) -[!p]->> 'x -[!p]->>
-       'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (('b ~>> 'x ~>> 'c) ~>> 'x ~>>
+       'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Theta :                                                  (* %t *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (('b -[!p]->> 'c) -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (('b ~>> 'c) ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
 (* Format specific constructor: *)
 | Formatting_lit :                                         (* @_ *)
-    formatting_lit * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    formatting_lit * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Formatting_gen :                                             (* @_ *)
-    ('a1, 'b, 'c, 'd1, 'e1, 'f1, !p) formatting_gen *
-    ('f1, 'b, 'c, 'e1, 'e2, 'f2, !p) fmt ->
-    ('a1, 'b, 'c, 'd1, 'e2, 'f2, !p) fmt
+    ('a1, 'b, 'c, 'd1, 'e1, 'f1, !~) formatting_gen *
+    ('f1, 'b, 'c, 'e1, 'e2, 'f2, !~) fmt ->
+    ('a1, 'b, 'c, 'd1, 'e2, 'f2, !~) fmt
 
 (* Scanf specific constructors: *)
 | Reader :                                                 (* %r *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      ('x -[!p]->> 'a, 'b, 'c, ('b -[!p]->> 'x) -[!p]->> 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      ('x ~>> 'a, 'b, 'c, ('b ~>> 'x) ~>> 'd, 'e, 'f, !~) fmt
 | Scan_char_set :                                          (* %[...] *)
-    pad_option * char_set * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (string -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    pad_option * char_set * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (string ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Scan_get_counter :                                       (* %[nlNL] *)
-    counter * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-      (int -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    counter * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+      (int ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Scan_next_char :                                         (* %0c *)
-    ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-    (char -[!p]->> 'a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+    (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
   (* %0c behaves as %c for printing, but when scanning it does not
      consume the character from the input stream *)
 | Ignored_param :                                          (* %_ *)
-    ('a, 'b, 'c, 'd, 'y, 'x, !p) ignored * ('x, 'b, 'c, 'y, 'e, 'f, !p) fmt ->
-      ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'b, 'c, 'd, 'y, 'x, !~) ignored * ('x, 'b, 'c, 'y, 'e, 'f, !~) fmt ->
+      ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
   (* Custom printing format (PR#6452, GPR#140)
 
@@ -469,56 +469,56 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt =
      ]}
   *)
 | Custom :
-    ('a, 'x, 'y, !p) custom_arity * (unit -[!p]->> 'x)
-    * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
-    ('y, 'b, 'c, 'd, 'e, 'f, !p) fmt
+    ('a, 'x, 'y, !~) custom_arity * (unit ~>> 'x)
+    * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+    ('y, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
   (* end of a format specification *)
 | End_of_format :
-      ('f, 'b, 'c, 'e, 'e, 'f, !p) fmt
+      ('f, 'b, 'c, 'e, 'e, 'f, !~) fmt
 
 (***)
 
 (* Type for ignored parameters (see "%_"). *)
-and ('a, 'b, 'c, 'd, 'e, 'f, !p) ignored =
+and ('a, 'b, 'c, 'd, 'e, 'f, !~) ignored =
   | Ignored_char :                                           (* %_c *)
-      ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_caml_char :                                      (* %_C *)
-      ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_string :                                         (* %_s *)
-      pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_caml_string :                                    (* %_S *)
-      pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_int :                                            (* %_d *)
-      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_int32 :                                          (* %_ld *)
-      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_nativeint :                                      (* %_nd *)
-      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_int64 :                                          (* %_Ld *)
-      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      int_conv * pad_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_float :                                          (* %_f *)
       pad_option *
-        prec_option -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+        prec_option -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_bool :                                           (* %_B *)
-      ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_format_arg :                                     (* %_{...%} *)
-      pad_option * ('g, 'h, 'i, 'j, 'k, 'l, !p) fmtty ->
-        ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      pad_option * ('g, 'h, 'i, 'j, 'k, 'l, !~) fmtty ->
+        ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_format_subst :                                   (* %_(...%) *)
-      pad_option * ('a, 'b, 'c, 'd, 'e, 'f, !p) fmtty ->
-        ('a, 'b, 'c, 'd, 'e, 'f, !p) ignored
+      pad_option * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmtty ->
+        ('a, 'b, 'c, 'd, 'e, 'f, !~) ignored
   | Ignored_reader :                                         (* %_r *)
-      ('a, 'b, 'c, ('b -[!p]->> 'x) -[!p]->> 'd, 'd, 'a, !p) ignored
+      ('a, 'b, 'c, ('b ~>> 'x) ~>> 'd, 'd, 'a, !~) ignored
   | Ignored_scan_char_set :                                  (* %_[...] *)
-      pad_option * char_set -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      pad_option * char_set -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_scan_get_counter :                               (* %_[nlNL] *)
-      counter -> ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      counter -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_scan_next_char :                                 (* %_0c *)
-      ('a, 'b, 'c, 'd, 'd, 'a, !p) ignored
+      ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
 
-and ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e =
-  Format of ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt * string
+and ('a, 'b, 'c, 'd, 'e, 'f, !~) format6e =
+  Format of ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt * string
 
 let rec erase_rel :
   type a b c d e f

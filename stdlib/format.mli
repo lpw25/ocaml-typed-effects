@@ -588,7 +588,7 @@ val pp_print_text : formatter ->> string -> unit
 (** {6 [printf] like functions for pretty-printing.} *)
 
 val fprintf :
-  formatter -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]->> 'a
+  formatter -> ('a, formatter, unit, ![io | !~]) formate ~> 'a
 
 (** [fprintf ff fmt arg1 ... argN] formats the arguments [arg1] to [argN]
    according to the format string [fmt], and outputs the resulting string on
@@ -657,13 +657,13 @@ val fprintf :
 
 *)
 
-val printf : ('a, formatter, unit, ![io | !p]) formate -[io | !p]->> 'a
+val printf : ('a, formatter, unit, ![io | !~]) formate ~> 'a
 (** Same as [fprintf] above, but output on [std_formatter]. *)
 
-val eprintf : ('a, formatter, unit, ![io | !p]) formate -[io | !p]->> 'a
+val eprintf : ('a, formatter, unit, ![io | !~]) formate ~> 'a
 (** Same as [fprintf] above, but output on [err_formatter]. *)
 
-val sprintf : ('a, unit, string, ![io | !p]) formate -[io | !p]->> 'a
+val sprintf : ('a, unit, string, ![io | !~]) formate ~> 'a
 (** Same as [printf] above, but instead of printing on a formatter,
    returns a string containing the result of formatting the arguments.
    Note that the pretty-printer queue is flushed at the end of {e each
@@ -680,7 +680,7 @@ val sprintf : ('a, unit, string, ![io | !p]) formate -[io | !p]->> 'a
 *)
 
 val asprintf :
-  ('a, formatter, unit, string, ![io | !p]) format4e -[io | !p]->> 'a
+  ('a, formatter, unit, string, ![io | !~]) format4e ~> 'a
 (** Same as [printf] above, but instead of printing on a formatter,
    returns a string containing the result of formatting the arguments.
    The type of [asprintf] is general enough to interact nicely with [%a]
@@ -688,7 +688,7 @@ val asprintf :
    @since 4.01.0
  *)
 
-val ifprintf : formatter -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]->> 'a
+val ifprintf : formatter -> ('a, formatter, unit, ![io | !~]) formate ~> 'a
 (** Same as [fprintf] above, but does not print anything.
    Useful to ignore some material when conditionally printing.
    @since 3.10.0
@@ -696,27 +696,27 @@ val ifprintf : formatter -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]
 
 (** Formatted output functions with continuations. *)
 
-val kfprintf : (formatter -[io | !p]->> 'a) -> formatter ->
-              ('b, formatter, unit, 'a, ![io | !p]) format4e -[io | !p]->> 'b
+val kfprintf : (formatter ~> 'a) -> formatter ->
+              ('b, formatter, unit, 'a, ![io | !~]) format4e ~> 'b
 (** Same as [fprintf] above, but instead of returning immediately,
    passes the formatter to its first argument at the end of printing. *)
 
-val ikfprintf : (formatter -[io | !p]->> 'a) -> formatter ->
-  ('b, formatter, unit, 'a, ![io | !p]) format4e -[io | !p]->> 'b
+val ikfprintf : (formatter ~> 'a) -> formatter ->
+  ('b, formatter, unit, 'a, ![io | !~]) format4e ~> 'b
 (** Same as [kfprintf] above, but does not print anything.
    Useful to ignore some material when conditionally printing.
    @since 3.12.0
 *)
 
-val ksprintf : (string -[io | !p]->> 'a) ->
-  ('b, unit, string, 'a, ![io | !p]) format4e -[io | !p]->> 'b
+val ksprintf : (string ~> 'a) ->
+  ('b, unit, string, 'a, ![io | !~]) format4e ~> 'b
 (** Same as [sprintf] above, but instead of returning the string,
    passes it to the first argument. *)
 
 (** {6 Deprecated} *)
 
 val bprintf :
-  Buffer.t -> ('a, formatter, unit, ![io | !p]) formate -[io | !p]->> 'a
+  Buffer.t -> ('a, formatter, unit, ![io | !~]) formate ~> 'a
   [@@ocaml.deprecated]
 (** @deprecated This function is error prone. Do not use it.
 
@@ -724,8 +724,8 @@ val bprintf :
   formatter writing to [b], using [let to_b = formatter_of_buffer b]; then
   use regular calls to [Format.fprintf] on formatter [to_b]. *)
 
-val kprintf : (string -[io | !p]->> 'a) ->
-  ('b, unit, string, 'a, ![io | !p]) format4e -[io | !p]->> 'b
+val kprintf : (string ~> 'a) ->
+  ('b, unit, string, 'a, ![io | !~]) format4e ~> 'b
   [@@ocaml.deprecated "Use Format.ksprintf instead."]
 (** @deprecated An alias for [ksprintf]. *)
 

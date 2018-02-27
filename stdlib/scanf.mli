@@ -201,9 +201,9 @@ end
 
 (** {6 Type of formatted input functions} *)
 
-type ('a, 'b, 'c, 'd, !p) scanner =
+type ('a, 'b, 'c, 'd, !~) scanner =
   ('a, Scanning.in_channel, 'b, 'c,
-   'a -[io | !p]->> 'd, 'd, ![io | !p]) format6e -[io | !p]->> 'c
+   'a ~> 'd, 'd, ![io | !~]) format6e ~> 'c
 (** The type of formatted input scanners: [('a, 'b, 'c, 'd) scanner]
     is the type of a formatted input function that reads from some
     formatted input channel according to some format string; more
@@ -478,8 +478,8 @@ val scanf : ('a, 'b, 'c, 'd, !p) scanner
 *)
 
 val kscanf :
-  Scanning.in_channel ->> (Scanning.in_channel -[io | !p]->> exn -[io | !p]->> 'd) ->>
-    ('a, 'b, 'c, 'd, !p) scanner
+  Scanning.in_channel ->> (Scanning.in_channel ~> exn ~> 'd) ->>
+    ('a, 'b, 'c, 'd, !~) scanner
 (** Same as {!Scanf.bscanf}, but takes an additional function argument
     [ef] that is called in case of error: if the scanning process or
     some conversion fails, the scanning function aborts and calls the
@@ -488,15 +488,15 @@ val kscanf :
 *)
 
 val ksscanf :
-  string ->> (Scanning.in_channel -[io | !p]->> exn -[io | !p]->> 'd) ->>
-    ('a, 'b, 'c, 'd, !p) scanner
+  string ->> (Scanning.in_channel ~> exn ~> 'd) ->>
+    ('a, 'b, 'c, 'd, !~) scanner
 (** Same as {!Scanf.kscanf} but reads from the given string.
     @since 4.02.0 *)
 
 val kfscanf :
   Pervasives.in_channel ->>
-    (Scanning.in_channel -[io | !p]->> exn -[io | !p]->> 'd) ->>
-    ('a, 'b, 'c, 'd, !p) scanner
+    (Scanning.in_channel ~> exn ~> 'd) ->>
+    ('a, 'b, 'c, 'd, !~) scanner
 (** Same as {!Scanf.kscanf}, but reads from the given regular input channel.
     @since 4.02.0 *)
 
