@@ -1672,10 +1672,72 @@ expr_semi_list:
     expr                                        { [$1] }
   | expr_semi_list SEMI expr                    { $3 :: $1 }
 ;
-effect_arg_list_non_empty:
+effect_arg:
     simple_expr
+      { $1 }
+  | simple_expr simple_labeled_expr_list
+      { mkexp(Pexp_apply($1, List.rev $2)) }
+  | constr_longident simple_expr %prec below_SHARP
+      { mkexp(Pexp_construct(mkrhs $1 1, Some $2)) }
+  | name_tag simple_expr %prec below_SHARP
+      { mkexp(Pexp_variant($1, Some $2)) }
+  | effect_arg COLONCOLON effect_arg
+      { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
+  | effect_arg INFIXOP0 effect_arg
+      { mkinfix $1 $2 $3 }
+  | effect_arg INFIXOP1 effect_arg
+      { mkinfix $1 $2 $3 }
+  | effect_arg INFIXOP2 effect_arg
+      { mkinfix $1 $2 $3 }
+  | effect_arg INFIXOP3 effect_arg
+      { mkinfix $1 $2 $3 }
+  | effect_arg INFIXOP4 effect_arg
+      { mkinfix $1 $2 $3 }
+  | effect_arg PLUS effect_arg
+      { mkinfix $1 "+" $3 }
+  | effect_arg PLUSDOT effect_arg
+      { mkinfix $1 "+." $3 }
+  | effect_arg PLUSEQ effect_arg
+      { mkinfix $1 "+=" $3 }
+  | effect_arg MINUS effect_arg
+      { mkinfix $1 "-" $3 }
+  | effect_arg MINUSDOT effect_arg
+      { mkinfix $1 "-." $3 }
+  | effect_arg STAR effect_arg
+      { mkinfix $1 "*" $3 }
+  | effect_arg PERCENT effect_arg
+      { mkinfix $1 "%" $3 }
+  | effect_arg EQUAL effect_arg
+      { mkinfix $1 "=" $3 }
+  | effect_arg LESS effect_arg
+      { mkinfix $1 "<" $3 }
+  | effect_arg GREATER effect_arg
+      { mkinfix $1 ">" $3 }
+  | effect_arg OR effect_arg
+      { mkinfix $1 "or" $3 }
+  | effect_arg BARBAR effect_arg
+      { mkinfix $1 "||" $3 }
+  | effect_arg AMPERSAND effect_arg
+      { mkinfix $1 "&" $3 }
+  | effect_arg AMPERAMPER effect_arg
+      { mkinfix $1 "&&" $3 }
+  | effect_arg COLONEQUAL effect_arg
+      { mkinfix $1 ":=" $3 }
+  | effect_arg AT effect_arg
+      { mkinfix $1 "@" $3 }
+  | subtractive effect_arg %prec prec_unary_minus
+      { mkuminus $1 $2 }
+  | additive effect_arg %prec prec_unary_plus
+      { mkuplus $1 $2 }
+  | LAZY ext_attributes simple_expr %prec below_SHARP
+      { mkexp_attrs (Pexp_lazy $3) $2 }
+  | effect_arg attribute
+      { Exp.attr $1 $2 }
+;
+effect_arg_list_non_empty:
+    effect_arg
       { [$1] }
-  | effect_arg_list_non_empty COMMA simple_expr
+  | effect_arg_list_non_empty COMMA effect_arg
       { $3 :: $1 }
 ;
 effect_arg_list:
