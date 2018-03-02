@@ -4556,43 +4556,6 @@ let rec close_effect_var env ty =
     | _ -> ()
   end
 
-let rec remove_local_effects env ty =
-  let ty = repr ty in
-  if ty.level <= !current_level then ty, false
-  else begin
-    set_level ty !current_level;
-    match ty.desc with
-    | Tvar _ -> ty, false
-    | Tenil -> ty, false
-    | Tconstr(p, _, _, _)
-          when generic_abbrev env p && safe_abbrev env ty ->
-        let t = expand_abbrev env ty in
-        let (t', changed) = remove_local_effects env t in
-        if changed then (t', true)
-        else (ty, false)
-    | Tconstr _ -> ty, false
-    | Teffect(ec, t) -> begin
-        let t', changed = remove_local_effects env t in
-        match ec with
-        | Eordinary _ ->
-            if changed then newty (Teffect(ec, t')), true
-            else ty, false
-        | Estate { ec_region } -> begin
-            let ec_region = repr ec_region in
-            match ec_region.desc with
-            | Tvar _ when ec_region.level > !current_level ->
-                t', true
-            | _ ->
-                if changed then newty (Teffect(ec, t')), true
-                else ty, false
-          end
-      end
-    | _ -> assert false
-  end
-
-let remove_local_effects env ty =
-  fst (remove_local_effects env ty)
-
 let extract_effect_constructors env ty =
   let ecs, row = flatten_expanded_effects env ty in
   let row_general = row.level > !current_level in

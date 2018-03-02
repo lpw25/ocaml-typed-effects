@@ -407,7 +407,8 @@ module MakeMap(Map : MapArgument) = struct
         Texp_poly (Some ( map_core_type ct )), loc, attrs
       | Texp_newtype _
       | Texp_open _
-      | Texp_poly None -> exp_extra
+      | Texp_poly None
+      | Texp_private -> exp_extra
 
 
   and map_package_type pack =

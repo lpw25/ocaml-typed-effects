@@ -84,7 +84,6 @@ type error =
   | Orpat_vars of Ident.t
   | Expr_type_clash of (type_expr * type_expr) list
   | Expr_effect_clash of (type_expr * type_expr) list
-  | Function_effect_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
   | Apply_wrong_label of label * type_expr
   | Label_multiply_defined of string

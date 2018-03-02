@@ -106,6 +106,7 @@ module Exp = struct
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_constraint (a, b))
   let coerce ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_coerce (a, b, c))
   let perform_ ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_perform (a, b, c))
+  let private_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_private a)
   let send ?loc ?attrs a b = mk ?loc ?attrs (Pexp_send (a, b))
   let new_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_new a)
   let setinstvar ?loc ?attrs a b = mk ?loc ?attrs (Pexp_setinstvar (a, b))

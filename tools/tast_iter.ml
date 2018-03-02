@@ -111,7 +111,8 @@ let expression sub exp =
     | Texp_coerce (cty1, cty2) ->
         opt (sub # core_type) cty1; sub # core_type cty2
     | Texp_open _
-    | Texp_newtype _ -> ()
+    | Texp_newtype _
+    | Texp_private -> ()
     | Texp_poly cto -> opt (sub # core_type) cto
   in
   List.iter (fun (c, _, _) -> extra c) exp.exp_extra;

@@ -270,6 +270,8 @@ and rw_exp iflag sexp =
   | Pexp_perform(_, sarg, _) ->
     List.iter (rewrite_exp iflag) sarg
 
+  | Pexp_private (expr) -> rewrite_exp iflag expr
+
   | Pexp_send (sobj, _) ->
     rewrite_exp iflag sobj
 

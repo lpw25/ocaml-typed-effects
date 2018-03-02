@@ -318,6 +318,8 @@ and expression_desc =
   | Pexp_perform of label * expression list * bool
         (* perform E     true
            throw E       false *)
+  | Pexp_private of expression
+        (* private do E done *)
   | Pexp_send of expression * string
         (*  E # m *)
   | Pexp_new of Longident.t loc

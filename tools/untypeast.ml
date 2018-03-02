@@ -270,6 +270,7 @@ and untype_extra (extra, loc, attrs) sexp =
     | Texp_open (ovf, _path, lid, _) -> Pexp_open (ovf, lid, sexp)
     | Texp_poly cto -> Pexp_poly (sexp, option untype_core_type cto)
     | Texp_newtype (n, s) -> Pexp_newtype (n, s, sexp)
+    | Texp_private -> Pexp_private sexp
   in
   Exp.mk ~loc ~attrs desc
 

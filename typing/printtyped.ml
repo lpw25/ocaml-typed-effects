@@ -306,6 +306,9 @@ and expression_extra i ppf x attrs =
   | Texp_newtype (n, s) ->
       line i ppf "Pexp_newtype \"%s\" %a\n" n fmt_effect_flag s;
       attributes i ppf attrs;
+  | Texp_private ->
+      line i ppf "Pexp_private\n";
+      attributes i ppf attrs;
 
 and expression i ppf x =
   line i ppf "expression %a\n" fmt_location x.exp_loc;

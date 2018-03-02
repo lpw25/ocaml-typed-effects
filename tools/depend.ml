@@ -206,6 +206,7 @@ let rec add_expr bv exp =
       add_expr bv e1;
       add_type bv ty2
   | Pexp_perform(_, es, _) -> List.iter (add_expr bv) es
+  | Pexp_private (e) -> add_expr bv e
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e

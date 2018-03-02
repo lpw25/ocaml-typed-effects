@@ -31,7 +31,6 @@ type error =
   | Orpat_vars of Ident.t
   | Expr_type_clash of (type_expr * type_expr) list
   | Expr_effect_clash of (type_expr * type_expr) list
-  | Function_effect_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
   | Apply_wrong_label of label * type_expr
   | Label_multiply_defined of string
@@ -160,6 +159,7 @@ let iter_expression f e =
     | Pexp_lazy e
     | Pexp_assert e
     | Pexp_setinstvar (_, e)
+    | Pexp_private e
     | Pexp_send (e, _)
     | Pexp_constraint (e, _)
     | Pexp_coerce (e, _, _)
@@ -2006,6 +2006,13 @@ let make_exception_default caselist =
                   Ppat_exception pat }})
     caselist
 
+let private_region_counter = ref 0
+
+let get_new_private_region_name () =
+  let index = !private_region_counter in
+  incr private_region_counter;
+  Printf.sprintf "local#%d" index
+
 (* Typing of expressions *)
 
 let unify_exp env exp expected_ty =
@@ -2808,6 +2815,40 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
   | Pexp_perform(lid, sarg, returns) ->
       type_perform env loc expected_eff lid sarg
         returns sexp.pexp_attributes ty_expected
+  | Pexp_private(sbody) ->
+      let name = get_new_private_region_name () in
+      let ty = newvar Sregion in
+      (* remember original level *)
+      begin_def ();
+      (* Create a fake abstract type declaration for name. *)
+      let level = get_current_level () in
+      let decl = {
+        type_params = [];
+        type_arity = 0;
+        type_sort = Sregion;
+        type_kind = Type_abstract;
+        type_private = Public;
+        type_manifest = None;
+        type_variance = [];
+        type_newtype_level = Some (level, level);
+        type_loc = loc;
+        type_attributes = [];
+      }
+      in
+      Ident.set_current_time ty.level;
+      let (id, new_env) = Env.enter_type name decl env in
+      Ctype.init_def(Ident.current_time());
+      let ec_region =
+        newty (Tconstr (Path.Pident id, [], Sregion, ref Mnil))
+      in
+      let ec = Estate { ec_region } in
+      let expected_eff = newty (Teffect(ec, expected_eff)) in
+      let body = type_expect new_env expected_eff sbody ty_expected in
+      end_def ();
+      re { body with exp_loc = loc;
+            exp_eff = expected_eff;
+            exp_extra =
+              (Texp_private, loc, sexp.pexp_attributes) :: body.exp_extra }
   | Pexp_new cl ->
       let (cl_path, cl_decl) = Typetexp.find_class env loc cl.txt in
       begin match cl_decl.cty_new with
@@ -3124,11 +3165,9 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
     generalize_structure ty_arg;
     generalize_structure ty_res
   end;
-  begin_def ();
-  let ty_eff' = newvar Seffect in
   let cases, partial, _ =
     type_cases ~allow_exn:false ~in_function:(loc_fun,ty_fun) env
-      ty_eff' (newvar Seffect) ty_arg ty_res loc caselist
+      ty_eff (newvar Seffect) ty_arg ty_res loc caselist
   in
   let not_function ty =
     let ls, tvar = list_labels env ty in
@@ -3137,13 +3176,6 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   if is_optional l && not_function ty_res then
     Location.prerr_warning (List.hd cases).c_lhs.pat_loc
       Warnings.Unerasable_optional_argument;
-  end_def ();
-  let ty_eff'' = remove_local_effects env ty_eff' in
-  begin try
-    unify env ty_eff'' ty_eff
-  with Unify trace ->
-    raise(Error(loc, env, Function_effect_clash(trace)))
-  end;
   re {
   exp_desc = Texp_function(l,cases, partial);
     exp_loc = loc; exp_extra = [];
@@ -4412,12 +4444,6 @@ let report_error env ppf = function
            fprintf ppf "This expression performs effect")
         (function ppf ->
            fprintf ppf "but an expression was expected that performed")
-  | Function_effect_clash trace ->
-      report_unification_error ppf env trace
-        (function ppf ->
-           fprintf ppf "This function performs effect")
-        (function ppf ->
-           fprintf ppf "but a function was expected that performed")
   | Label_effect_clash trace ->
       report_unification_error ppf env trace
         (function ppf ->

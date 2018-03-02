@@ -384,6 +384,9 @@ and expression i ppf x =
   | Pexp_perform (s, l, b) ->
       line i ppf "Pexp_perfrom %s %a\n" s fmt_bool b;
       list i expression ppf l;
+  | Pexp_private (e) ->
+      line i ppf "Pexp_private\n";
+      expression i ppf e;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;
