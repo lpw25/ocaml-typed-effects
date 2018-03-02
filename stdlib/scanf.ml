@@ -1304,11 +1304,10 @@ fun ib fmt readers pad prec scan token -> match pad, prec with
             (* Defining [scanf] and various flavors of [scanf] *)
 
 type 'a kscanf_result = Args of 'a | Exc of exn
-[@@@warning "-20"] (* TODO: FIXME *)
 let kscanf ib ef (Format (fmt, str)) =
   let rec apply : type a b effect p. a ->> (a, b, p) heter_list -[.. as p]->> b =
     fun f args -> match args with
-    | Cons (x, r) -> apply ((Obj.magic f) x) (Obj.magic r) (* TODO: FIXME *)
+    | Cons (x, r) -> apply (f x) r
     | Nil -> f
   in
   let k readers f =
