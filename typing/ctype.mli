@@ -86,18 +86,14 @@ val merge_row_fields:
 val filter_row_fields:
         bool -> (label * row_field) list -> (label * row_field) list
 
-(* val equal_effect: Env.t -> effect_constructor -> effect_constructor -> bool *)
-
 val flatten_effects:
         type_expr -> effect_constructor list * type_expr
 
-(* val equal_effect_constructor:
- *         Env.t -> effect_constructor ->
- *         effect_constructor -> bool *)
+val simple_effect : string -> int -> bool -> effect_constructor_ordinary
+val simple_effect_type: string -> int -> bool -> type_expr
 
 val effect_state : type_expr -> type_expr -> type_expr
 val effect_io : type_expr -> type_expr
-val new_eff_constr : label -> int -> bool -> effect_constructor
 
 type effect_expectation
 
@@ -150,10 +146,6 @@ val instance_constructor:
         ?in_pattern:Env.t ref * int ->
         constructor_description -> type_expr list * type_expr
         (* Same, for a constructor *)
-(* val instance_effect_constructor:
- *         ?in_pattern:Env.t ref * int ->
- *         effect_constructor_description -> type_expr list * type_expr option
- *         (\* Same, for an effect constructor *\) *)
 val instance_parameterized_type:
         ?keep_names:bool ->
         type_expr list -> type_expr -> type_expr list * type_expr
@@ -171,6 +163,11 @@ val instance_label:
         bool -> label_description ->
         type_expr list * type_expr * type_expr * type_expr option
         (* Same, for a label *)
+val instance_effect_constructor:
+        ?in_pattern:Env.t ref * int ->
+        effect_constructor_ordinary ->
+        type_expr list * type_expr option
+        (* Same, for an effect constructor *)
 val apply:
         Env.t -> type_expr list -> type_expr -> type_expr list -> type_expr
         (* [apply [p1...pN] t [a1...aN]] match the arguments [ai] to
@@ -222,6 +219,9 @@ val filter_method: Env.t -> string -> private_flag -> type_expr -> type_expr
         (* A special case of unification (with {m : 'a; 'b}). *)
 val check_filter_method: Env.t -> string -> private_flag -> type_expr -> unit
         (* A special case of unification (with {m : 'a; 'b}), returning unit. *)
+val filter_effect:
+  Env.t -> string -> int -> bool -> type_expr -> effect_constructor_ordinary
+
 val occur_in: Env.t -> type_expr -> type_expr -> bool
 val deep_occur: type_expr -> type_expr -> bool
 val filter_self_method:

@@ -28,9 +28,10 @@ type pattern =
     pat_loc: Location.t;
     pat_extra : (pat_extra * Location.t * attributes) list;
     pat_type: type_expr;
+    pat_inner_eff: type_expr;
+    pat_outer_eff: type_expr;
     mutable pat_env: Env.t;
     pat_attributes: attributes;
-    pat_eff: type_expr
    }
 
 and pat_extra =
@@ -482,6 +483,7 @@ and effect_field_desc =
 and effect_constructor =
     {
      eff_label: label;
+     eff_polys: (string * sort) list;
      eff_args: core_type list;
      eff_res: core_type option;
      eff_attributes: attribute list;

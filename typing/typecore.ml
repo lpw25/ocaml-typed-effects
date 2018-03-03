@@ -25,7 +25,8 @@ type error =
   | Constructor_arity_mismatch of Longident.t * int * int
   | Label_mismatch of Longident.t * (type_expr * type_expr) list
   | Pattern_type_clash of (type_expr * type_expr) list
-  | Pattern_effect_clash of (type_expr * type_expr) list
+  | Pattern_inner_effect_clash of (type_expr * type_expr) list
+  | Pattern_outer_effect_clash of (type_expr * type_expr) list
   | Or_pattern_type_clash of Ident.t * (type_expr * type_expr) list
   | Multiply_bound_variable of string
   | Orpat_vars of Ident.t
@@ -77,7 +78,6 @@ type error =
   | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
   | Toplevel_unknown_region of type_expr * string
-  | Cannot_perform_state
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -339,12 +339,21 @@ let unify_exp_types loc env ty expected_ty =
       raise(Typetexp.Error(loc, env, Typetexp.Variant_tags (l1, l2)))
 
 (* effect unification inside type_pat *)
-let unify_pat_effects loc env eff expected_eff =
+let unify_pat_inner_effects loc env eff inner_eff =
   try
-    unify env eff expected_eff
+    unify env eff inner_eff
   with
   | Unify trace ->
-      raise(Error(loc, env, Pattern_effect_clash(trace)))
+      raise(Error(loc, env, Pattern_inner_effect_clash(trace)))
+  | Effect_tags(l1, l2) ->
+      raise(Typetexp.Error(loc, env, Typetexp.Effect_tags (l1, l2)))
+
+let unify_pat_outer_effects loc env eff outer_eff =
+  try
+    unify env eff outer_eff
+  with
+  | Unify trace ->
+      raise(Error(loc, env, Pattern_outer_effect_clash(trace)))
   | Effect_tags(l1, l2) ->
       raise(Typetexp.Error(loc, env, Typetexp.Effect_tags (l1, l2)))
 
@@ -387,8 +396,11 @@ let unify_pat_types_gadt loc env ty ty' =
 let unify_pat env pat expected_ty =
   unify_pat_types pat.pat_loc env pat.pat_type expected_ty
 
-let unify_pat_eff env pat expected_eff =
-  unify_pat_effects pat.pat_loc env pat.pat_eff expected_eff
+let unify_pat_inner_eff env pat inner_eff =
+  unify_pat_inner_effects pat.pat_loc env pat.pat_inner_eff inner_eff
+
+let unify_pat_outer_eff env pat outer_eff =
+  unify_pat_outer_effects pat.pat_loc env pat.pat_outer_eff outer_eff
 
 (* make all Reither present in open variants *)
 let finalize_variant pat =
@@ -553,7 +565,7 @@ let rec build_as_type env p =
   | Tpat_array _ | Tpat_lazy _ -> p.pat_type
   | Tpat_exception _ | Tpat_effect _ -> assert false
 
-let build_or_pat env loc lid =
+let build_or_pat env loc inner_eff outer_eff lid =
   let path, decl = Typetexp.find_type env loc lid
   in
   let tyl = List.map (fun ty -> newvar (type_sort ty)) decl.type_params in
@@ -574,7 +586,9 @@ let build_or_pat env loc lid =
             (l, Reither(true,[], true, ref None)) :: fields
         | Rpresent (Some ty) ->
             (l, Some {pat_desc=Tpat_any; pat_loc=Location.none; pat_env=env;
-                      pat_type=ty; pat_eff=newvar Seffect; pat_extra=[]; pat_attributes=[]})
+                      pat_type=ty; pat_inner_eff=inner_eff;
+                      pat_outer_eff=outer_eff; pat_extra=[];
+                      pat_attributes=[]})
             :: pats,
             (l, Reither(false, [ty], true, ref None)) :: fields
         | _ -> pats, fields)
@@ -590,7 +604,8 @@ let build_or_pat env loc lid =
     List.map
       (fun (l,p) ->
         {pat_desc=Tpat_variant(l,p,row'); pat_loc=gloc;
-         pat_env=env; pat_type=ty; pat_eff=newvar Seffect; pat_extra=[]; pat_attributes=[]})
+         pat_env=env; pat_type=ty; pat_inner_eff=inner_eff;
+         pat_outer_eff=outer_eff; pat_extra=[]; pat_attributes=[]})
       pats
   in
   match pats with
@@ -600,7 +615,9 @@ let build_or_pat env loc lid =
         List.fold_left
           (fun pat pat0 ->
             {pat_desc=Tpat_or(pat0,pat,Some row0); pat_extra=[];
-             pat_loc=gloc; pat_env=env; pat_type=ty; pat_eff=newvar Seffect; pat_attributes=[]})
+             pat_loc=gloc; pat_env=env; pat_type=ty;
+             pat_inner_eff=inner_eff; pat_outer_eff=outer_eff;
+             pat_attributes=[]})
           pat pats in
       (path, rp { r with pat_loc = loc },ty)
 
@@ -936,13 +953,13 @@ let unify_head_only loc env ty constr =
 (* Typing of patterns *)
 
 (* Simplified patterns for effect continuations *)
-let type_continuation_pat env expected_eff expected_ty reg_cont sp =
+let type_continuation_pat env outer_eff expected_ty reg_cont sp =
   let loc = sp.ppat_loc in
   match sp.ppat_desc with
   | Ppat_any -> None
   | Ppat_var name ->
      let eff = instance_def (effect_state reg_cont (newvar Seffect)) in
-      unify_pat_effects loc env eff expected_eff;
+      unify_pat_outer_effects loc env eff outer_eff;
       let id = enter_variable loc name expected_ty in
       Some (id, name)
   | Ppat_extension ext ->
@@ -958,10 +975,10 @@ type type_pat_mode =
    constructors and labels.
    Unification may update the typing environment. *)
 let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
-                 ~allow_exn ~expected_eff ~cont_ty sp expected_ty =
+                 ~allow_exn ~outer_eff ~inner_eff ~cont_ty sp expected_ty =
   let type_pat ?(mode=mode) ?(env=env) =
     type_pat ~constrs ~labels ~no_existentials
-      ~mode ~env ~allow_exn:false ~expected_eff ~cont_ty
+      ~mode ~env ~allow_exn:false ~outer_eff ~inner_eff ~cont_ty
   in
   let loc = sp.ppat_loc in
   match sp.ppat_desc with
@@ -970,7 +987,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_any;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_var name ->
@@ -979,7 +997,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_var (id, name);
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_unpack name ->
@@ -989,7 +1008,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_loc = sp.ppat_loc;
         pat_extra=[Tpat_unpack, loc, sp.ppat_attributes];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = [];
         pat_env = !env }
   | Ppat_constraint({ppat_desc=Ppat_var name; ppat_loc=lloc},
@@ -1013,7 +1033,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
             pat_loc = lloc;
             pat_extra = [Tpat_constraint cty, loc, sp.ppat_attributes];
             pat_type = ty;
-            pat_eff = newvar Seffect;
+            pat_inner_eff = inner_eff;
+            pat_outer_eff = outer_eff;
             pat_attributes = [];
             pat_env = !env
           }
@@ -1030,7 +1051,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_alias(q, id, name);
         pat_loc = loc; pat_extra=[];
         pat_type = q.pat_type;
-        pat_eff = q.pat_eff;
+        pat_inner_eff = q.pat_inner_eff;
+        pat_outer_eff = q.pat_outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_constant cst ->
@@ -1039,7 +1061,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_constant cst;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_interval (Const_char c1, Const_char c2) ->
@@ -1069,7 +1092,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_tuple pl;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_construct(lid, sarg) ->
@@ -1131,7 +1155,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc=Tpat_construct(lid, constr, args);
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_variant(l, sarg) ->
@@ -1153,8 +1178,9 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
       rp {
         pat_desc = Tpat_variant(l, arg, ref {row with row_more = newvar Stype});
         pat_loc = loc; pat_extra=[];
-        pat_type =  expected_ty;
-        pat_eff = newvar Seffect;
+        pat_type = expected_ty;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_record(lid_sp_list, closed) ->
@@ -1180,7 +1206,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         | None -> ()
         | Some rg ->
             let eff = instance_def (effect_state rg (newvar Seffect)) in
-            unify_pat_effects loc !env eff expected_eff
+            unify_pat_outer_effects loc !env eff outer_eff
         end;
         let arg = type_pat sarg ty_arg in
         if vars <> [] then begin
@@ -1206,7 +1232,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_record (lbl_pat_list, closed);
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_array spl ->
@@ -1218,12 +1245,13 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         List.map (fun (p,t) -> type_pat p ty_elt) spl_ann
       in
       let eff = instance_def (effect_io (newvar Seffect)) in
-      unify_pat_effects loc !env eff expected_eff;
+      unify_pat_outer_effects loc !env eff outer_eff;
       rp {
         pat_desc = Tpat_array pl;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_or(sp1, sp2) ->
@@ -1240,7 +1268,8 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_desc = Tpat_or(p1, alpha_pat alpha_env p2, None);
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_lazy sp1 ->
@@ -1249,12 +1278,13 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         expected_ty;
       let p1 = type_pat sp1 nv in
       let eff = instance_def (effect_io (newvar Seffect)) in
-      unify_pat_effects loc !env eff expected_eff;
+      unify_pat_outer_effects loc !env eff outer_eff;
       rp {
         pat_desc = Tpat_lazy p1;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = newvar Seffect;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_constraint(sp, sty) ->
@@ -1287,7 +1317,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
                 pat_extra = extra :: p.pat_extra}
       end
   | Ppat_type lid ->
-      let (path, p,ty) = build_or_pat !env loc lid.txt in
+      let (path, p,ty) = build_or_pat !env loc inner_eff outer_eff lid.txt in
       unify_pat_types loc !env ty expected_ty;
       { p with pat_extra =
         (Tpat_type (path, lid), loc, sp.ppat_attributes) :: p.pat_extra }
@@ -1296,117 +1326,72 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         raise (Error (loc, !env, Exception_pattern_below_toplevel));
       let p1 = type_pat sp1 (instance_def Predef.type_exn) in
       let eff = instance_def (effect_io (newvar Seffect)) in
-      unify_pat_effects loc !env eff expected_eff;
+      unify_pat_outer_effects loc !env eff outer_eff;
       rp {
         pat_desc = Tpat_exception p1;
         pat_loc = loc; pat_extra=[];
         pat_type = expected_ty;
-        pat_eff = eff;
+        pat_inner_eff = inner_eff;
+        pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
   | Ppat_effect(label, sargs, scont) ->
      (* Check whether effect/exception cases are allowed at this level *)
      if not allow_exn then
        raise (Error (loc, !env, Effect_pattern_below_toplevel));
+     let arity = List.length sargs in
+     let returns = scont <> None in
+     let ec =
+       try
+         filter_effect !env label arity returns inner_eff
+       with
+       | Unify trace ->
+           raise(Error(loc, !env, Pattern_inner_effect_clash(trace)))
+       | Effect_tags(l1, l2) ->
+           raise(Typetexp.Error(loc, !env, Typetexp.Effect_tags (l1, l2)))
+     in
+     let args, res =
+       instance_effect_constructor ~in_pattern:(env, get_newtype_level ()) ec
+     in
      (* Type check arguments *)
-     let args =
-       List.map (fun p -> type_pat p (newvar Stype)) sargs
+     let targs =
+       List.map2 (fun sarg arg -> type_pat sarg arg) sargs args
      in
      (* Type check the continuation argument *)
-     let ty_arg = newvar Stype in
      let reg_cont = newvar Sregion in
      let cont =
-       match scont with
-       | None -> None
-       | Some scont ->
+       match scont, res with
+       | None, None -> None
+       | Some scont, Some res ->
           let ty_cont =
             (* Construct type ('a, !e, 'b, @r) continuation *)
             instance_def
-              (Predef.type_continuation ty_arg expected_eff cont_ty reg_cont)
+              (Predef.type_continuation res outer_eff cont_ty reg_cont)
           in
           (* Type check the continuation pattern with the constructed type *)
-          Some (type_continuation_pat !env expected_eff ty_cont reg_cont scont)
+          Some (type_continuation_pat !env outer_eff ty_cont reg_cont scont)
+       | None, Some _ | Some _, None -> assert false
      in
-     (* Construct corresponding effect row *)
-     let eff =
-       let ec =
-         { ec_label = label;
-           ec_args = List.map (fun p -> p.pat_type) args;
-           ec_res  =
-             match cont with
-             | None -> None
-             | Some _ -> Some ty_arg  }
-       in
-       newty (Teffect(Eordinary ec, newvar Seffect))
-     in
-     (* Unify with the context *)
-     (* unify_pat_effects loc !env eff expected_eff; *)
      rp {
-         pat_desc = Tpat_effect(label, args, cont);
+         pat_desc = Tpat_effect(label, targs, cont);
          pat_loc = loc; pat_extra=[];
          pat_type = expected_ty;
-         pat_eff = eff;
+         pat_inner_eff = inner_eff;
+         pat_outer_eff = outer_eff;
          pat_attributes = sp.ppat_attributes;
          pat_env = !env }
-      (* if not allow_exn then
-       *   raise (Error (loc, !env, Effect_pattern_below_toplevel));
-       * let ecstr = Typetexp.find_effect_constructor !env lid.loc lid.txt in
-       * let sargs =
-       *   match sarg with
-       *   | None -> []
-       *   | Some {ppat_desc = Ppat_tuple spl} when
-       *       ecstr.ecstr_arity > 1 || explicit_arity sp.ppat_attributes ->
-       *       spl
-       *   | Some({ppat_desc = Ppat_any} as sp) when ecstr.ecstr_arity <> 1 ->
-       *       if ecstr.ecstr_arity = 0 then
-       *         Location.prerr_warning sp.ppat_loc
-       *                                Warnings.Wildcard_arg_to_constant_constr;
-       *       replicate_list sp ecstr.ecstr_arity
-       *   | Some sp -> [sp]
-       * in
-       * if List.length sargs <> ecstr.ecstr_arity then
-       *   raise(Error(loc, !env, Constructor_arity_mismatch(lid.txt,
-       *                                ecstr.ecstr_arity, List.length sargs)));
-       * let (ty_args, ty_res) =
-       *   instance_effect_constructor
-       *     ~in_pattern:(env, get_newtype_level ()) ecstr
-       * in
-       * let args =
-       *   List.map2 (fun p t -> type_pat p t) sargs ty_args
-       * in
-       * let cont =
-       *   match ty_res, scont with
-       *   | None, None -> None
-       *   | Some res_type, Some scont ->
-       *      let ty_cont =
-       *        instance_def
-       *          (Predef.type_continuation res_type expected_eff cont_ty)
-       *      in
-       *      Some (type_continuation_pat !env expected_eff ty_cont scont)
-       *   | None, Some _ ->
-       *      raise(Error(loc, !env,
-       *                  Unexpected_continuation_pattern lid.txt))
-       *   | Some _, None ->
-       *      raise(Error(loc, !env, Missing_continuation_pattern lid.txt))
-       * in
-       *   rp {
-       *   pat_desc = Tpat_effect(lid, ecstr, args, cont);
-       *   pat_loc = loc; pat_extra=[];
-       *   pat_type = expected_ty;
-       *   pat_attributes = sp.ppat_attributes;
-       *   pat_env = !env } *)
   | Ppat_extension ext ->
       raise (Error_forward (Typetexp.error_of_extension ext))
 
 let type_pat ?(allow_existentials=false) ?constrs ?labels
-    ?(lev=get_current_level()) ~env ~allow_exn ~expected_eff
-    ~cont_ty sp expected_ty =
+    ?(lev=get_current_level()) ~env ~allow_exn ~outer_eff
+    ~inner_eff ~cont_ty sp expected_ty =
   newtype_level := Some lev;
   try
     let r =
       type_pat ~no_existentials:(not allow_existentials) ~constrs
         ~labels ~mode:Normal ~env ~allow_exn
-        ~expected_eff ~cont_ty sp expected_ty
+        ~outer_eff ~inner_eff ~cont_ty sp expected_ty
     in
     iter_pattern (fun p -> p.pat_env <- !env) r;
     newtype_level := None;
@@ -1418,7 +1403,7 @@ let type_pat ?(allow_existentials=false) ?constrs ?labels
 
 (* this function is passed to Partial.parmatch
    to type check gadt nonexhaustiveness *)
-let partial_pred ~lev ~env ~expected_eff ~cont_ty
+let partial_pred ~lev ~env ~outer_eff ~inner_eff ~cont_ty
       expected_ty constrs labels p =
   let snap = snapshot () in
   try
@@ -1426,7 +1411,7 @@ let partial_pred ~lev ~env ~expected_eff ~cont_ty
     let typed_p =
       type_pat ~allow_existentials:true ~lev
         ~constrs ~labels ~env:(ref env) ~allow_exn:true
-        ~expected_eff ~cont_ty p expected_ty
+        ~outer_eff ~inner_eff ~cont_ty p expected_ty
     in
     backtrack snap;
     (* types are invalidated but we don't need them here *)
@@ -1436,10 +1421,10 @@ let partial_pred ~lev ~env ~expected_eff ~cont_ty
     None
 
 let check_partial ?(lev=get_current_level ()) ~env
-                  ~expected_eff ~cont_ty expected_ty loc cases=
+                  ~outer_eff ~inner_eff ~cont_ty expected_ty loc cases =
   let (partial, handled) =
     Parmatch.check_partial_gadt
-      (partial_pred ~lev ~env ~expected_eff ~cont_ty expected_ty)
+      (partial_pred ~lev ~env ~outer_eff ~inner_eff ~cont_ty expected_ty)
       env loc cases
   in
   (partial, handled)
@@ -1467,13 +1452,13 @@ let add_pattern_variables ?check ?check_as env =
      pv env,
    get_ref module_variables)
 
-let type_pattern ~lev ~allow_exn env expected_eff spat scope
+let type_pattern ~lev ~allow_exn env outer_eff inner_eff spat scope
                  cont_ty expected_ty =
   reset_pattern scope true;
   let new_env = ref env in
   let pat =
     type_pat ~allow_existentials:true ~lev ~env:new_env ~allow_exn
-             ~expected_eff ~cont_ty spat expected_ty
+             ~outer_eff ~inner_eff ~cont_ty spat expected_ty
   in
   let new_env, unpacks =
     add_pattern_variables !new_env
@@ -1481,14 +1466,14 @@ let type_pattern ~lev ~allow_exn env expected_eff spat scope
       ~check_as:(fun s -> Warnings.Unused_var s) in
   (pat, new_env, get_ref pattern_force, unpacks)
 
-let type_pattern_list ~allow_exn env expected_eff spatl scope cont_ty
+let type_pattern_list ~allow_exn env outer_eff inner_eff spatl scope cont_ty
                       expected_tys allow =
   reset_pattern scope allow;
   let new_env = ref env in
   let patl =
     List.map2
       (fun spat expected_ty ->
-        type_pat ~allow_exn ~env:new_env ~expected_eff ~cont_ty
+        type_pat ~allow_exn ~env:new_env ~outer_eff ~inner_eff ~cont_ty
           spat expected_ty)
       spatl expected_tys
   in
@@ -1500,7 +1485,8 @@ let type_class_arg_pattern cl_num val_env met_env expected_eff l spat =
   let nv = newvar Stype in
   let cont_ty = newvar Stype in
   let pat =
-    type_pat ~allow_exn:false ~env:(ref val_env) ~expected_eff ~cont_ty spat nv
+    type_pat ~allow_exn:false ~env:(ref val_env)
+      ~outer_eff:expected_eff ~inner_eff:Ctype.none ~cont_ty spat nv
   in
   if has_variants pat then begin
     Parmatch.pressure_variants val_env [pat];
@@ -1537,7 +1523,8 @@ let type_self_pattern cl_num privty val_env met_env par_env expected_eff spat =
   let nv = newvar Stype in
   let cont_ty = newvar Stype in
   let pat =
-    type_pat ~allow_exn:false ~env:(ref val_env) ~expected_eff ~cont_ty spat nv
+    type_pat ~allow_exn:false ~env:(ref val_env)
+      ~outer_eff:expected_eff ~inner_eff:Ctype.none ~cont_ty spat nv
   in
   List.iter (fun f -> f()) (get_ref pattern_force);
   let meths = ref Meths.empty in
@@ -1932,6 +1919,7 @@ let contains_gadt env p =
             cstrs
         with Not_found -> ()
         end; iter_ppat loop p
+    | Ppat_effect _ -> raise Exit
     | _ -> iter_ppat loop p
   in
   try loop p; false with Exit -> true
@@ -2252,21 +2240,19 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
         type_cases env ~allow_exn:true expected_eff eff
           arg.exp_type ty_expected loc caselist
       in
-      let outer_eff = newvar Seffect in
       let inner_eff =
         List.fold_right
-          (fun (lbl, arity, ret) ty ->
-            let ec = new_eff_constr lbl arity ret in
-            newty (Teffect(ec, ty)))
-          handled outer_eff
+          (fun (label, arity, returns) ty ->
+            let ec = filter_effect env label arity returns eff in
+            newty (Teffect(Eordinary ec, ty)))
+          handled expected_eff
       in
       unify_exp_effects arg.exp_loc env eff inner_eff;
-      unify_exp_effects loc env outer_eff expected_eff;
       re {
         exp_desc = Texp_match(arg, cases, partial);
         exp_loc = loc; exp_extra = [];
         exp_type = instance env ty_expected;
-        exp_eff = outer_eff;
+        exp_eff = expected_eff;
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
   | Pexp_try(sbody, caselist) ->
@@ -2281,8 +2267,8 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let inner_eff =
         List.fold_right
           (fun (lbl, arity, ret) ty ->
-            let ec = new_eff_constr lbl arity ret in
-            newty (Teffect(ec, ty)))
+            let ec = simple_effect lbl arity ret in
+            newty (Teffect(Eordinary ec, ty)))
           handled outer_eff
       in
       unify_exp_effects body.exp_loc env eff inner_eff;
@@ -3167,7 +3153,7 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   end;
   let cases, partial, _ =
     type_cases ~allow_exn:false ~in_function:(loc_fun,ty_fun) env
-      ty_eff (newvar Seffect) ty_arg ty_res loc caselist
+      ty_eff Ctype.none ty_arg ty_res loc caselist
   in
   let not_function ty =
     let ls, tvar = list_labels env ty in
@@ -3575,7 +3561,8 @@ and type_argument env expected_eff sarg ty_expected' ty_expected =
       (* eta-expand to avoid side effects *)
       let var_pair name ty =
         let id = Ident.create name in
-        {pat_desc = Tpat_var (id, mknoloc name); pat_type = ty; pat_eff = newvar Seffect;
+        {pat_desc = Tpat_var (id, mknoloc name); pat_type = ty;
+         pat_inner_eff = Ctype.none; pat_outer_eff = expected_eff;
          pat_extra=[]; pat_attributes = [];
          pat_loc = Location.none; pat_env = env},
         {exp_type = ty; exp_eff = newvar Seffect; exp_loc = Location.none; exp_env = env;
@@ -3896,36 +3883,32 @@ and type_construct env loc lid sarg ty_expected expected_eff attrs =
     exp_desc = Texp_construct(lid, constr, args) }
 
 and type_perform env loc expected_eff label sargs returns attrs ty_expected =
-  (* Make sure that label is not the reserved name `state' *)
-  if label = "state" then
-    raise (Error (loc, env, Cannot_perform_state));
+  let arity = List.length sargs in
+  let ec =
+    try
+      filter_effect env label arity returns expected_eff
+    with
+    | Unify trace ->
+        raise(Error(loc, env, Expr_effect_clash(trace)))
+    | Effect_tags(l1, l2) ->
+        raise(Typetexp.Error(loc, env, Typetexp.Effect_tags (l1, l2)))
+  in
+  let args, res = instance_effect_constructor ec in
+  Misc.may
+    (fun res -> unify_exp_types loc env res (instance env ty_expected))
+    res;
   (* Type check arguments *)
-  let ty_args = List.map (type_exp env expected_eff) sargs in
-  let targs = List.map (fun e -> e.exp_type) ty_args in
-  (* Construct result type *)
-  let exp_ty = instance env ty_expected in
-  let res_ty =
-    if returns then Some exp_ty
-    else None
+  let targs =
+    List.map2
+      (fun sarg arg-> type_expect env expected_eff sarg arg)
+      sargs args
   in
-  (* Construct corresponding effect row *)
-  let eff =
-    let ec =
-      Eordinary
-        { ec_label = label;
-          ec_args = targs;
-          ec_res  = res_ty }
-    in
-    newty (Teffect(ec, newvar Seffect))
-  in
-  (* Unify with the context *)
-  unify_exp_effects loc env eff expected_eff;
   re {
-    exp_desc = Texp_perform(label, ty_args, returns);
+    exp_desc = Texp_perform(label, targs, returns);
     exp_loc = loc;
     exp_extra = [];
-    exp_type = exp_ty;
-    exp_eff = eff;
+    exp_type = instance env ty_expected;
+    exp_eff = expected_eff;
     exp_attributes = attrs;
     exp_env = env }
 
@@ -3992,7 +3975,6 @@ and type_cases ?in_function ~allow_exn env
     Format.printf "lev = %d@.%a@." lev Printtyp.raw_type_expr ty_res; *)
   begin_def (); (* propagation of the argument *)
   let ty_arg' = newvar Stype in
-  let inner_eff' = newvar Seffect in
   let pattern_force = ref [] in
 (*  Format.printf "@[%i %i@ %a@]@." lev (get_current_level())
     Printtyp.raw_type_expr ty_arg; *)
@@ -4013,7 +3995,7 @@ and type_cases ?in_function ~allow_exn env
             then Some false else None in
           let ty_arg = instance ?partial env ty_arg in
           type_pattern ~lev ~allow_exn
-            env outer_eff pc_lhs scope ty_res ty_arg
+            env outer_eff inner_eff pc_lhs scope ty_res ty_arg
         in
         pattern_force := force @ !pattern_force;
         let pat =
@@ -4028,7 +4010,6 @@ and type_cases ?in_function ~allow_exn env
   (* Unify cases (delayed to keep it order-free) *)
   let patl = List.map fst pat_env_list in
   List.iter (fun pat -> unify_pat env pat ty_arg') patl;
-  List.iter (fun pat -> unify_pat_eff env pat inner_eff') patl;
   (* Check for polymorphic variants to close *)
   if List.exists has_variants patl then begin
     Parmatch.pressure_variants env patl;
@@ -4040,7 +4021,6 @@ and type_cases ?in_function ~allow_exn env
   List.iter (iter_pattern (fun {pat_type=t} -> unify_var env t (newvar Stype)))
     patl;
   List.iter (fun pat -> unify_pat env pat (instance env ty_arg)) patl;
-  List.iter (fun pat -> unify_pat_eff env pat inner_eff) patl;
   end_def ();
   List.iter (iter_pattern (fun {pat_type=t} -> generalize t)) patl;
   (* type bodies *)
@@ -4082,7 +4062,8 @@ and type_cases ?in_function ~allow_exn env
     List.iter (fun c -> unify_exp env c.c_rhs ty_res') cases
   end;
   let partial, handled =
-    check_partial ~lev ~env ~expected_eff:outer_eff ~cont_ty:ty_res ty_arg loc cases
+    check_partial ~lev ~env ~outer_eff ~inner_eff
+      ~cont_ty:ty_res ty_arg loc cases
   in
   add_delayed_check
     (fun () ->
@@ -4134,7 +4115,7 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   let nvs = List.map (fun _ -> newvar Stype) spatl in
   let cont_ty = newvar Stype in
   let (pat_list, new_env, force, unpacks) =
-    type_pattern_list ~allow_exn:false env expected_eff spatl scope
+    type_pattern_list ~allow_exn:false env expected_eff Ctype.none spatl scope
       cont_ty nvs allow
   in
   let closable =
@@ -4293,8 +4274,8 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
       Warnings.Unused_rec_flag;
   List.iter2
     (fun pat (exp, _) ->
-      ignore(check_partial ~env ~expected_eff ~cont_ty pat.pat_type
-               pat.pat_loc [case pat exp]))
+      ignore(check_partial ~env ~outer_eff:expected_eff ~inner_eff:Ctype.none
+               ~cont_ty pat.pat_type pat.pat_loc [case pat exp]))
     pat_list exp_list;
   end_def();
   let nonexpansive =
@@ -4415,12 +4396,18 @@ let report_error env ppf = function
           fprintf ppf "This pattern matches values of type")
         (function ppf ->
           fprintf ppf "but a pattern was expected which matches values of type")
-  | Pattern_effect_clash trace ->
+  | Pattern_inner_effect_clash trace ->
+      report_unification_error ppf env trace
+        (function ppf ->
+           fprintf ppf "This pattern handles effect")
+        (function ppf ->
+           fprintf ppf "but a pattern was expected which handles")
+  | Pattern_outer_effect_clash trace ->
       report_unification_error ppf env trace
         (function ppf ->
            fprintf ppf "This pattern performs effect")
         (function ppf ->
-           fprintf ppf "but an pattern was expected that performed")
+           fprintf ppf "but a pattern was expected that performed")
   | Or_pattern_type_clash (id, trace) ->
       report_unification_error ppf env trace
         (function ppf ->
@@ -4646,9 +4633,7 @@ let report_error env ppf = function
       fprintf ppf
         "@[This %s performs state effects in region %a, which may not be global.@]"
         str Printtyp.type_sch ty
-  | Cannot_perform_state ->
-     fprintf ppf
-       "@[Invalid operation invocation: state is a reserved effect name which cannot be invoked.@]"
+
 
 let report_error env ppf err =
   wrap_printing_env env (fun () -> report_error env ppf err)

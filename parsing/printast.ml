@@ -237,6 +237,9 @@ and effect_constructor i ppf x =
   attributes i ppf x.peff_attributes;
   let i = i+1 in
   line i ppf "peff_label = %s\n" x.peff_label;
+  line i ppf "peff_polys = %a\n"
+       (fun ppf ->
+         List.iter (fun pv -> fprintf ppf " %a" fmt_var pv)) x.peff_polys;
   line i ppf "peff_args =\n";
   list (i+1) core_type ppf x.peff_args;
   line i ppf "peff_res =\n";

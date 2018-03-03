@@ -869,17 +869,82 @@ and transl_effect_row_with_tail env policy row tail =
   let transl_effect_constructor loc eff =
     let lbl = eff.peff_label in
     add_effect_constructor env loc lbl;
+    let polys, args, targs, res, tres =
+      match eff.peff_polys with
+      | [] ->
+          let targs =
+            List.map (transl_type env policy (Some Stype)) eff.peff_args
+          in
+          let args = List.map (fun ctyp -> ctyp.ctyp_type) targs in
+          let tres  =
+            Misc.may_map (transl_type env policy (Some Stype)) eff.peff_res
+          in
+          let res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) tres in
+          [], args, targs, res, tres
+      | polys ->
+          begin_def();
+          let new_univars =
+            List.map
+              (fun (name, sort) ->
+                let sort = transl_sort sort in
+                (name, sort), newvar ~name sort)
+              polys
+          in
+          let old_univars = !univars in
+          univars := new_univars @ !univars;
+          let targs =
+            List.map (transl_type env policy (Some Stype)) eff.peff_args
+          in
+          let args = List.map (fun ctyp -> ctyp.ctyp_type) targs in
+          let tres  =
+            Misc.may_map (transl_type env policy (Some Stype)) eff.peff_res
+          in
+          let res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) tres in
+          univars := old_univars;
+          end_def();
+          List.iter generalize args;
+          Misc.may generalize res;
+          let used v =
+            let in_res =
+              match res with
+              | None -> false
+              | Some ty -> deep_occur v ty
+            in
+            in_res
+            || List.exists (deep_occur v) args
+          in
+          let polys =
+            List.fold_left
+              (fun tyl ((name, sort), ty1) ->
+                let v = Btype.proxy ty1 in
+                if used v then begin
+                  match v.desc with
+                  | Tvar(name, sort) when v.level = Btype.generic_level ->
+                      v.desc <- Tunivar(name, sort);
+                      v :: tyl
+                  | _ ->
+                    let s = string_of_var name sort in
+                    raise (Error (loc, env, Cannot_quantify (s, v)))
+                end else tyl)
+              [] new_univars
+          in
+          List.iter (fun ty -> unify_var env (newvar Stype) ty) args;
+          Misc.may (fun ty -> unify_var env (newvar Stype) ty) res;
+          polys, args, targs, res, tres
+    in
     let teff =
       { eff_label = lbl;
-        eff_args = List.map (transl_type env policy None) eff.peff_args;
-        eff_res  = Misc.may_map (transl_type env policy None) eff.peff_res;
+        eff_polys = eff.peff_polys;
+        eff_args = targs;
+        eff_res  = tres;
         eff_attributes = eff.peff_attributes; }
     in
     let ec =
       Eordinary
         { ec_label = lbl;
-          ec_args = List.map (fun ctyp -> ctyp.ctyp_type) teff.eff_args;
-          ec_res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) teff.eff_res; }
+          ec_polys = polys;
+          ec_args = args;
+          ec_res  = res; }
     in
     teff, ec
   in

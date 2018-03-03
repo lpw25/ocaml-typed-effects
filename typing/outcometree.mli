@@ -66,7 +66,8 @@ type out_type =
   | Otyp_poly of (string * out_sort) list * out_type
   | Otyp_module of string * string list * out_type list
   | Otyp_effects of out_type list * out_type option
-  | Otyp_econstr of string * out_type list * out_type option
+  | Otyp_econstr of
+      string * (string * out_sort) list * out_type list * out_type option
 
 and out_variant =
   | Ovar_fields of (string * bool * out_type list) list

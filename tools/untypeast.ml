@@ -195,6 +195,7 @@ and untype_effect_field efd =
 and untype_effect_constructor eff =
   {
     peff_label = eff.eff_label;
+    peff_polys = eff.eff_polys;
     peff_args = List.map untype_core_type eff.eff_args;
     peff_res = Misc.may_map untype_core_type eff.eff_res;
     peff_attributes = eff.eff_attributes;

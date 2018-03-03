@@ -45,7 +45,7 @@ val type_self_pattern:
             Vars.t ref *
         Env.t * Env.t * Env.t
 val check_partial:
-        ?lev:int -> env:Env.t -> expected_eff:type_expr ->
+        ?lev:int -> env:Env.t -> outer_eff:type_expr -> inner_eff:type_expr ->
         cont_ty:type_expr -> type_expr -> Location.t -> Typedtree.case list ->
         Typedtree.partial * (label * int * bool) list
 val type_expect:
@@ -78,7 +78,8 @@ type error =
   | Constructor_arity_mismatch of Longident.t * int * int
   | Label_mismatch of Longident.t * (type_expr * type_expr) list
   | Pattern_type_clash of (type_expr * type_expr) list
-  | Pattern_effect_clash of (type_expr * type_expr) list
+  | Pattern_inner_effect_clash of (type_expr * type_expr) list
+  | Pattern_outer_effect_clash of (type_expr * type_expr) list
   | Or_pattern_type_clash of Ident.t * (type_expr * type_expr) list
   | Multiply_bound_variable of string
   | Orpat_vars of Ident.t
@@ -130,7 +131,6 @@ type error =
   | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
   | Toplevel_unknown_region of type_expr * string
-  | Cannot_perform_state
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

@@ -625,7 +625,8 @@ let rec mark_loops_rec visited ty =
        begin match ec with
        | Estate { ec_region } ->
           mark_loops_rec visited ec_region
-       | Eordinary { ec_args; ec_res; _ } ->
+       | Eordinary { ec_polys; ec_args; ec_res; _ } ->
+          List.iter add_alias ec_polys;
           List.iter (mark_loops_rec visited) ec_args;
           Misc.may (mark_loops_rec visited) ec_res
        end;
@@ -805,10 +806,23 @@ let rec tree_of_typexp sch ty =
   else pr_typ ()
 
 and tree_of_effect_constructor sch = function
-  | Eordinary { ec_label; ec_args; ec_res } ->
-     let res = Misc.may_map (tree_of_typexp sch) ec_res in
-     let args = tree_of_typlist sch ec_args in
-     Otyp_econstr(ec_label, args, res)
+  | Eordinary { ec_label; ec_polys; ec_args; ec_res } -> begin
+      match ec_polys with
+      | [] ->
+          let res = Misc.may_map (tree_of_typexp sch) ec_res in
+          let args = tree_of_typlist sch ec_args in
+          Otyp_econstr(ec_label, [], args, res)
+      | polys ->
+          let tyl = List.map repr polys in
+          let old_delayed = !delayed in
+          List.iter add_delayed tyl;
+          let tl = List.map (fun ty -> tree_of_name (name_of_type ty)) tyl in
+          let res = Misc.may_map (tree_of_typexp sch) ec_res in
+          let args = tree_of_typlist sch ec_args in
+          remove_names tyl;
+          delayed := old_delayed;
+          Otyp_econstr(ec_label, tl, args, res)
+    end
   | Estate { ec_region } ->
      Otyp_constr (Oide_ident "state", [tree_of_typexp sch ec_region])
 

@@ -311,7 +311,16 @@ class printer  ()= object(self:'self)
           ) x.peff_args
           self#attributes x.peff_attributes
     | Some r ->
-        pp f "%s:@;%a@;%a" x.peff_label
+        pp f "%s:@;%a%a@;%a" x.peff_label
+          (fun f l ->
+            pp f "%a"
+              (fun f l -> match l with
+              | [] -> ()
+              | _ ->
+                  pp f "%a@;.@;"
+                    (self#list self#tyvar ~sep:"@;")  l)
+              l)
+          x.peff_polys
           (fun f -> function
              | [] -> self#core_type1 f r
              | l -> pp f "%a@;->@;%a"

@@ -21,26 +21,27 @@ open Typedtree
 (* Utilities for building patterns   *)
 (*************************************)
 
-let make_pat desc ty ty_eff tenv =
+let make_pat desc ty inner_eff outer_eff tenv =
   {pat_desc = desc; pat_loc = Location.none; pat_extra = [];
-   pat_type = ty ; pat_env = tenv;
-   pat_attributes = [];
-   pat_eff = ty_eff;
+   pat_type = ty; pat_inner_eff = inner_eff; pat_outer_eff = outer_eff;
+   pat_env = tenv; pat_attributes = [];
   }
 
-let omega = make_pat Tpat_any Ctype.none Ctype.none Env.empty
+let omega = make_pat Tpat_any Ctype.none Ctype.none Ctype.none Env.empty
 
 let extra_pat =
   make_pat
     (Tpat_var (Ident.create "+", mknoloc "+"))
-    Ctype.none Ctype.none Env.empty
+    Ctype.none Ctype.none Ctype.none Env.empty
 
 let rec omegas i =
   if i <= 0 then [] else omega :: omegas (i-1)
 
 let omega_list l = List.map (fun _ -> omega) l
 
-let zero = make_pat (Tpat_constant (Const_int 0)) Ctype.none Ctype.none Env.empty
+let zero =
+  make_pat (Tpat_constant (Const_int 0))
+    Ctype.none Ctype.none Ctype.none Env.empty
 
 (***********************)
 (* Compatibility check *)
@@ -369,32 +370,37 @@ let rec simple_match_args p1 p2 = match p2.pat_desc with
 
 let rec normalize_pat q = match q.pat_desc with
   | Tpat_any | Tpat_constant _ -> q
-  | Tpat_var _ -> make_pat Tpat_any q.pat_type q.pat_eff q.pat_env
+  | Tpat_var _ ->
+      make_pat Tpat_any q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_alias (p,_,_) -> normalize_pat p
   | Tpat_tuple (args) ->
-      make_pat (Tpat_tuple (omega_list args)) q.pat_type q.pat_eff q.pat_env
+      make_pat (Tpat_tuple (omega_list args))
+               q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_construct  (lid, c,args) ->
       make_pat
         (Tpat_construct (lid, c,omega_list args))
-        q.pat_type q.pat_eff q.pat_env
+        q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_variant (l, arg, row) ->
       make_pat (Tpat_variant (l, may_map (fun _ -> omega) arg, row))
-        q.pat_type q.pat_eff q.pat_env
+               q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_array (args) ->
-      make_pat (Tpat_array (omega_list args))  q.pat_type q.pat_eff q.pat_env
+      make_pat (Tpat_array (omega_list args))
+               q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_record (largs, closed) ->
       make_pat
         (Tpat_record (List.map (fun (lid,lbl,_) ->
-                                 lid, lbl,omega) largs, closed))
-        q.pat_type q.pat_eff q.pat_env
+                          lid, lbl,omega) largs, closed))
+        q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_lazy _ ->
-      make_pat (Tpat_lazy omega) q.pat_type q.pat_eff q.pat_env
+      make_pat (Tpat_lazy omega)
+        q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_exception _ ->
-      make_pat (Tpat_exception omega) q.pat_type q.pat_eff q.pat_env
+      make_pat (Tpat_exception omega)
+        q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_effect(lbl, args, cont) ->
       make_pat
         (Tpat_effect(lbl, omega_list args, cont))
-        q.pat_type q.pat_eff q.pat_env
+        q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_or _ -> fatal_error "Parmatch.normalize_pat"
 
 
@@ -427,7 +433,8 @@ let discr_pat q pss =
           largs (record_arg acc)
       in
       acc_pat
-        (make_pat (Tpat_record (new_omegas, closed)) p.pat_type p.pat_eff p.pat_env)
+        (make_pat (Tpat_record (new_omegas, closed))
+           p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env)
         pss
   | _ -> acc in
 
@@ -451,7 +458,8 @@ let rec read_args xs r = match xs,r with
 let do_set_args erase_mutable q r = match q with
 | {pat_desc = Tpat_tuple omegas} ->
     let args,rest = read_args omegas r in
-    make_pat (Tpat_tuple args) q.pat_type q.pat_eff q.pat_env::rest
+    make_pat (Tpat_tuple args)
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env::rest
 | {pat_desc = Tpat_record (omegas,closed)} ->
     let args,rest = read_args omegas r in
     make_pat
@@ -466,13 +474,13 @@ let do_set_args erase_mutable q r = match q with
            else
              lid, lbl, arg)
             omegas args, closed))
-      q.pat_type q.pat_eff q.pat_env::
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env::
     rest
 | {pat_desc = Tpat_construct (lid, c,omegas)} ->
     let args,rest = read_args omegas r in
     make_pat
       (Tpat_construct (lid, c,args))
-      q.pat_type q.pat_eff q.pat_env::
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env::
     rest
 | {pat_desc = Tpat_variant (l, omega, row)} ->
     let arg, rest =
@@ -482,31 +490,31 @@ let do_set_args erase_mutable q r = match q with
       | _ -> assert false
     in
     make_pat
-      (Tpat_variant (l, arg, row)) q.pat_type q.pat_eff q.pat_env::
-    rest
+      (Tpat_variant (l, arg, row))
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
 | {pat_desc = Tpat_lazy omega} ->
     begin match r with
       arg::rest ->
-        make_pat (Tpat_lazy arg) q.pat_type q.pat_eff q.pat_env::rest
+        make_pat (Tpat_lazy arg) q.pat_type
+          q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
     | _ -> fatal_error "Parmatch.do_set_args (lazy)"
     end
 | {pat_desc = Tpat_array omegas} ->
     let args,rest = read_args omegas r in
-    make_pat
-      (Tpat_array args) q.pat_type q.pat_eff q.pat_env::
-    rest
+    make_pat (Tpat_array args)
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
 | {pat_desc = Tpat_exception omega} ->
     begin match r with
-      arg::rest ->
-        make_pat (Tpat_exception arg) q.pat_type q.pat_eff q.pat_env::rest
+    | arg :: rest ->
+        make_pat (Tpat_exception arg)
+          q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
     | _ -> fatal_error "Parmatch.do_set_args (exception)"
     end
 | {pat_desc = Tpat_effect(lbl, omegas, k)} ->
     let args,rest = read_args omegas r in
     make_pat
       (Tpat_effect (lbl, args, k))
-      q.pat_type q.pat_eff q.pat_env::
-    rest
+      q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
 | {pat_desc=Tpat_constant _|Tpat_any} ->
     q::r (* case any is used in matching.ml *)
 | _ -> fatal_error "Parmatch.set_args"
@@ -854,7 +862,8 @@ let build_other_constant proj make first next p env =
   let rec try_const i =
     if List.mem i all
     then try_const (next i)
-    else make_pat (make i) p.pat_type p.pat_eff p.pat_env
+    else make_pat (make i)
+           p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
   in try_const first
 
 (*
@@ -866,7 +875,8 @@ let build_other ext env =  match env with
 | ({pat_desc = Tpat_construct (lid,
       ({cstr_tag=Cstr_extension _} as c),_)},_) :: _ ->
     let c = {c with cstr_name = "*extension*"} in
-      make_pat (Tpat_construct(lid, c, [])) Ctype.none Ctype.none Env.empty
+      make_pat (Tpat_construct(lid, c, []))
+        Ctype.none Ctype.none Ctype.none Env.empty
 | ({pat_desc = Tpat_construct (_, _,_)} as p,_) :: _ ->
     begin match ext with
     | Some ext when Path.same ext (get_type_path p.pat_type p.pat_env) ->
@@ -888,7 +898,9 @@ let build_other ext env =  match env with
     let row = row_of_pat p in
     let make_other_pat tag const =
       let arg = if const then None else Some omega in
-      make_pat (Tpat_variant(tag, arg, r)) p.pat_type p.pat_eff p.pat_env in
+      make_pat (Tpat_variant(tag, arg, r))
+        p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
+    in
     begin match
       List.fold_left
         (fun others (tag,f) ->
@@ -905,7 +917,8 @@ let build_other ext env =  match env with
     | pat::other_pats ->
         List.fold_left
           (fun p_res pat ->
-            make_pat (Tpat_or (pat, p_res, None)) p.pat_type p.pat_eff p.pat_env)
+            make_pat (Tpat_or (pat, p_res, None))
+              p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env)
           pat other_pats
     end
 | ({pat_desc = Tpat_constant(Const_char _)} as p,_) :: _ ->
@@ -923,7 +936,9 @@ let build_other ext env =  match env with
         if List.mem ci all_chars then
           find_other (i+1) imax
         else
-          make_pat (Tpat_constant (Const_char ci)) p.pat_type p.pat_eff p.pat_env in
+          make_pat (Tpat_constant (Const_char ci))
+            p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
+    in
     let rec try_chars = function
       | [] -> omega
       | (c1,c2) :: rest ->
@@ -981,7 +996,7 @@ let build_other ext env =  match env with
       else
         make_pat
           (Tpat_array (omegas l))
-          p.pat_type p.pat_eff p.pat_env in
+          p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env in
     try_arrays 0
 | [] -> omega
 | _ -> omega
@@ -1069,7 +1084,8 @@ type 'a result =
 
 let rec orify_many =
   let orify x y =
-    make_pat (Tpat_or (x, y, None)) x.pat_type x.pat_eff x.pat_env
+    make_pat (Tpat_or (x, y, None))
+      x.pat_type x.pat_inner_eff x.pat_outer_eff x.pat_env
   in
   function
     | [] -> assert false
@@ -1603,35 +1619,41 @@ let rec lub p q = match p.pat_desc,q.pat_desc with
 | Tpat_constant c1, Tpat_constant c2 when const_compare c1 c2 = 0 -> p
 | Tpat_tuple ps, Tpat_tuple qs ->
     let rs = lubs ps qs in
-    make_pat (Tpat_tuple rs) p.pat_type p.pat_eff p.pat_env
+    make_pat (Tpat_tuple rs)
+      p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_lazy p, Tpat_lazy q ->
     let r = lub p q in
-    make_pat (Tpat_lazy r) p.pat_type p.pat_eff p.pat_env
+    make_pat (Tpat_lazy r)
+      p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_construct (lid, c1,ps1), Tpat_construct (_,c2,ps2)
       when  c1.cstr_tag = c2.cstr_tag  ->
         let rs = lubs ps1 ps2 in
         make_pat (Tpat_construct (lid, c1,rs))
-          p.pat_type p.pat_eff p.pat_env
+          p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_variant(l1,Some p1,row), Tpat_variant(l2,Some p2,_)
           when  l1=l2 ->
             let r=lub p1 p2 in
-            make_pat (Tpat_variant (l1,Some r,row)) p.pat_type p.pat_eff p.pat_env
+            make_pat (Tpat_variant (l1,Some r,row))
+              p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_variant (l1,None,row), Tpat_variant(l2,None,_)
               when l1 = l2 -> p
 | Tpat_record (l1,closed),Tpat_record (l2,_) ->
     let rs = record_lubs l1 l2 in
-    make_pat (Tpat_record (rs, closed)) p.pat_type p.pat_eff p.pat_env
+    make_pat (Tpat_record (rs, closed))
+      p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_array ps, Tpat_array qs
       when List.length ps = List.length qs ->
         let rs = lubs ps qs in
-        make_pat (Tpat_array rs) p.pat_type p.pat_eff p.pat_env
+        make_pat (Tpat_array rs)
+          p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_exception p, Tpat_exception q ->
     let r = lub p q in
-    make_pat (Tpat_exception r) p.pat_type p.pat_eff p.pat_env
+    make_pat (Tpat_exception r)
+      p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | Tpat_effect (lbl, ps1, k), Tpat_effect (_, ps2, _) ->
         let rs = lubs ps1 ps2 in
         make_pat (Tpat_effect (lbl, rs, k))
-          p.pat_type p.pat_eff p.pat_env
+          p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | _,_  ->
     raise Empty
 

@@ -52,6 +52,7 @@ and effect_constructor_state = (* inline once rebased to 4.03 *)
 
 and effect_constructor_ordinary =
   { ec_label: label;
+    ec_polys: type_expr list;
     ec_args: type_expr list;
     ec_res: type_expr option; }
 

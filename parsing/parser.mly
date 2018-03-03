@@ -54,12 +54,13 @@ let mkeinherit ?(attrs=[]) lid args =
     pefd_desc =
       Pefd_inherit(lid, args); }
 
-let mkeconstructor ?(attrs=[]) label args res =
+let mkeconstructor ?(attrs=[]) label polys args res =
   let loc = symbol_rloc () in
   { pefd_loc = loc;
     pefd_desc =
       Pefd_constructor
         { peff_label = label;
+          peff_polys = polys;
           peff_args  = args;
           peff_res   = res;
           peff_attributes = attrs; }; }
@@ -315,6 +316,9 @@ let varify_constructors newtypes t =
     in
     { efd with pefd_desc = desc }
   and loop_effect_constructor eff =
+    List.iter
+      (fun (name, sort) -> check_variable newtypes t.ptyp_loc name sort)
+      eff.peff_polys;
     let args = List.map loop eff.peff_args in
     let res = Misc.may_map loop eff.peff_res in
     { eff with peff_args = args; peff_res = res }
@@ -2287,13 +2291,15 @@ effect_field:
 
 effect_constructor:
   | UIDENT attributes
-      { mkeconstructor $1 [] None ~attrs:$2 }
+      { mkeconstructor $1 [] [] None ~attrs:$2 }
   | UIDENT OF core_type_list attributes
-      { mkeconstructor $1 $3 None ~attrs:$4 }
+      { mkeconstructor $1 [] $3 None ~attrs:$4 }
   | UIDENT COLON core_type_list MINUSGREATER simple_core_type attributes
-      { mkeconstructor $1 $3 (Some $5) ~attrs:$6 }
+      { mkeconstructor $1 [] $3 (Some $5) ~attrs:$6 }
+  | UIDENT COLON typevar_list DOT core_type_list MINUSGREATER simple_core_type attributes
+      { mkeconstructor $1 $3 $5 (Some $7) ~attrs:$8 }
   | UIDENT COLON simple_core_type attributes
-      { mkeconstructor $1 [] (Some $3) ~attrs:$4 }
+      { mkeconstructor $1 [] [] (Some $3) ~attrs:$4 }
 ;
 
 effect_row:

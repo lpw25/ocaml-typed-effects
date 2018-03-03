@@ -159,6 +159,7 @@ and effect_field_desc =
 
 and effect_constructor =
   { peff_label: label;
+    peff_polys: (string * sort) list;
     peff_args: core_type list;
     peff_res: core_type option;
     peff_attributes: attributes; }

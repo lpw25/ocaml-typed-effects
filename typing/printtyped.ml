@@ -496,10 +496,17 @@ and effect_field i ppf x =
 
 and effect_constructor i ppf x =
   line i ppf "effect_constructor\n";
-  label (i+1) ppf x.eff_label;
   attributes i ppf x.eff_attributes;
+  let i = i+1 in
+  line i ppf "peff_label = %s\n" x.eff_label;
+  line i ppf "peff_polys = %a\n"
+       (fun ppf ->
+         List.iter (fun pv -> fprintf ppf " %a" fmt_var pv)) x.eff_polys;
+  line i ppf "peff_args =\n";
   list (i+1) core_type ppf x.eff_args;
+  line i ppf "peff_res =\n";
   option (i+1) core_type ppf x.eff_res
+
 
 and class_type i ppf x =
   line i ppf "class_type %a\n" fmt_location x.cltyp_loc;

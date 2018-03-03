@@ -253,7 +253,8 @@ let iter_effect_constructor f ec =
   match ec with
   | Estate { ec_region } ->
      f ec_region
-  | Eordinary { ec_args; ec_res; _ } ->
+  | Eordinary { ec_polys; ec_args; ec_res; _ } ->
+     List.iter f ec_polys;
      List.iter f ec_args;
      Misc.may f ec_res
 
@@ -464,10 +465,11 @@ let rec copy_type_desc ?(keep_names=false) f = function
        match p with
        | Estate { ec_region } ->
           Estate { ec_region = f ec_region }
-       | Eordinary { ec_label; ec_args; ec_res } ->
-          let ec_args = List.map f ec_args in
-          let ec_res = Misc.may_map f ec_res in
-          Eordinary { ec_label; ec_args; ec_res }
+       | Eordinary { ec_polys; ec_label; ec_args; ec_res } ->
+           let ec_polys = List.map (fun x -> norm_univar (f x)) ec_polys in
+           let ec_args = List.map f ec_args in
+           let ec_res = Misc.may_map f ec_res in
+           Eordinary { ec_label; ec_polys; ec_args; ec_res }
      in
      Teffect (ec, f ty)
   | Tenil               -> Tenil

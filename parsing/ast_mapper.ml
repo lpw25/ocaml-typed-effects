@@ -139,8 +139,9 @@ module T = struct
             Pefd_constructor (sub.effect_constructor sub eff); }
 
   let map_effect_constructor sub
-      {peff_label; peff_args; peff_res; peff_attributes} =
+      {peff_label; peff_polys; peff_args; peff_res; peff_attributes} =
     { peff_label;
+      peff_polys;
       peff_args = List.map (sub.typ sub) peff_args;
       peff_res = map_opt (sub.typ sub) peff_res;
       peff_attributes = sub.attributes sub peff_attributes }

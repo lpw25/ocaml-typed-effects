@@ -971,7 +971,7 @@ and class_expr cl_num val_env met_env scl =
       in
       let cont = Ctype.newvar Stype in
       let partial, _ =
-        Typecore.check_partial val_env eff cont pat.pat_type
+        Typecore.check_partial val_env eff Ctype.none cont pat.pat_type
           pat.pat_loc
           [{c_lhs=pat;
             c_guard=None;

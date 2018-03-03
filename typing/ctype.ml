@@ -302,6 +302,29 @@ let opened_effect ty =
   | Tvar _  | Tunivar _ | Tconstr _ -> true
   | _                               -> false
 
+let simple_effect2 level name arity returns =
+  let rec make_args n acc =
+    if n = 0 then acc
+    else make_args (n-1) ((newvar2 Stype level) :: acc)
+  in
+  let args = make_args arity [] in
+  let res =
+    if returns then Some (newvar2 Stype level)
+    else None
+  in
+  { ec_label = name; ec_polys = []; ec_args = args; ec_res = res }
+
+let simple_effect_type2 level name arity returns =
+  let ec = simple_effect2 level name arity returns in
+  let rest = newvar2 Seffect level in
+  newty2 level (Teffect(Eordinary ec, rest))
+
+let simple_effect name arity returns =
+  simple_effect2 !current_level name arity returns
+
+let simple_effect_type name arity returns =
+  simple_effect_type2 !current_level name arity returns
+
 let flatten_effects ty =
   let rec flatten acc ty =
     let ty = repr ty in
@@ -1143,21 +1166,35 @@ let limited_generalize ty0 ty =
 
 type inv_type_expr =
     { inv_type : type_expr;
-      mutable inv_parents : inv_type_expr list }
+      mutable inv_parents : inv_type_expr list;
+      mutable inv_ec_parents : inv_effect_constructor list; }
 
-let rec inv_type hash pty ty =
+and inv_effect_constructor =
+  { inv_ec : effect_constructor_ordinary;
+    inv_parent : inv_type_expr }
+
+let rec inv_type hash pty pec ty =
   let ty = repr ty in
   try
     let inv = TypeHash.find hash ty in
-    inv.inv_parents <- pty @ inv.inv_parents
+    inv.inv_parents <- pty @ inv.inv_parents;
+    inv.inv_ec_parents <- pec @ inv.inv_ec_parents
   with Not_found ->
-    let inv = { inv_type = ty; inv_parents = pty } in
+    let inv = { inv_type = ty; inv_parents = pty; inv_ec_parents = pec } in
     TypeHash.add hash ty inv;
-    iter_type_expr (inv_type hash [inv]) ty
+    match ty.desc with
+    | Teffect(Eordinary ec, ty) ->
+        let inv_ec = { inv_ec = ec; inv_parent = inv } in
+        List.iter (inv_type hash [] [inv_ec]) ec.ec_polys;
+        List.iter (inv_type hash [] [inv_ec]) ec.ec_args;
+        Misc.may (inv_type hash [] [inv_ec]) ec.ec_res;
+        inv_type hash [inv] [] ty
+    | _ ->
+        iter_type_expr (inv_type hash [inv] []) ty
 
 let compute_univars ty =
   let inverted = TypeHash.create 17 in
-  inv_type inverted [] ty;
+  inv_type inverted [] [] ty;
   let node_univars = TypeHash.create 17 in
   let rec add_univar univ inv =
     match inv.inv_type.desc with
@@ -1167,13 +1204,18 @@ let compute_univars ty =
           let univs = TypeHash.find node_univars inv.inv_type in
           if not (TypeSet.mem univ !univs) then begin
             univs := TypeSet.add univ !univs;
-            List.iter (add_univar univ) inv.inv_parents
+            List.iter (add_univar univ) inv.inv_parents;
+            List.iter (add_ec_univar univ) inv.inv_ec_parents
           end
         with Not_found ->
           TypeHash.add node_univars inv.inv_type (ref(TypeSet.singleton univ));
           List.iter (add_univar univ) inv.inv_parents
+  and add_ec_univar univ inv_ec =
+    if List.memq univ (List.map repr inv_ec.inv_ec.ec_polys) then ()
+    else add_univar univ inv_ec.inv_parent
   in
-  TypeHash.iter (fun ty inv -> if is_Tunivar ty then add_univar ty inv)
+  TypeHash.iter
+    (fun ty inv -> if is_Tunivar ty then add_univar ty inv)
     inverted;
   fun ty ->
     try !(TypeHash.find node_univars ty) with Not_found -> TypeSet.empty
@@ -1421,17 +1463,6 @@ let instance_constructor ?in_pattern cstr =
   cleanup_types ();
   (ty_args, ty_res)
 
-(* let instance_effect_constructor ?in_pattern ecstr =
- *   begin match in_pattern with
- *   | None -> ()
- *   | Some (env, newtype_lev) ->
- *       List.iter (process_existential env newtype_lev) ecstr.ecstr_existentials
- *   end;
- *   let ty_res = Misc.may_map (fun ty -> copy ty) ecstr.ecstr_res in
- *   let ty_args = List.map simple_copy ecstr.ecstr_args in
- *   cleanup_types ();
- *   (ty_args, ty_res) *)
-
 let instance_parameterized_type ?keep_names sch_args sch =
   let ty_args = List.map (fun t -> copy ?keep_names t) sch_args in
   let ty = copy sch in
@@ -1537,7 +1568,8 @@ let rec copy_sep fixed free bound visited ty =
     let t = newvar sort in          (* Stub *)
     let visited =
       match ty.desc with
-        Tarrow _ | Ttuple _ | Tvariant _ | Tconstr _ | Tobject _ | Tpackage _ ->
+      | Tarrow _ | Ttuple _ | Tvariant _
+        | Tconstr _ | Tobject _ | Tpackage _ | Teffect _ ->
           (ty,(t,bound)) :: visited
       | _ -> visited in
     let copy_rec = copy_sep fixed free bound visited in
@@ -1559,6 +1591,22 @@ let rec copy_sep fixed free bound visited ty =
           let visited =
             List.map2 (fun ty t -> ty,(t,bound)) tl tl' @ visited in
           Tpoly (copy_sep fixed free bound visited t1, tl')
+      | Teffect(Eordinary ec, rest) when ec.ec_polys <> [] ->
+          let rest = copy_rec rest in
+          let tl = List.map repr ec.ec_polys in
+          let tl' = List.map (fun t -> newty t.desc) tl in
+          let bound = tl @ bound in
+          let visited =
+            List.map2 (fun ty t -> ty,(t,bound)) tl tl' @ visited
+          in
+          let args =
+            List.map (copy_sep fixed free bound visited) ec.ec_args
+          in
+          let res =
+            Misc.may_map (copy_sep fixed free bound visited) ec.ec_res
+          in
+          let ec = { ec with ec_polys = tl'; ec_args = args; ec_res = res } in
+          Teffect(Eordinary ec, rest)
       | _ -> copy_type_desc copy_rec ty.desc
       end;
     t
@@ -1601,6 +1649,46 @@ let instance_label fixed lbl =
   in
   cleanup_types ();
   (vars, ty_arg, ty_res, ty_mut)
+
+let instance_effect_constructor ?in_pattern ec =
+  let fixed =
+    match in_pattern with
+    | None -> false
+    | Some _ -> true
+  in
+  match ec.ec_polys with
+  | [] ->
+      let copy ty =
+        copy ?env:None ?partial:None ?keep_names:None ty
+      in
+      let args = List.map copy ec.ec_args in
+      let res = Misc.may_map copy ec.ec_res in
+      cleanup_types ();
+      args, res
+  | polys ->
+      let univars = List.map repr polys in
+      let copy_var ty =
+        match ty.desc with
+        | Tunivar(name, sort) -> newvar sort
+        | _ -> assert false
+      in
+      let vars = List.map copy_var univars in
+      let pairs = List.map2 (fun u v -> u, (v, [])) univars vars in
+      delayed_copy := [];
+      let copy_sep ty =
+        copy_sep fixed (compute_univars ty) [] pairs ty
+      in
+      let args = List.map copy_sep ec.ec_args in
+      let res = Misc.may_map copy_sep ec.ec_res in
+      List.iter Lazy.force !delayed_copy;
+      delayed_copy := [];
+      cleanup_types ();
+      begin match in_pattern with
+      | None -> ()
+      | Some (env, newtype_lev) ->
+          List.iter (process_existential env newtype_lev) vars
+      end;
+      args, res
 
 (**** Instantiation with parameter substitution ****)
 
@@ -2072,6 +2160,13 @@ let occur_univar env ty =
       | Tpoly (ty, tyl) ->
           let bound = List.fold_right TypeSet.add (List.map repr tyl) bound in
           occur_rec bound  ty
+      | Teffect (Eordinary ec, rest) ->
+          occur_rec bound rest;
+          let bound =
+            List.fold_right TypeSet.add (List.map repr ec.ec_polys) bound
+          in
+          List.iter (occur_rec bound) ec.ec_args;
+          Misc.may (occur_rec bound) ec.ec_res
       | Tconstr (_, [], _, _) -> ()
       | Tconstr (p, tl, _, _) ->
           begin try
@@ -2119,6 +2214,15 @@ let univars_escape env univar_pairs vl ty =
         Tpoly (t, tl) ->
           if List.exists (fun t -> TypeSet.mem (repr t) family) tl then ()
           else occur t
+      | Teffect(Eordinary ec, rest) ->
+          occur rest;
+          let contains =
+            List.exists (fun t -> TypeSet.mem (repr t) family) ec.ec_polys
+          in
+          if not contains then begin
+            List.iter occur ec.ec_args;
+            Misc.may occur ec.ec_res
+          end
       | Tunivar _ ->
           if TypeSet.mem t family then raise Occur
       | Tconstr (_, [], _, _) -> ()
@@ -2156,6 +2260,29 @@ let enter_poly env univar_pairs t1 tl1 t2 tl2 f =
   univar_pairs := (cl1,cl2) :: (cl2,cl1) :: old_univars;
   try let res = f t1 t2 in univar_pairs := old_univars; res
   with exn -> univar_pairs := old_univars; raise exn
+
+let enter_effect_constructor env univar_pairs ec1 ec2 f =
+  match ec1.ec_polys, ec2.ec_polys with
+  | [], [] -> f ec1 ec2
+  | tl1, tl2 ->
+      let old_univars = !univar_pairs in
+      let known_univars =
+        List.fold_left (fun s (cl,_) -> add_univars s cl)
+          TypeSet.empty old_univars
+      in
+      let tl1 = List.map repr tl1 and tl2 = List.map repr tl2 in
+      if List.exists (fun t -> TypeSet.mem t known_univars) tl1 &&
+        univars_escape env old_univars tl1
+          (newty(Teffect(Eordinary ec2, newty Tenil)))
+      || List.exists (fun t -> TypeSet.mem t known_univars) tl2 &&
+        univars_escape env old_univars tl2
+          (newty(Teffect(Eordinary ec1, newty Tenil)))
+      then raise (Unify []);
+      let cl1 = List.map (fun t -> t, ref None) tl1
+      and cl2 = List.map (fun t -> t, ref None) tl2 in
+      univar_pairs := (cl1,cl2) :: (cl2,cl1) :: old_univars;
+      try let res = f ec1 ec2 in univar_pairs := old_univars; res
+      with exn -> univar_pairs := old_univars; raise exn
 
 let univar_pairs = ref []
 
@@ -2966,19 +3093,24 @@ and unify_kind k1 k2 =
   | (Fpresent, Fpresent)          -> ()
   | _                             -> assert false
 
+and unify_effect_constructors_ordinary env ec1 ec2 =
+  unify_list env ec1.ec_args ec2.ec_args;
+  match ec1.ec_res, ec2.ec_res with
+  | None, None -> ()
+  | Some _, None
+    | None, Some _ ->
+     raise (Unify [])
+  | Some res1, Some res2 ->
+     unify env res1 res2
+
 and unify_effect_constructors env ec1 ec2 =
   match ec1, ec2 with
-  | Estate ec1, Estate ec2 -> unify env ec1.ec_region ec2.ec_region
-  | Eordinary ec1, Eordinary ec2 -> begin
-     unify_list env ec1.ec_args ec2.ec_args;
-     match ec1.ec_res, ec2.ec_res with
-     | None, None -> ()
-     | Some _, None
-       | None, Some _ ->
-        raise (Unify [])
-     | Some res1, Some res2 ->
-        unify env res1 res2
-    end
+  | Estate ec1, Estate ec2 ->
+      unify env ec1.ec_region ec2.ec_region
+  | Eordinary ec1, Eordinary ec2 ->
+      enter_effect_constructor
+        !env univar_pairs ec1 ec2
+        (unify_effect_constructors_ordinary env)
   | _, _ -> raise (Unify [])
 
 and unify_effects env ty1 ty2 =          (* Optimization *)
@@ -3294,6 +3426,36 @@ let filter_self_method env lab priv meths ty =
     meths := Meths.add lab pair !meths;
     pair
 
+(* Unify [ty] and ![ Name : ec; .. >]. Return [ec]. *)
+let rec filter_effect env name arity returns ty =
+  try
+    let ty = expand_head_trace env ty in
+    match ty.desc with
+    | Tvar(_, Seffect) ->
+        let level = ty.level in
+        let ec = simple_effect2 level name arity returns in
+        let rest = newvar2 Seffect level in
+        let ty' = newty2 level (Teffect(Eordinary ec, rest)) in
+        link_type ty ty';
+        ec
+    | Teffect(Eordinary ec, rest) ->
+        if ec.ec_label = name then begin
+          let arity' = List.length ec.ec_args in
+          let returns' = ec.ec_res <> None in
+          if arity <> arity' || returns <> returns' then
+            raise (Unify [])
+          else
+            ec
+        end else begin
+          filter_effect env name arity returns rest
+        end
+    | Teffect(Estate _, rest) ->
+        filter_effect env name arity returns rest
+    | _ ->
+        raise (Unify [])
+  with Unify trace ->
+    let ty2 = simple_effect_type2 ty.level name arity returns in
+    raise (Unify ((ty, ty2)::trace))
 
                         (***********************************)
                         (*  Matching between type schemes  *)
@@ -5350,16 +5512,3 @@ let effect_state ec_region tail =
 
 let effect_io tail =
   effect_state (instance_def Predef.type_global) tail
-
-let new_eff_constr lbl arity ret =
-  let rec make_list = function
-    | 0 -> []
-    | n -> (newvar Stype) :: (make_list (n-1))
-  in
-  Eordinary {
-      ec_label = lbl;
-      ec_args  = make_list arity;
-      ec_res   = if ret
-                 then Some (newvar Stype)
-                 else None
-    }
