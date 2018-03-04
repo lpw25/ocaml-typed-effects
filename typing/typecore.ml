@@ -2463,7 +2463,9 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let (record, label, _) =
         type_label_access env loc expected_eff srecord lid
       in
-      let (_, ty_arg, ty_res, ty_mut) = instance_label false label in
+      let (_, ty_arg, ty_res, ty_mut) =
+        instance_label false (open_effects_label env label)
+      in
       unify_exp env record ty_res;
       let eff =
         match ty_mut with

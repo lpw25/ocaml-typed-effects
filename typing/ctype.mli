@@ -177,6 +177,7 @@ val apply:
 val pure_effect : Env.t -> type_expr -> bool
 val open_effects_covariant : Env.t -> type_expr -> type_expr
 val open_effects_contravariant : Env.t -> type_expr -> type_expr
+val open_effects_label : Env.t -> label_description -> label_description
 
 val close_effects_covariant : Env.t -> type_expr -> unit
 val close_effects_contravariant : Env.t -> type_expr -> unit

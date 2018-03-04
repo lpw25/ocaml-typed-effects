@@ -4651,6 +4651,9 @@ let open_effects_covariant env ty =
 let open_effects_contravariant env ty =
   fst (open_effects env 0 TypeVariMap.empty (false, true) ty)
 
+let open_effects_label env lbl =
+  { lbl with lbl_arg = open_effects_covariant env lbl.lbl_arg }
+
 let rec mem_close_visited ty ((co, cn) as vari) = function
   | [] -> false
   | (ty', (co', cn')) :: rest ->
