@@ -423,6 +423,11 @@ let rec check_constraints_rec env loc visited ty =
   | Tpoly (ty, tl) ->
       let _, ty = Ctype.instance_poly false tl ty in
       check_constraints_rec env loc visited ty
+  | Teffect (Eordinary ec, rest) ->
+      check_constraints_rec env loc visited rest;
+      let args, res = Ctype.instance_effect_constructor ec in
+      List.iter (check_constraints_rec env loc visited) args;
+      Misc.may (check_constraints_rec env loc visited) res
   | _ ->
       Btype.iter_type_expr (check_constraints_rec env loc visited) ty
   end
