@@ -1274,11 +1274,11 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_env = !env }
   | Ppat_lazy sp1 ->
       let nv = newvar Stype in
-      unify_pat_types loc !env (instance_def (Predef.type_lazy_t nv))
+      let ne = newvar Seffect in
+      unify_pat_types loc !env (instance_def (Predef.type_lazy_te nv ne))
         expected_ty;
       let p1 = type_pat sp1 nv in
-      let eff = instance_def (effect_io (newvar Seffect)) in
-      unify_pat_outer_effects loc !env eff outer_eff;
+      unify_pat_outer_effects loc !env ne outer_eff;
       rp {
         pat_desc = Tpat_lazy p1;
         pat_loc = loc; pat_extra=[];
@@ -2972,15 +2972,15 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       }
   | Pexp_lazy e ->
       let ty = newgenvar Stype in
-      let to_unify = Predef.type_lazy_t ty in
+      let eff = newgenvar Seffect in
+      let to_unify = Predef.type_lazy_te ty eff in
       unify_exp_types loc env to_unify ty_expected;
-      let eff = effect_io (newgenty Tenil) in
       let arg = type_expect env eff e ty in
       re {
         exp_desc = Texp_lazy arg;
         exp_loc = loc; exp_extra = [];
         exp_type = instance env ty_expected;
-        exp_eff = eff;
+        exp_eff = expected_eff;
         exp_attributes = sexp.pexp_attributes;
         exp_env = env;
       }

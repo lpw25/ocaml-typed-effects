@@ -41,6 +41,7 @@ and ident_option = ident_create "option"
 and ident_nativeint = ident_create "nativeint"
 and ident_int32 = ident_create "int32"
 and ident_int64 = ident_create "int64"
+and ident_lazy_te = ident_create "lazy_te"
 and ident_lazy_t = ident_create "lazy_t"
 and ident_bytes = ident_create "bytes"
 and ident_io = ident_create "io"
@@ -61,6 +62,7 @@ and path_option = Pident ident_option
 and path_nativeint = Pident ident_nativeint
 and path_int32 = Pident ident_int32
 and path_int64 = Pident ident_int64
+and path_lazy_te = Pident ident_lazy_te
 and path_lazy_t = Pident ident_lazy_t
 and path_bytes = Pident ident_bytes
 and path_io = Pident ident_io
@@ -82,6 +84,8 @@ and type_option t = newgenty (Tconstr(path_option, [t], Stype, ref Mnil))
 and type_nativeint = newgenty (Tconstr(path_nativeint, [], Stype, ref Mnil))
 and type_int32 = newgenty (Tconstr(path_int32, [], Stype, ref Mnil))
 and type_int64 = newgenty (Tconstr(path_int64, [], Stype, ref Mnil))
+and type_lazy_te t e =
+  newgenty (Tconstr(path_lazy_te, [t; e], Stype, ref Mnil))
 and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], Stype, ref Mnil))
 and type_bytes = newgenty (Tconstr(path_bytes, [], Stype, ref Mnil))
 and type_io_gen = newgenty (Tconstr(path_io, [], Seffect, ref Mnil))
@@ -184,12 +188,20 @@ let common_initial_env add_type add_extension empty_env =
      type_arity = 1;
      type_kind = Type_variant([cstr ident_none []; cstr ident_some [tvar]]);
      type_variance = [Variance.covariant]}
+  and decl_lazy_te =
+    let tvar = newgenvar Stype in
+    let evar = newgenvar Seffect in
+    {decl_abstr with
+     type_params = [tvar; evar];
+     type_arity = 2;
+     type_variance = [Variance.covariant; Variance.covariant]}
   and decl_lazy_t =
     let tvar = newgenvar Stype in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
-     type_variance = [Variance.covariant]}
+     type_variance = [Variance.covariant];
+     type_manifest = Some (type_lazy_te tvar type_io_gen)}
   and decl_io =
     {decl_abstr with
      type_sort = Seffect;
@@ -235,6 +247,7 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_int64 decl_abstr (
   add_type ident_int32 decl_abstr (
   add_type ident_nativeint decl_abstr (
+  add_type ident_lazy_te decl_lazy_te (
   add_type ident_lazy_t decl_lazy_t (
   add_type ident_option decl_option (
   add_type ident_list decl_list (
@@ -250,7 +263,7 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_io decl_io (
   add_type ident_global decl_global (
   add_type ident_state decl_state
-    empty_env))))))))))))))))))))))))))))))
+    empty_env)))))))))))))))))))))))))))))))
 
 let build_initial_env add_type add_exception empty_env =
   let common =
