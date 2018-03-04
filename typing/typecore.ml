@@ -2589,7 +2589,7 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let (arg, ty') =
         if separate then begin
           end_def ();
-          generalize_structure ty;
+          generalize_structure_and_closed_effects ty;
           (type_argument env expected_eff sarg ty (instance env ty),
            instance env ty)
         end else
@@ -3124,7 +3124,7 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
     match in_function with Some p -> p
     | None -> (loc, instance env ty_expected)
   in
-  let separate = !Clflags.principal || Env.has_local_constraints env in
+  let separate = true in
   if separate then begin_def ();
   let (ty_arg, ty_eff, ty_res) =
     try filter_arrow env (instance env ty_expected) l
@@ -3148,8 +3148,8 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   in
   if separate then begin
     end_def ();
-    generalize_structure ty_arg;
-    generalize_structure ty_res
+    generalize_structure_and_closed_effects ty_arg;
+    generalize_structure_and_closed_effects ty_res
   end;
   let cases, partial, _ =
     type_cases ~allow_exn:false ~in_function:(loc_fun,ty_fun) env
@@ -4085,7 +4085,7 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
   let open Ast_helper in
   let is_recursive = (rec_flag = Recursive) in
   begin_def();
-  if is_recursive || !Clflags.principal then begin_def ();
+  begin_def ();
 
   let is_fake_let =
     match spat_sexp_list with
@@ -4146,7 +4146,6 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
     pat_list;
   (* Generalize the structure *)
   let pat_list =
-    if is_recursive then begin
       end_def ();
       List.iter (Ctype.close_effect_var env) closable;
       List.map
@@ -4154,16 +4153,9 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
           iter_pattern
              (fun pat ->
                 generalize_structure_and_closed_effects pat.pat_type) pat;
-          {pat with pat_type = instance env pat.pat_type})
+          {pat with pat_type = instance env pat.pat_type}, pat.pat_type)
         pat_list
-    end else if !Clflags.principal then begin
-      end_def ();
-      List.map
-        (fun pat ->
-          iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
-          {pat with pat_type = instance env pat.pat_type})
-        pat_list
-    end else pat_list in
+  in
   (* Only bind pattern variables after generalizing *)
   List.iter (fun f -> f()) force;
   let exp_env =
@@ -4193,8 +4185,8 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
        warning is 26, not 27.
      *)
     List.map
-      (fun pat ->
-        if not warn_unused then pat, None
+      (fun (pat, typ) ->
+        if not warn_unused then pat, None, typ
         else
           let some_used = ref false in
             (* has one of the identifier of this pattern been used? *)
@@ -4227,25 +4219,24 @@ and type_let ?(check = fun s -> Warnings.Unused_var s)
                 )
             )
             (Typedtree.pat_bound_idents pat);
-          pat, Some slot
+          pat, Some slot, typ
         )
       pat_list
   in
+  let pat_list = List.map fst pat_list in
   let exp_list =
     List.map2
-      (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot) ->
+      (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot, typ) ->
         let sexp =
           if rec_flag = Recursive then wrap_unpacks sexp unpacks else sexp in
         if is_recursive then current_slot := slot;
-        match pat.pat_type.desc with
+        match (repr typ).desc with
         | Tpoly (ty, tl) ->
             begin_def ();
-            if !Clflags.principal then begin_def ();
+            begin_def ();
             let vars, ty' = instance_poly ~keep_names:true true tl ty in
-            if !Clflags.principal then begin
-              end_def ();
-              generalize_structure ty'
-            end;
+            end_def ();
+            generalize_structure_and_closed_effects ty';
             let eff = newvar Seffect in
             let exp =
               Typetexp.with_warning_attribute pvb_attributes (fun () ->
