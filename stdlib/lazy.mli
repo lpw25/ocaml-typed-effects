@@ -37,11 +37,12 @@ type 'a t = 'a lazy_t;;
    are rejected by the type-checker.
 *)
 
+type ('a, !e) te = ('a, !e) lazy_te
 
 exception Undefined;;
 
 (* val force : 'a t -> 'a ;; *)
-external force : 'a t -> 'a = "%lazy_force";;
+external force : ('a, !~) te ~>> 'a = "%lazy_force";;
 (** [force x] forces the suspension [x] and returns its result.
    If [x] has already been forced, [Lazy.force x] returns the
    same value again without recomputing it.  If it raised an exception,
@@ -50,7 +51,7 @@ external force : 'a t -> 'a = "%lazy_force";;
    recursively.
 *)
 
-val force_val : 'a t -> 'a;;
+val force_val : ('a, !~) te ~>> 'a;;
 (** [force_val x] forces the suspension [x] and returns its
     result.  If [x] has already been forced, [force_val x]
     returns the same value again without recomputing it.
@@ -60,29 +61,29 @@ val force_val : 'a t -> 'a;;
     whether [force_val x] raises the same exception or [Undefined].
 *)
 
-val from_fun : (unit -> 'a) -> 'a t;;
+val from_fun : (unit ~>> 'a) -> ('a, !~) te;;
 (** [from_fun f] is the same as [lazy (f ())] but slightly more efficient.
     @since 4.00.0 *)
 
-val from_val : 'a -> 'a t;;
+val from_val : 'a -> ('a, ![]) te;;
 (** [from_val v] returns an already-forced suspension of [v].
     This is for special purposes only and should not be confused with
     [lazy (v)].
     @since 4.00.0 *)
 
-val is_val : 'a t -> bool;;
+val is_val : ('a, !e) te -> bool;;
 (** [is_val x] returns [true] if [x] has already been forced and
     did not raise an exception.
     @since 4.00.0 *)
 
-val lazy_from_fun : (unit -> 'a) -> 'a t
+val lazy_from_fun : (unit ~>> 'a) -> ('a, !~) te
   [@@ocaml.deprecated "Use Lazy.from_fun instead."];;
 (** @deprecated synonym for [from_fun]. *)
 
-val lazy_from_val : 'a -> 'a t
+val lazy_from_val : 'a -> ('a, ![]) te
   [@@ocaml.deprecated "Use Lazy.from_val instead."];;
 (** @deprecated synonym for [from_val]. *)
 
-val lazy_is_val : 'a t -> bool
+val lazy_is_val : ('a, !e) te -> bool
   [@@ocaml.deprecated "Use Lazy.is_val instead."];;
 (** @deprecated synonym for [is_val]. *)

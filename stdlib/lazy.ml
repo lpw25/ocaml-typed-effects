@@ -44,21 +44,22 @@
 *)
 
 type 'a t = 'a lazy_t;;
+type ('a, !e) te = ('a, !e) lazy_te;;
 
 exception Undefined = CamlinternalLazy.Undefined;;
 
-external make_forward : 'a -> 'a lazy_t = "caml_lazy_make_forward";;
+external make_forward : 'a -> ('a, ![]) lazy_te = "caml_lazy_make_forward";;
 
-external force : 'a t -> 'a = "%lazy_force";;
+external force : ('a, !~) te ~>> 'a = "%lazy_force";;
 
 (* let force = force;; *)
 
 let force_val = CamlinternalLazy.force_val;;
 
-let from_fun (f : unit -> 'arg) =
+let from_fun (f : unit ~>> 'arg) =
   let x = Obj.new_block Obj.lazy_tag 1 in
   Obj.set_field x 0 (Obj.repr f);
-  (Obj.obj x : 'arg t)
+  (Obj.obj x : ('arg, !~) te)
 ;;
 
 let from_val (v : 'arg) =
@@ -66,11 +67,11 @@ let from_val (v : 'arg) =
   if t = Obj.forward_tag || t = Obj.lazy_tag || t = Obj.double_tag then begin
     make_forward v
   end else begin
-    (Obj.magic v : 'arg t)
+    (Obj.magic v : ('arg, ![]) te)
   end
 ;;
 
-let is_val (l : 'arg t) = Obj.tag (Obj.repr l) <> Obj.lazy_tag;;
+let is_val (l : ('arg, !e) te) = Obj.tag (Obj.repr l) <> Obj.lazy_tag;;
 
 let lazy_from_fun = from_fun;;
 
