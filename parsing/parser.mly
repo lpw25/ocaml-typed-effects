@@ -20,6 +20,9 @@ open Parsetree
 open Ast_helper
 open Docstrings
 
+(* Remove after bootstrap *)
+external force : 'a Lazy.t -> 'a = "%lazy_force";;
+
 let mktyp d = Typ.mk ~loc:(symbol_rloc()) d
 let mkpat d = Pat.mk ~loc:(symbol_rloc()) d
 let mkexp d = Exp.mk ~loc:(symbol_rloc()) d
@@ -38,9 +41,8 @@ let mkrhs rhs pos = mkloc rhs (rhs_loc pos)
 let mkoption d =
   let loc = {d.ptyp_loc with loc_ghost = true} in
   Typ.mk ~loc (Ptyp_constr(mkloc (Ldot (Lident "*predef*", "option")) loc,[d]))
-let mkarrow io tilde row =
-  { peft_io = io;
-    peft_tilde = tilde;
+let mkarrow tilde row =
+  { peft_tilde = tilde;
     peft_row = row;
     peft_loc = symbol_rloc (); }
 
@@ -417,8 +419,8 @@ let val_of_let_bindings lbs =
           List.map
             (fun lb ->
                Vb.mk ~loc:lb.lb_loc ~attrs:lb.lb_attributes
-                 ~docs:(Lazy.force lb.lb_docs)
-                 ~text:(Lazy.force lb.lb_text)
+                 ~docs:(force lb.lb_docs)
+                 ~text:(force lb.lb_text)
                  lb.lb_pattern lb.lb_expression)
             bindings
         in
@@ -1354,8 +1356,6 @@ expr:
       { mkexp_attrs (Pexp_perform($3, $5, true)) $2 }
   | THROW ext_attributes ident LPAREN effect_arg_list RPAREN
       { mkexp_attrs (Pexp_perform($3, $5, false)) $2 }
-  | PRIVATE DO ext_attributes expr DONE
-      { mkexp_attrs (Pexp_private($4)) $3 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -2093,8 +2093,7 @@ label_declaration_semi:
 ;
 label_mutability:
     /* empty */                                 { Plmut_immutable }
-  | MUTABLE                                     { Plmut_mutable None }
-  | MUTABLE LPAREN core_type_no_attr RPAREN     { Plmut_mutable (Some $3) }
+  | MUTABLE                                     { Plmut_mutable }
 ;
 
 /* Type Extensions */
@@ -2252,21 +2251,13 @@ core_type2:
 
 arrow:
   | MINUSGREATER
-      { mkarrow true false None }
-  | MINUSGREATERGREATER
-      { mkarrow false false None }
+      { mkarrow false None }
   | TILDEGREATER
-      { mkarrow true true None }
-  | TILDEGREATERGREATER
-      { mkarrow false true None }
+      { mkarrow true None }
   | MINUSLBRACKET effect_row RBRACKETMINUSGREATER
-      { mkarrow true false (Some $2) }
-  | MINUSLBRACKET effect_row RBRACKETMINUSGREATERGREATER
-      { mkarrow false false (Some $2) }
+      { mkarrow false (Some $2) }
   | TILDELBRACKET effect_fields RBRACKETTILDEGREATER
-      { mkarrow true true (Some (mkeffect $2 None)) }
-  | TILDELBRACKET effect_fields  RBRACKETTILDEGREATERGREATER
-      { mkarrow false true (Some (mkeffect $2 None)) }
+      { mkarrow true (Some (mkeffect $2 None)) }
 ;
 
 effect_fields:

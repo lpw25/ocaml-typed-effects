@@ -120,7 +120,6 @@ type type_mismatch =
   | Param_sort of int * bool * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
-  | Field_mutable_region of Ident.t
   | Field_arity of Ident.t
   | Field_names of int * Ident.t * Ident.t
   | Field_missing of bool * Ident.t
@@ -147,8 +146,6 @@ let report_type_mismatch0 first second decl ppf err =
       pr "The types for field %s are not equal" (Ident.name s)
   | Field_mutable s ->
       pr "The mutability of field %s is different" (Ident.name s)
-  | Field_mutable_region s ->
-      pr "The region type of field %s is different" (Ident.name s)
   | Field_arity s ->
       pr "The arities for field %s differ" (Ident.name s)
   | Field_names (n, name1, name2) ->
@@ -226,24 +223,9 @@ let rec compare_variants env decl1 decl2 n cstrs1 cstrs2 =
 let compare_label_mutability env decl1 decl2 lab mut1 mut2 =
   match mut1, mut2 with
   | Lmut_immutable, Lmut_immutable -> []
-  | Lmut_immutable, Lmut_mutable _ -> [Field_mutable lab]
-  | Lmut_mutable _, Lmut_immutable -> [Field_mutable lab]
-  | Lmut_mutable None, Lmut_mutable None -> []
-  | Lmut_mutable rgo1, Lmut_mutable rgo2 ->
-      let rg1 =
-        match rgo1 with
-        | None -> Predef.type_global
-        | Some rg -> rg
-      in
-      let rg2 =
-        match rgo2 with
-        | None -> Predef.type_global
-        | Some rg -> rg
-      in
-      if Ctype.equal env true (rg1::decl1.type_params)
-                              (rg2::decl2.type_params)
-      then []
-      else [Field_mutable_region lab]
+  | Lmut_immutable, Lmut_mutable -> [Field_mutable lab]
+  | Lmut_mutable, Lmut_immutable -> [Field_mutable lab]
+  | Lmut_mutable, Lmut_mutable -> []
 
 let rec compare_records env decl1 decl2 n labels1 labels2 =
   match labels1, labels2 with

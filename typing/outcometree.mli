@@ -74,18 +74,14 @@ and out_variant =
   | Ovar_name of out_ident * out_type list
 
 and out_arrow =
-  | Oarr_pure
   | Oarr_io
-  | Oarr_pure_tilde
   | Oarr_io_tilde
-  | Oarr_pure_row of out_type list * out_type option
   | Oarr_io_row of out_type list * out_type option
-  | Oarr_pure_tilde_row of out_type list
   | Oarr_io_tilde_row of out_type list
 
 and out_label_mutability =
   | Olmut_immutable
-  | Olmut_mutable of out_type option
+  | Olmut_mutable
 
 (* type out_effect =
  *   { oeff_manifest: out_ident option;

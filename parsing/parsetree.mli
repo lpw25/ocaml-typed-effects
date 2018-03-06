@@ -137,7 +137,6 @@ and row_field =
 
 and effect_type =
   {
-    peft_io: bool;
     peft_tilde: bool;
     peft_row:  effect_row option;
     peft_loc: Location.t;
@@ -319,8 +318,6 @@ and expression_desc =
   | Pexp_perform of label * expression list * bool
         (* perform E     true
            throw E       false *)
-  | Pexp_private of expression
-        (* private do E done *)
   | Pexp_send of expression * string
         (*  E # m *)
   | Pexp_new of Longident.t loc
@@ -434,7 +431,7 @@ and label_declaration =
 *)
 
 and label_mutability =
-  | Plmut_mutable of core_type option
+  | Plmut_mutable
   | Plmut_immutable
 
 and constructor_declaration =

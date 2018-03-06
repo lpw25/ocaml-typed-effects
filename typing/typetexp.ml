@@ -959,8 +959,7 @@ and transl_effect_row_with_tail env policy row tail =
     | Some ecs ->
         List.iter
           (function
-             | Eordinary ec -> add_effect_constructor env loc ec.ec_label
-             | Estate _ -> ())
+             | Eordinary ec -> add_effect_constructor env loc ec.ec_label)
           ecs;
         path, args, ecs
   in
@@ -1038,15 +1037,8 @@ and transl_effect_type env policy seft =
        let tefr = transl_effect_row_with_tail env policy sefr tail in
        Some tefr, tefr.efr_type
   in
-  let ty =
-    if seft.peft_io then
-      instance_def (effect_io tail)
-    else
-      tail
-  in
-  { eft_io = seft.peft_io;
-    eft_tilde = seft.peft_tilde;
-    eft_type = ty;
+  { eft_tilde = seft.peft_tilde;
+    eft_type = tail;
     eft_row = teft_row;
     eft_loc = Location.none (* TODO: FIXME *) }
 

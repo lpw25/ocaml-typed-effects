@@ -11,7 +11,7 @@ val add_in_char_set : mutable_char_set -> char -> unit
 val freeze_char_set : mutable_char_set -> char_set
 
 type ('a, 'b, 'c, 'd, 'e, 'f, !~) param_format_ebb = Param_format_EBB :
-     ('x ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
+     ('x ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
      ('a, 'b, 'c, 'd, 'e, 'f, !~) param_format_ebb
 
 val param_format_of_ignored_format :
@@ -30,32 +30,30 @@ and ('b, 'c, !~) acc =
   | Acc_char_literal   of ('b, 'c, !~) acc * char
   | Acc_data_string    of ('b, 'c, !~) acc * string
   | Acc_data_char      of ('b, 'c, !~) acc * char
-  | Acc_delay          of ('b, 'c, !~) acc * ('b ~>> 'c)
+  | Acc_delay          of ('b, 'c, !~) acc * ('b ~> 'c)
   | Acc_flush          of ('b, 'c, !~) acc
   | Acc_invalid_arg    of ('b, 'c, !~) acc * string
   | End_of_acc
 
 type ('a, 'b, !~) heter_list =
-  | Cons : 'c * ('a, 'b, !~) heter_list -> ('c ~>> 'a, 'b, !~) heter_list
+  | Cons : 'c * ('a, 'b, !~) heter_list -> ('c ~> 'a, 'b, !~) heter_list
   | Nil : ('b, 'b, !~) heter_list
 
 type ('b, 'c, 'e, 'f, !~) fmt_ebb = Fmt_EBB :
      ('a, 'b, 'c, 'd, 'e, 'f, !~) CamlinternalFormatBasics.fmt ->
      ('b, 'c, 'e, 'f, !~) fmt_ebb
 
-effect !~ wio = ![io | !~]
-
 val make_printf :
-  ('b ~> ('b, 'c, !~ wio) acc ~> 'd) ->>
-    'b ->> ('b, 'c, !~ wio) acc ->>
-    ('a, 'b, 'c, 'c, 'c, 'd, !~ wio) CamlinternalFormatBasics.fmt ~> 'a
+  ('b ~> ('b, 'c, !~) acc ~> 'd) ->
+    'b -> ('b, 'c, !~) acc ->
+    ('a, 'b, 'c, 'c, 'c, 'd, !~) CamlinternalFormatBasics.fmt ~> 'a
 
 val output_acc :
-  out_channel ->> (out_channel, unit, !~ wio) acc ~> unit
+  out_channel -> (out_channel, unit, !~) acc ~> unit
 val bufput_acc :
-  Buffer.t ->> (Buffer.t, unit, !~ wio) acc ~> unit
+  Buffer.t -> (Buffer.t, unit, !~) acc ~> unit
 val strput_acc :
-  Buffer.t ->> (unit, string, !~ wio) acc ~> unit
+  Buffer.t -> (unit, string, !~) acc ~> unit
 
 val type_format :
   ('g, 'b, 'c, 'j, 'k, 'l, _) CamlinternalFormatBasics.fmt ->

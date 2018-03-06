@@ -75,7 +75,6 @@ and exp_extra =
   | Texp_open of override_flag * Path.t * Longident.t loc * Env.t
   | Texp_poly of core_type option
   | Texp_newtype of string * sort
-  | Texp_private
 
 and expression_desc =
     Texp_ident of Path.t * Longident.t loc * Types.value_description
@@ -378,7 +377,6 @@ and row_field =
   | Tinherit of core_type
 
 and effect_type = {
-  eft_io: bool;
   eft_tilde: bool;
   eft_row: effect_row option;
   eft_type: Types.type_expr;
@@ -434,7 +432,7 @@ and label_declaration =
 
 and label_mutability =
   | Tlmut_immutable
-  | Tlmut_mutable of core_type option
+  | Tlmut_mutable
 
 and constructor_declaration =
     {

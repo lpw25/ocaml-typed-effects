@@ -130,4 +130,4 @@ let bigarray_kind_and_layout exp =
 let label_mutability mut =
   match mut with
   | Lmut_immutable -> Asttypes.Immutable
-  | Lmut_mutable _ -> Asttypes.Mutable
+  | Lmut_mutable -> Asttypes.Mutable

@@ -17,9 +17,9 @@
 
 exception Undefined;;
 
-val force_lazy_block : ('a, !~) lazy_te ~>> 'a ;;
+val force_lazy_block : ('a, !~) lazy_te ~> 'a ;;
 
-val force_val_lazy_block : ('a, !~) lazy_te ~>> 'a ;;
+val force_val_lazy_block : ('a, !~) lazy_te ~> 'a ;;
 
-val force : ('a, !~) lazy_te ~>> 'a ;;
-val force_val : ('a, !~) lazy_te ~>> 'a ;;
+val force : ('a, !~) lazy_te ~> 'a ;;
+val force_val : ('a, !~) lazy_te ~> 'a ;;

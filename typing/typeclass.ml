@@ -18,6 +18,9 @@ open Typecore
 open Typetexp
 open Format
 
+(* Remove after bootstrap *)
+external force : 'a Lazy.t -> 'a = "%lazy_force";;
+
 type error =
     Unconsistent_constraint of (type_expr * type_expr) list
   | Field_type_mismatch of string * string * (type_expr * type_expr) list
@@ -122,7 +125,7 @@ let rec constructor_type constr cty =
   | Cty_signature sign ->
       constr
   | Cty_arrow (l, ty, cty) ->
-      let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+      let eff = Ctype.newty Tenil in
       Ctype.newty (Tarrow (l, ty, eff, constructor_type constr cty, Cok))
 
 let rec class_body cty =
@@ -510,7 +513,7 @@ and class_type env scty =
 let class_type env scty =
   delayed_meth_specs := [];
   let cty = class_type env scty in
-  List.iter Lazy.force (List.rev !delayed_meth_specs);
+  List.iter force (List.rev !delayed_meth_specs);
   delayed_meth_specs := [];
   cty
 
@@ -600,7 +603,7 @@ let rec class_field self_loc cl_num self_type meths vars
                       No_overriding ("instance variable", lab.txt)))
       end;
       if !Clflags.principal then Ctype.begin_def ();
-      let eff = Ctype.effect_io (Btype.newgenty Tenil) in
+      let eff = Btype.newgenty Tenil in
       let exp =
         try type_exp val_env eff sexp with Ctype.Unify [(ty, _)] ->
           raise(Error(loc, val_env, Make_nongen_seltype ty))
@@ -679,7 +682,7 @@ let rec class_field self_loc cl_num self_type meths vars
 
       let field =
         lazy begin
-          let eff = Ctype.effect_io (Btype.newgenty Tenil) in
+          let eff = Btype.newgenty Tenil in
           let meth_type =
             Btype.newgenty (Tarrow("", self_type, eff, ty, Cok)) in
           Ctype.raise_nongen_level ();
@@ -707,7 +710,7 @@ let rec class_field self_loc cl_num self_type meths vars
       let field =
         lazy begin
           Ctype.raise_nongen_level ();
-          let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+          let eff = Ctype.newty Tenil in
           let meth_type =
             Ctype.newty
               (Tarrow ("", self_type, eff,
@@ -748,7 +751,7 @@ and class_structure cl_num final val_env met_env loc
   let private_self = if final then Ctype.newvar Stype else self_type in
 
   (* Self binder *)
-  let self_eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+  let self_eff = Ctype.newty Tenil in
   let (pat, meths, vars, val_env, meth_env, par_env) =
     type_self_pattern cl_num private_self
       val_env met_env par_env self_eff spat
@@ -830,7 +833,7 @@ and class_structure cl_num final val_env met_env loc
   (* Typing of method bodies *)
   if !Clflags.principal then
     List.iter (fun (_,_,ty) -> Ctype.generalize_spine ty) methods;
-  let fields = List.map Lazy.force (List.rev fields) in
+  let fields = List.map force (List.rev fields) in
   if !Clflags.principal then
     List.iter (fun (_,_,ty) -> Ctype.unify val_env ty (Ctype.newvar Stype))
       methods;
@@ -937,9 +940,7 @@ and class_expr cl_num val_env met_env scl =
       class_expr cl_num val_env met_env sfun
   | Pcl_fun (l, None, spat, scl') ->
       if !Clflags.principal then Ctype.begin_def ();
-      let eff =
-        Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
-      in
+      let eff = Ctype.newty Tenil in
       let (pat, pv, val_env', met_env) =
         Typecore.type_class_arg_pattern cl_num
           val_env met_env eff l spat
@@ -1031,9 +1032,7 @@ and class_expr cl_num val_env met_env scl =
             let name = Btype.label_name l
             and optional =
               if Btype.is_optional l then Optional else Required in
-            let eff =
-              Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
-            in
+            let eff = Ctype.newty Tenil in
             let sargs, more_sargs, arg =
               if ignore_labels && not (Btype.is_optional l) then begin
                 match sargs, more_sargs with
@@ -1110,9 +1109,7 @@ and class_expr cl_num val_env met_env scl =
           cl_attributes = scl.pcl_attributes;
          }
   | Pcl_let (rec_flag, sdefs, scl') ->
-      let eff =
-        Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
-      in
+      let eff = Ctype.newty Tenil in
       let (defs, val_env) =
         try
           let expectation = Ctype.effect_expectation eff in
@@ -1205,7 +1202,7 @@ let rec approx_declaration cl =
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
         else Ctype.newvar Stype in
-      let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+      let eff = Ctype.newty Tenil in
       Ctype.newty (Tarrow (l, arg, eff, approx_declaration cl, Cok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
@@ -1219,7 +1216,7 @@ let rec approx_description ct =
       let arg =
         if Btype.is_optional l then Ctype.instance_def var_option
         else Ctype.newvar Stype in
-      let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+      let eff = Ctype.newty Tenil in
       Ctype.newty (Tarrow (l, arg, eff, approx_description ct, Cok))
   | _ -> Ctype.newvar Stype
 

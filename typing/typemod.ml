@@ -1146,7 +1146,7 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
       let (id, newenv), funct_body =
         match ty_arg with None -> (Ident.create "*", env), false
         | Some mty -> Env.enter_module ~arg:true name.txt mty env, true in
-      let eff = Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil)) in
+      let eff = Ctype.newty Tenil in
       let expectation = Ctype.effect_expectation eff in
       let body = type_module sttn funct_body None newenv expectation sbody in
       rm { mod_desc = Tmod_functor(id, name, mty, body);
@@ -1158,12 +1158,9 @@ let rec type_module ?(alias=false) sttn funct_body anchor env eff smod =
       let eff_ty =
         Ctype.expectation_effect "functor application" env sfunct.pmod_loc eff
       in
-      let io =
-        Ctype.instance_def (Ctype.effect_io (Ctype.newty Tenil))
-      in
       begin
         try
-          Ctype.unify env io eff_ty
+          Ctype.unify env (Ctype.newty Tenil) eff_ty
         with Ctype.Unify trace ->
           raise(Error(smod.pmod_loc, env, Module_effect_clash(trace)))
       end;

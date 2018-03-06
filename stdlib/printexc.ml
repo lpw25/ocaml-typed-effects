@@ -223,7 +223,7 @@ let register_printer fn =
 external get_callstack: int -> raw_backtrace = "caml_get_current_callstack"
 
 external get_continuation_callstack:
-  ('a, !p, 'b, @r) continuation ->> int -[@r state]->> raw_backtrace =
+  ('a, !p, 'b, @r) continuation -> int -> raw_backtrace =
   "caml_get_continuation_callstack"
 
 let exn_slot x =

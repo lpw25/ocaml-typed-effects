@@ -17,6 +17,9 @@ open Asttypes
 open Types
 open Btype
 
+(* Remove after bootstrap *)
+external force : 'a Lazy.t -> 'a = "%lazy_force";;
+
 (*
    Type manipulation after type inference
    ======================================
@@ -390,10 +393,8 @@ let flatten_expanded_effects env ty =
 let diff_effects _env effs1 effs2  =
   let equal_effect_constr ec1 ec2 =
     match ec1, ec2 with
-    | Estate _, Estate _ -> true
     | Eordinary { ec_label = lbl1; _ }, Eordinary { ec_label = lbl2; _ } ->
        lbl1 = lbl2
-    | _, _ -> false
   in
   let rec pop_one p = function
     | [] -> assert false
@@ -687,13 +688,7 @@ let closed_type_decl decl =
             | None -> List.iter closed_type cd_args)
           v
     | Type_record(r, rep) ->
-        List.iter
-          (fun l ->
-            closed_type l.ld_type;
-            match l.ld_mutable with
-            | Lmut_immutable | Lmut_mutable None -> ()
-            | Lmut_mutable (Some rg) -> closed_type rg)
-          r
+        List.iter (fun l -> closed_type l.ld_type) r
     | Type_open -> ()
     end;
     begin match decl.type_manifest with
@@ -749,9 +744,6 @@ let rec close_pure_evars sch visited evars pure ty =
           List.iter (close_pure_evars sch visited evars pure) ec_args;
           Misc.may (close_pure_evars sch visited evars pure) ec_res;
           close_pure_evars sch visited evars pure ty
-       | Estate { ec_region } ->
-          close_pure_evars sch visited evars pure ec_region;
-          close_pure_evars sch visited evars true ty
        end
     | _    ->
         iter_type_expr (close_pure_evars sch visited evars pure) ty
@@ -766,7 +758,7 @@ let close_type env ty =
     (fun (v, _) ->
       (* TODO unify free vars in the region with global *)
       if is_evar v then begin
-          let eff = Predef.type_io v.level in
+          let eff = newty2 v.level Tenil in
           link_type v eff
       end)
     evars;
@@ -817,7 +809,7 @@ let rec closed_schema_rec ty =
         raise Non_closed
     | Tvar(_, Seffect) when level <> generic_level ->
         (* TODO: Remove this hack (or at least give a warning) *)
-       let eff = Predef.type_io ty.level in
+       let eff = newty2 ty.level Tenil in
        link_type ty eff
     | Tfield(_, kind, t1, t2) ->
         if field_kind_repr kind = Fpresent then
@@ -1035,23 +1027,6 @@ let rec update_level env level ty =
    end;
    raise exn
 
-(* Check that an effect type is pure *)
-let rec pure_effect env var_level ty =
-  let ty = repr ty in
-  if ty.level <= var_level then false
-  else begin
-    match ty.desc with
-    | Tvar _ -> true
-    | Tconstr _ -> begin
-        match !forward_try_expand_once env ty with
-        | ty -> pure_effect env var_level ty
-        | exception Cannot_expand -> false
-      end
-    | Tenil -> true
-    | Teffect _ -> false
-    | _ -> assert false
-  end
-
 (* Generalize and lower levels of contravariant branches simultaneously *)
 
 let rec generalize_expansive env var_level ty =
@@ -1085,8 +1060,6 @@ let rec generalize_expansive env var_level ty =
               | None -> ()
               | Some ec_res -> generalize_structure true var_level ec_res
             end
-          | Estate ec ->
-              generalize_structure true var_level ec.ec_region
         end
       | _ ->
           iter_type_expr (generalize_expansive env var_level) ty
@@ -1099,10 +1072,6 @@ let generalize_expansive env ty =
     generalize_expansive env !nongen_level ty
   with Unify ([_, ty'] as tr) ->
     raise (Unify ((ty, ty') :: tr))
-
-let pure_effect env ty =
-  simple_abbrevs := Mnil;
-  pure_effect env !nongen_level ty
 
 let generalize_global ty = generalize_structure false !global_level ty
 let generalize_structure_and_closed_effects ty =
@@ -1496,8 +1465,7 @@ let instance_declaration decl =
                let mut =
                  match l.ld_mutable with
                  | Lmut_immutable -> Lmut_immutable
-                 | Lmut_mutable None -> Lmut_mutable None
-                 | Lmut_mutable (Some rg) -> Lmut_mutable (Some (copy rg))
+                 | Lmut_mutable -> Lmut_mutable
                in
                let typ = copy l.ld_type in
                {l with ld_type = typ; ld_mutable = mut})
@@ -1624,7 +1592,7 @@ let instance_poly ?(keep_names=false) fixed univars sch =
   let pairs = List.map2 (fun u v -> u, (v, [])) univars vars in
   delayed_copy := [];
   let ty = copy_sep fixed (compute_univars sch) [] pairs sch in
-  List.iter Lazy.force !delayed_copy;
+  List.iter force !delayed_copy;
   delayed_copy := [];
   cleanup_types ();
   vars, ty
@@ -1640,12 +1608,8 @@ let instance_label fixed lbl =
   in
   let ty_mut =
     match lbl.lbl_mut with
-    | Lmut_immutable ->
-        None
-    | Lmut_mutable None ->
-        Some (instance_def Predef.type_global)
-    | Lmut_mutable (Some rg) ->
-        Some (copy rg)
+    | Lmut_immutable -> false
+    | Lmut_mutable -> true
   in
   cleanup_types ();
   (vars, ty_arg, ty_res, ty_mut)
@@ -1680,7 +1644,7 @@ let instance_effect_constructor ?in_pattern ec =
       in
       let args = List.map copy_sep ec.ec_args in
       let res = Misc.may_map copy_sep ec.ec_res in
-      List.iter Lazy.force !delayed_copy;
+      List.iter force !delayed_copy;
       delayed_copy := [];
       cleanup_types ();
       begin match in_pattern with
@@ -2639,20 +2603,9 @@ and mcomp_record_description type_pairs env =
         mcomp type_pairs env l1.ld_type l2.ld_type;
         begin match l1.ld_mutable, l2.ld_mutable with
         | Lmut_immutable, Lmut_immutable -> ()
-        | Lmut_mutable rgo1, Lmut_mutable rgo2 ->
-            let rg1 =
-              match rgo1 with
-              | None -> Predef.type_global
-              | Some rg -> rg
-            in
-            let rg2 =
-              match rgo2 with
-              | None -> Predef.type_global
-              | Some rg -> rg
-            in
-            mcomp type_pairs env rg1 rg2
-        | Lmut_immutable, Lmut_mutable _
-        | Lmut_mutable _, Lmut_immutable ->
+        | Lmut_mutable, Lmut_mutable -> ()
+        | Lmut_immutable, Lmut_mutable
+        | Lmut_mutable, Lmut_immutable ->
             raise (Unify [])
         end;
         if Ident.name l1.ld_id = Ident.name l2.ld_id
@@ -3105,13 +3058,10 @@ and unify_effect_constructors_ordinary env ec1 ec2 =
 
 and unify_effect_constructors env ec1 ec2 =
   match ec1, ec2 with
-  | Estate ec1, Estate ec2 ->
-      unify env ec1.ec_region ec2.ec_region
   | Eordinary ec1, Eordinary ec2 ->
       enter_effect_constructor
         !env univar_pairs ec1 ec2
         (unify_effect_constructors_ordinary env)
-  | _, _ -> raise (Unify [])
 
 and unify_effects env ty1 ty2 =          (* Optimization *)
   let (effs1, rest1) = flatten_effects ty1 in
@@ -3122,8 +3072,7 @@ and unify_effects env ty1 ty2 =          (* Optimization *)
     List.iter
       (function
        | Eordinary { ec_label } ->
-           Hashtbl.add ht (hash_variant ec_label) ec_label
-       | Estate _ -> ())
+           Hashtbl.add ht (hash_variant ec_label) ec_label)
       miss1;
     List.iter
       (function
@@ -3132,8 +3081,7 @@ and unify_effects env ty1 ty2 =          (* Optimization *)
              let ec_label' = Hashtbl.find ht (hash_variant ec_label) in
              raise (Effect_tags(ec_label, ec_label'))
            with Not_found -> ()
-         end
-       | Estate _ -> ())
+         end)
       miss2
   end;
   let l1 = (repr ty1).level and l2 = (repr ty2).level in
@@ -3449,8 +3397,6 @@ let rec filter_effect env name arity returns ty =
         end else begin
           filter_effect env name arity returns rest
         end
-    | Teffect(Estate _, rest) ->
-        filter_effect env name arity returns rest
     | _ ->
         raise (Unify [])
   with Unify trace ->
@@ -5131,22 +5077,6 @@ let expectation_effect kind env loc expected_eff =
 exception No_default_handler of
             Env.t * string * Location.t * string
 exception Unknown_effects of Env.t * type_expr * Location.t * string
-exception Unknown_region of Env.t * type_expr * Location.t * string
-
-let rec check_global env loc str level ty =
-  let ty = repr ty in
-  match ty.desc with
-  | Tconstr(p, [], Sregion, _) when Path.same p Predef.path_global -> ()
-  | Tvar _ ->
-      if ty.level < level then
-        raise (Unknown_region(env, ty, loc, str))
-      else
-        unify env ty (newconstr2 ty.level Predef.path_global [] Sregion)
-  | _ ->
-    match try_expand_safe env ty with
-    | ty -> check_global env loc str level ty
-    | exception Cannot_expand ->
-        raise (Unknown_region(env, ty, loc, str))
 
 let rec check_default_handlers env loc str level ty =
   let ty = repr ty in
@@ -5156,8 +5086,6 @@ let rec check_default_handlers env loc str level ty =
         match ec with
         | Eordinary { ec_label } ->
             raise (No_default_handler(env, ec_label, loc, str))
-        | Estate { ec_region } ->
-            check_global env loc str level ec_region
       in
       check_default_handlers env loc str level ty
   | Tenil -> ()
@@ -5309,15 +5237,7 @@ let nondep_type_decl env mid id is_covariant decl =
             (List.map
                (fun l ->
                   let typ = nondep_type_rec env mid l.ld_type in
-                  let mut =
-                    match l.ld_mutable with
-                    | Lmut_immutable -> Lmut_immutable
-                    | Lmut_mutable None -> Lmut_mutable None
-                    | Lmut_mutable (Some rg) ->
-                        let rg = nondep_type_rec env mid l.ld_type in
-                        Lmut_mutable (Some rg)
-                  in
-                  {l with ld_type = typ; ld_mutable = mut}
+                  {l with ld_type = typ}
                )
                lbls,
              rep)
@@ -5507,11 +5427,3 @@ let rec collapse_conj env visited ty =
 
 let collapse_conj_params env params =
   List.iter (collapse_conj env []) params
-
-(**** effect row construction ****)
-let effect_state ec_region tail =
-  let ec = Estate { ec_region } in
-  newgenty (Teffect(ec, tail))
-
-let effect_io tail =
-  effect_state (instance_def Predef.type_global) tail

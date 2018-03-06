@@ -255,10 +255,7 @@ class printer  ()= object(self:'self)
         else pp f "%s:%a" s self#core_type1 c
 
   method arrow f x =
-    let head =
-      if x.peft_io then ">"
-      else ">>"
-    in
+    let head = ">" in
     let tail =
       if x.peft_tilde then "~"
       else "-"
@@ -1400,10 +1397,8 @@ class printer  ()= object(self:'self)
     let label_mutability f x =
       match x with
       | Plmut_immutable -> ()
-      | Plmut_mutable None ->
+      | Plmut_mutable ->
           pp f "mutable@;"
-      | Plmut_mutable (Some ct) ->
-          pp f "mutable(%a)@;" self#core_type ct
     in
     let label_declaration f pld =
       pp f "@[<2>%a%s:@;%a%a;@]"

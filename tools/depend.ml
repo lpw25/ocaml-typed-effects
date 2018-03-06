@@ -67,7 +67,7 @@ and add_package_type bv (lid, l) =
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
 
 and add_effect_type bv eft =
-  if eft.peft_io || eft.peft_tilde then ()
+  if eft.peft_tilde then ()
   else match eft.peft_row with
        | None -> ()
        | Some efr -> add_effect_row bv efr
@@ -206,7 +206,6 @@ let rec add_expr bv exp =
       add_expr bv e1;
       add_type bv ty2
   | Pexp_perform(_, es, _) -> List.iter (add_expr bv) es
-  | Pexp_private (e) -> add_expr bv e
   | Pexp_send(e, _m) -> add_expr bv e
   | Pexp_new li -> add bv li
   | Pexp_setinstvar(_v, e) -> add_expr bv e

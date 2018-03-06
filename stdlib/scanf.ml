@@ -415,7 +415,7 @@ end
 
 type ('a, 'b, 'c, 'd, !~) scanner =
   ('a, Scanning.in_channel, 'b, 'c,
-   'a ~> 'd, 'd, ![io | !~]) format6e ~> 'c
+   'a ~> 'd, 'd, !~) format6e ~> 'c
 
 (* Reporting errors. *)
 exception Scan_failure of string;;
@@ -1007,8 +1007,8 @@ let stopper_of_formatting_lit fmting =
 (* When all readers are taken, finally pass the list of the readers to the
    continuation k. *)
 let rec take_format_readers : type a c d e f effect p.
-    ((d, e, p wio) heter_list -[.. as p]-> e) ->>
-    (a, Scanning.in_channel, c, d, e, f, p wio) fmt -[.. as p]->
+    ((d, e, p) heter_list -[.. as p]-> e) ->
+    (a, Scanning.in_channel, c, d, e, f, p) fmt -[.. as p]->
     d =
 fun k fmt -> match fmt with
   | Reader fmt_rest ->
@@ -1049,9 +1049,9 @@ fun k fmt -> match fmt with
 
 (* Take readers associated to an fmtty coming from a Format_subst "%(...%)". *)
 and take_fmtty_format_readers : type x y a c d e f effect p.
-    ((d, e, p wio) heter_list -[.. as p]-> e) ->>
-      (a, Scanning.in_channel, c, d, x, y, p wio) fmtty ->>
-      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[.. as p]-> d =
+    ((d, e, p) heter_list -[.. as p]-> e) ->
+      (a, Scanning.in_channel, c, d, x, y, p) fmtty ->
+      (y, Scanning.in_channel, c, x, e, f, p) fmt -[.. as p]-> d =
 fun k fmtty fmt -> match fmtty with
   | Reader_ty fmt_rest ->
     fun reader ->
@@ -1080,9 +1080,9 @@ fun k fmtty fmt -> match fmtty with
 
 (* Take readers associated to an ignored parameter. *)
 and take_ignored_format_readers : type x y a c d e f effect p.
-    ((d, e, p wio) heter_list -[.. as p]-> e) ->
-      (a, Scanning.in_channel, c, d, x, y, p wio) ignored ->
-      (y, Scanning.in_channel, c, x, e, f, p wio) fmt -[.. as p]-> d =
+    ((d, e, p) heter_list -[.. as p]-> e) ->
+      (a, Scanning.in_channel, c, d, x, y, p) ignored ->
+      (y, Scanning.in_channel, c, x, e, f, p) fmt -[.. as p]-> d =
 fun k ign fmt -> match ign with
   | Ignored_reader ->
     fun reader ->
@@ -1113,8 +1113,8 @@ fun k ign fmt -> match ign with
    heterogeneous list. *)
 (* Return the heterogeneous list of scanned values. *)
 let rec make_scanf : type a c d e f effect p.
-    Scanning.in_channel ->> (a, Scanning.in_channel, c, d, e, f, p wio) fmt ->>
-      (d, _, p wio) heter_list -[.. as p]-> (a, f, p wio) heter_list =
+    Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p) fmt ->
+      (d, _, p) heter_list -[.. as p]-> (a, f, p) heter_list =
 fun ib fmt readers -> match fmt with
   | Char rest ->
     let _ = scan_char 0 ib in
@@ -1268,12 +1268,12 @@ fun ib fmt readers -> match fmt with
 (* Reject formats containing "%*" or "%.*". *)
 (* Pass padding and precision to the generic scanner `scan'. *)
 and pad_prec_scanf : type a c d e f x y z t effect p.
-    Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p wio) fmt ->
-      (d, _, p wio) heter_list -> (x, y, p wio) padding ->
-      (y, z -[.. as p]-> a, p wio) precision ->
+    Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p) fmt ->
+      (d, _, p) heter_list -> (x, y, p) padding ->
+      (y, z -[.. as p]-> a, p) precision ->
       (int -> int -> Scanning.in_channel -> t) ->
       (Scanning.in_channel -> z) -[.. as p]->
-      (x, f, p wio) heter_list =
+      (x, f, p) heter_list =
 fun ib fmt readers pad prec scan token -> match pad, prec with
   | No_padding, No_precision ->
     let _ = scan max_int max_int ib in
@@ -1305,7 +1305,7 @@ fun ib fmt readers pad prec scan token -> match pad, prec with
 
 type 'a kscanf_result = Args of 'a | Exc of exn
 let kscanf ib ef (Format (fmt, str)) =
-  let rec apply : type a b effect p. a ->> (a, b, p) heter_list -[.. as p]->> b =
+  let rec apply : type a b effect p. a -> (a, b, p) heter_list -[.. as p]-> b =
     fun f args -> match args with
     | Cons (x, r) -> apply (f x) r
     | Nil -> f
@@ -1335,7 +1335,7 @@ let scanf fmt = kscanf Scanning.stdib scanf_bad_input fmt
 
 (***)
 
-let bscanf_format : Scanning.in_channel ->> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+let bscanf_format : Scanning.in_channel -> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->
   (('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ~> 'g) ~> 'g =
   fun ib format f ->
     let _ = scan_caml_string max_int ib in
@@ -1346,7 +1346,7 @@ let bscanf_format : Scanning.in_channel ->> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6
     in
     f fmt'
 
-let sscanf_format : string ->> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->>
+let sscanf_format : string -> ('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ->
   (('a, 'b, 'c, 'd, 'e, 'f, !p) format6e ~> 'g) ~> 'g =
   fun s format f -> bscanf_format (Scanning.from_string s) format f
 

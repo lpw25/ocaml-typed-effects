@@ -173,14 +173,8 @@ module MakeIterator(Iter : IteratorArgument) : sig
       List.iter iter_core_type cd.cd_args;
       option iter_core_type cd.cd_res;
 
-    and iter_label_mutability mut =
-      match mut with
-      | Tlmut_immutable -> ()
-      | Tlmut_mutable rgo -> option iter_core_type rgo
-
     and iter_label_declaration ld =
-      iter_core_type ld.ld_type;
-      iter_label_mutability ld.ld_mutable
+      iter_core_type ld.ld_type
 
     and iter_type_parameter (ct, v) =
       iter_core_type ct
@@ -282,8 +276,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             option iter_core_type cty1; iter_core_type cty2
         | Texp_open (_, path, _, _) -> ()
         | Texp_poly cto -> option iter_core_type cto
-        | Texp_newtype (n, s) -> ()
-        | Texp_private -> ())
+        | Texp_newtype (n, s) -> ())
         exp.exp_extra;
       begin
         match exp.exp_desc with

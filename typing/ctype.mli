@@ -92,15 +92,11 @@ val flatten_effects:
 val simple_effect : string -> int -> bool -> effect_constructor_ordinary
 val simple_effect_type: string -> int -> bool -> type_expr
 
-val effect_state : type_expr -> type_expr -> type_expr
-val effect_io : type_expr -> type_expr
-
 type effect_expectation
 
 exception No_default_handler of
             Env.t * string * Location.t * string
 exception Unknown_effects of Env.t * type_expr * Location.t * string
-exception Unknown_region of Env.t * type_expr * Location.t * string
 
 val new_toplevel_expectation : unit -> effect_expectation
 
@@ -161,7 +157,7 @@ val instance_poly:
         (* Take an instance of a type scheme containing free univars *)
 val instance_label:
         bool -> label_description ->
-        type_expr list * type_expr * type_expr * type_expr option
+        type_expr list * type_expr * type_expr * bool
         (* Same, for a label *)
 val instance_effect_constructor:
         ?in_pattern:Env.t ref * int ->
@@ -174,7 +170,6 @@ val apply:
         the parameters [pi] and returns the corresponding instance of
         [t]. Exception [Cannot_apply] is raised in case of failure. *)
 
-val pure_effect : Env.t -> type_expr -> bool
 val open_effects_covariant : Env.t -> type_expr -> type_expr
 val open_effects_contravariant : Env.t -> type_expr -> type_expr
 val open_effects_label : Env.t -> label_description -> label_description

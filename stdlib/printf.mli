@@ -14,7 +14,7 @@
 (** Formatted output functions. *)
 
 val fprintf :
-  out_channel ->> ('a, out_channel, unit, ![io | !~]) formate ~> 'a
+  out_channel -> ('a, out_channel, unit, !~) formate ~> 'a
 (** [fprintf outchan format arg1 ... argN] formats the arguments
    [arg1] to [argN] according to the format string [format], and
    outputs the resulting string on the channel [outchan].
@@ -113,23 +113,23 @@ val fprintf :
    For instance, [%.*f] prints a [float] with as many fractional
    digits as the value of the argument given before the float. *)
 
-val printf : ('a, out_channel, unit, ![io | !~]) formate ~> 'a
+val printf : ('a, out_channel, unit, !~) formate ~> 'a
 (** Same as {!Printf.fprintf}, but output on [stdout]. *)
 
-val eprintf : ('a, out_channel, unit, ![io | !~]) formate ~> 'a
+val eprintf : ('a, out_channel, unit, !~) formate ~> 'a
 (** Same as {!Printf.fprintf}, but output on [stderr]. *)
 
-val sprintf : ('a, unit, string, ![io | !~]) formate ~> 'a
+val sprintf : ('a, unit, string, !~) formate ~> 'a
 (** Same as {!Printf.fprintf}, but instead of printing on an output channel,
    return a string containing the result of formatting the arguments. *)
 
 val bprintf :
-  Buffer.t -> ('a, Buffer.t, unit, ![io | !~]) formate ~> 'a
+  Buffer.t -> ('a, Buffer.t, unit, !~) formate ~> 'a
 (** Same as {!Printf.fprintf}, but instead of printing on an output channel,
    append the formatted arguments to the given extensible buffer
    (see module {!Buffer}). *)
 
-val ifprintf : 'a ->> ('b, 'a, unit, ![io | !~]) formate ~> 'b
+val ifprintf : 'a -> ('b, 'a, unit, !~) formate ~> 'b
 (** Same as {!Printf.fprintf}, but does not print anything.
     Useful to ignore some material when conditionally printing.
     @since 3.10.0
@@ -137,29 +137,29 @@ val ifprintf : 'a ->> ('b, 'a, unit, ![io | !~]) formate ~> 'b
 
 (** Formatted output functions with continuations. *)
 
-val kfprintf : (out_channel ~> 'a) ->> out_channel ->>
-  ('b, out_channel, unit, 'a, ![io | !~]) format4e ~> 'b
+val kfprintf : (out_channel ~> 'a) -> out_channel ->
+  ('b, out_channel, unit, 'a, !~) format4e ~> 'b
 (** Same as [fprintf], but instead of returning immediately,
    passes the out channel to its first argument at the end of printing.
    @since 3.09.0
 *)
 
-val ikfprintf : (out_channel ~> 'a) ->> out_channel ->>
-  ('b, out_channel, unit, 'a, ![io | !~]) format4e ~> 'b
+val ikfprintf : (out_channel ~> 'a) -> out_channel ->
+  ('b, out_channel, unit, 'a, !~) format4e ~> 'b
 (** Same as [kfprintf] above, but does not print anything.
    Useful to ignore some material when conditionally printing.
    @since 4.0
 *)
 
-val ksprintf : (string ~> 'a) ->>
-  ('b, unit, string, 'a, ![io | !~]) format4e ~> 'b
+val ksprintf : (string ~> 'a) ->
+  ('b, unit, string, 'a, !~) format4e ~> 'b
 (** Same as [sprintf] above, but instead of returning the string,
    passes it to the first argument.
    @since 3.09.0
 *)
 
-val kbprintf : (Buffer.t ~> 'a) ->> Buffer.t ->>
-  ('b, Buffer.t, unit, 'a, ![io | !~]) format4e ~> 'b
+val kbprintf : (Buffer.t ~> 'a) -> Buffer.t ->
+  ('b, Buffer.t, unit, 'a, !~) format4e ~> 'b
 (** Same as [bprintf], but instead of returning immediately,
    passes the buffer to its first argument at the end of printing.
    @since 3.10.0
@@ -167,6 +167,6 @@ val kbprintf : (Buffer.t ~> 'a) ->> Buffer.t ->>
 
 (** Deprecated *)
 
-val kprintf : (string ~> 'a) ->>
-  ('b, unit, string, 'a, ![io | !~]) format4e ~> 'b
+val kprintf : (string ~> 'a) ->
+  ('b, unit, string, 'a, !~) format4e ~> 'b
 (** A deprecated synonym for [ksprintf]. *)

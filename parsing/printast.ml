@@ -208,7 +208,6 @@ and package_with i ppf (s, t) =
 and effect_type i ppf x =
   line i ppf "effect_type%a\n" fmt_location x.peft_loc;
   let i = i+1 in
-  line i ppf "pefr_io = %a\n" fmt_bool x.peft_io;
   line i ppf "pefr_tilde = %a\n" fmt_bool x.peft_tilde;
   line i ppf "pefr_row =\n";
   option (i+1) effect_row ppf x.peft_row
@@ -387,9 +386,6 @@ and expression i ppf x =
   | Pexp_perform (s, l, b) ->
       line i ppf "Pexp_perfrom %s %a\n" s fmt_bool b;
       list i expression ppf l;
-  | Pexp_private (e) ->
-      line i ppf "Pexp_private\n";
-      expression i ppf e;
   | Pexp_send (e, s) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;
@@ -895,9 +891,8 @@ and label_mut i ppf x =
   match x with
   | Plmut_immutable ->
       line i ppf "Plmut_immutable\n"
-  | Plmut_mutable cto ->
-      line i ppf "Plmut_immutable\n";
-      option (i+1) core_type ppf cto
+  | Plmut_mutable ->
+      line i ppf "Plmut_immutable\n"
 
 and longident_x_pattern i ppf (li, p) =
   line i ppf "%a\n" fmt_longident_loc li;

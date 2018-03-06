@@ -44,9 +44,6 @@ and ident_int64 = ident_create "int64"
 and ident_lazy_te = ident_create "lazy_te"
 and ident_lazy_t = ident_create "lazy_t"
 and ident_bytes = ident_create "bytes"
-and ident_io = ident_create "io"
-and ident_global = ident_create "global"
-and ident_state = ident_create "state"
 
 let path_int = Pident ident_int
 and path_char = Pident ident_char
@@ -65,9 +62,6 @@ and path_int64 = Pident ident_int64
 and path_lazy_te = Pident ident_lazy_te
 and path_lazy_t = Pident ident_lazy_t
 and path_bytes = Pident ident_bytes
-and path_io = Pident ident_io
-and path_global = Pident ident_global
-and path_state = Pident ident_state
 
 let type_int = newgenty (Tconstr(path_int, [], Stype, ref Mnil))
 and type_char = newgenty (Tconstr(path_char, [], Stype, ref Mnil))
@@ -88,10 +82,6 @@ and type_lazy_te t e =
   newgenty (Tconstr(path_lazy_te, [t; e], Stype, ref Mnil))
 and type_lazy_t t = newgenty (Tconstr(path_lazy_t, [t], Stype, ref Mnil))
 and type_bytes = newgenty (Tconstr(path_bytes, [], Stype, ref Mnil))
-and type_io_gen = newgenty (Tconstr(path_io, [], Seffect, ref Mnil))
-and type_io level = newty2 level (Tconstr(path_io, [], Seffect, ref Mnil))
-and type_global = newgenty (Tconstr(path_global, [], Sregion, ref Mnil))
-and type_state t = newgenty (Tconstr(path_state, [t], Seffect, ref Mnil))
 
 let ident_match_failure = ident_create_predef_exn "Match_failure"
 and ident_out_of_memory = ident_create_predef_exn "Out_of_memory"
@@ -133,11 +123,6 @@ let cstr id args =
     cd_loc = Location.none;
     cd_attributes = [];
   }
-
-let state ec_region =
-  let ty = newgenty Tenil in
-  let ec = Estate { ec_region } in
-  newgenty (Teffect(ec, ty))
 
 let ident_false = ident_create "false"
 and ident_true = ident_create "true"
@@ -197,26 +182,12 @@ let common_initial_env add_type add_extension empty_env =
      type_variance = [Variance.covariant; Variance.covariant]}
   and decl_lazy_t =
     let tvar = newgenvar Stype in
+    let eff = newgenty Tenil in
     {decl_abstr with
      type_params = [tvar];
      type_arity = 1;
      type_variance = [Variance.covariant];
-     type_manifest = Some (type_lazy_te tvar type_io_gen)}
-  and decl_io =
-    {decl_abstr with
-     type_sort = Seffect;
-     type_manifest = Some (type_state type_global)}
-  and decl_global =
-    {decl_abstr with
-     type_sort = Sregion}
-  and decl_state =
-    let tvar = newgenvar Sregion in
-    {decl_abstr with
-     type_params = [tvar];
-     type_arity = 1;
-     type_sort = Seffect;
-     type_manifest = Some (state tvar);
-     type_variance = [Variance.full (* strictly invariant *)]}
+     type_manifest = Some (type_lazy_te tvar eff)}
   in
   let add_extension id l =
     add_extension id
@@ -260,10 +231,7 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_string decl_abstr (
   add_type ident_char decl_abstr (
   add_type ident_int decl_abstr (
-  add_type ident_io decl_io (
-  add_type ident_global decl_global (
-  add_type ident_state decl_state
-    empty_env)))))))))))))))))))))))))))))))
+    empty_env)))))))))))))))))))))))))))))
 
 let build_initial_env add_type add_exception empty_env =
   let common =

@@ -185,15 +185,7 @@ module MakeMap(Map : MapArgument) = struct
           List.map
             (fun ld ->
               let typ = map_core_type ld.ld_type in
-              let mut =
-                match ld.ld_mutable with
-                | Tlmut_immutable -> Tlmut_immutable
-                | Tlmut_mutable None -> Tlmut_mutable None
-                | Tlmut_mutable (Some rg) ->
-                    let rg = map_core_type rg in
-                    Tlmut_mutable (Some rg)
-              in
-              {ld with ld_type = typ; ld_mutable = mut}
+              {ld with ld_type = typ}
             ) list
         in
         Ttype_record list
@@ -407,8 +399,7 @@ module MakeMap(Map : MapArgument) = struct
         Texp_poly (Some ( map_core_type ct )), loc, attrs
       | Texp_newtype _
       | Texp_open _
-      | Texp_poly None
-      | Texp_private -> exp_extra
+      | Texp_poly None -> exp_extra
 
 
   and map_package_type pack =

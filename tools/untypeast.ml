@@ -149,7 +149,7 @@ and untype_constructor_declaration cd =
 and untype_label_mutability lmut =
   match lmut with
   | Tlmut_immutable -> Plmut_immutable
-  | Tlmut_mutable rgo -> Plmut_mutable (option untype_core_type rgo)
+  | Tlmut_mutable -> Plmut_mutable
 
 and untype_label_declaration ld =
   {
@@ -271,7 +271,6 @@ and untype_extra (extra, loc, attrs) sexp =
     | Texp_open (ovf, _path, lid, _) -> Pexp_open (ovf, lid, sexp)
     | Texp_poly cto -> Pexp_poly (sexp, option untype_core_type cto)
     | Texp_newtype (n, s) -> Pexp_newtype (n, s, sexp)
-    | Texp_private -> Pexp_private sexp
   in
   Exp.mk ~loc ~attrs desc
 
@@ -638,8 +637,7 @@ and untype_effect_row efr =
     pefr_next = Misc.may_map untype_core_type efr.efr_next; }
 
 and untype_effect_type eft =
-  { peft_io = eft.eft_io;
-    peft_tilde = eft.eft_tilde;
+  { peft_tilde = eft.eft_tilde;
     peft_row = Misc.may_map untype_effect_row eft.eft_row;
     peft_loc = eft.eft_loc; }
 

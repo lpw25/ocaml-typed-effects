@@ -13,33 +13,33 @@
 
 (* Module [Nativeint]: processor-native integers *)
 
-external neg: nativeint ->> nativeint = "%nativeint_neg"
-external add: nativeint ->> nativeint ->> nativeint = "%nativeint_add"
-external sub: nativeint ->> nativeint ->> nativeint = "%nativeint_sub"
-external mul: nativeint ->> nativeint ->> nativeint = "%nativeint_mul"
-external div: nativeint ->> nativeint ->> nativeint = "%nativeint_div"
-external rem: nativeint ->> nativeint ->> nativeint = "%nativeint_mod"
-external logand: nativeint ->> nativeint ->> nativeint = "%nativeint_and"
-external logor: nativeint ->> nativeint ->> nativeint = "%nativeint_or"
-external logxor: nativeint ->> nativeint ->> nativeint = "%nativeint_xor"
-external shift_left: nativeint ->> int ->> nativeint = "%nativeint_lsl"
-external shift_right: nativeint ->> int ->> nativeint = "%nativeint_asr"
-external shift_right_logical: nativeint ->> int ->> nativeint = "%nativeint_lsr"
-external of_int: int ->> nativeint = "%nativeint_of_int"
-external to_int: nativeint ->> int = "%nativeint_to_int"
-external of_float : float ->> nativeint = "caml_nativeint_of_float"
-external to_float : nativeint ->> float = "caml_nativeint_to_float"
-external of_int32: int32 ->> nativeint = "%nativeint_of_int32"
-external to_int32: nativeint ->> int32 = "%nativeint_to_int32"
+external neg: nativeint -> nativeint = "%nativeint_neg"
+external add: nativeint -> nativeint -> nativeint = "%nativeint_add"
+external sub: nativeint -> nativeint -> nativeint = "%nativeint_sub"
+external mul: nativeint -> nativeint -> nativeint = "%nativeint_mul"
+external div: nativeint -> nativeint -> nativeint = "%nativeint_div"
+external rem: nativeint -> nativeint -> nativeint = "%nativeint_mod"
+external logand: nativeint -> nativeint -> nativeint = "%nativeint_and"
+external logor: nativeint -> nativeint -> nativeint = "%nativeint_or"
+external logxor: nativeint -> nativeint -> nativeint = "%nativeint_xor"
+external shift_left: nativeint -> int -> nativeint = "%nativeint_lsl"
+external shift_right: nativeint -> int -> nativeint = "%nativeint_asr"
+external shift_right_logical: nativeint -> int -> nativeint = "%nativeint_lsr"
+external of_int: int -> nativeint = "%nativeint_of_int"
+external to_int: nativeint -> int = "%nativeint_to_int"
+external of_float : float -> nativeint = "caml_nativeint_of_float"
+external to_float : nativeint -> float = "caml_nativeint_to_float"
+external of_int32: int32 -> nativeint = "%nativeint_of_int32"
+external to_int32: nativeint -> int32 = "%nativeint_to_int32"
 
 module Compare = struct
-  external ( = ) : nativeint ->> nativeint ->> bool = "%equal"
-  external ( <> ) : nativeint ->> nativeint ->> bool = "%notequal"
-  external ( < ) : nativeint ->> nativeint ->> bool = "%lessthan"
-  external ( > ) : nativeint ->> nativeint ->> bool = "%greaterthan"
-  external ( <= ) : nativeint ->> nativeint ->> bool = "%lessequal"
-  external ( >= ) : nativeint ->> nativeint ->> bool = "%greaterequal"
-  external compare : nativeint ->> nativeint ->> int = "%compare"
+  external ( = ) : nativeint -> nativeint -> bool = "%equal"
+  external ( <> ) : nativeint -> nativeint -> bool = "%notequal"
+  external ( < ) : nativeint -> nativeint -> bool = "%lessthan"
+  external ( > ) : nativeint -> nativeint -> bool = "%greaterthan"
+  external ( <= ) : nativeint -> nativeint -> bool = "%lessequal"
+  external ( >= ) : nativeint -> nativeint -> bool = "%greaterequal"
+  external compare : nativeint -> nativeint -> int = "%compare"
 
   let min x y = if x <= y then x else y
   let max x y = if x >= y then x else y
@@ -56,7 +56,7 @@ let min_int = shift_left 1n (size - 1)
 let max_int = sub min_int 1n
 let lognot n = logxor n (-1n)
 
-external format : string ->> nativeint -> string = "caml_nativeint_format"
+external format : string -> nativeint -> string = "caml_nativeint_format"
 let to_string n = format "%d" n
 
 external of_string: string -> nativeint = "caml_nativeint_of_string"

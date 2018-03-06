@@ -119,8 +119,8 @@ module T = struct
     | Ptyp_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
   let map_effect_type sub
-      {peft_io; peft_tilde; peft_row; peft_loc} =
-    { peft_io; peft_tilde;
+      {peft_tilde; peft_row; peft_loc} =
+    { peft_tilde;
       peft_row = map_opt (sub.effect_row sub) peft_row;
       peft_loc = sub.location sub peft_loc; }
 
@@ -389,8 +389,6 @@ module E = struct
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
     | Pexp_perform (s, arg, b) ->
         perform_ ~loc ~attrs s (List.map (sub.expr sub) arg) b
-    | Pexp_private e ->
-        private_ ~loc ~attrs (sub.expr sub e)
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
     | Pexp_new lid -> new_ ~loc ~attrs (map_loc sub lid)
     | Pexp_setinstvar (s, e) ->

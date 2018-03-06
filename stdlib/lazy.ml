@@ -50,13 +50,13 @@ exception Undefined = CamlinternalLazy.Undefined;;
 
 external make_forward : 'a -> ('a, ![]) lazy_te = "caml_lazy_make_forward";;
 
-external force : ('a, !~) te ~>> 'a = "%lazy_force";;
+external force : ('a, !~) te ~> 'a = "%lazy_force";;
 
 (* let force = force;; *)
 
 let force_val = CamlinternalLazy.force_val;;
 
-let from_fun (f : unit ~>> 'arg) =
+let from_fun (f : unit ~> 'arg) =
   let x = Obj.new_block Obj.lazy_tag 1 in
   Obj.set_field x 0 (Obj.repr f);
   (Obj.obj x : ('arg, !~) te)

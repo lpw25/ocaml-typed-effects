@@ -14,9 +14,9 @@
 (* Hash tables *)
 
 external seeded_hash_param :
-  int ->> int ->> int ->> 'a -> int = "caml_hash" "noalloc"
+  int -> int -> int -> 'a -> int = "caml_hash" "noalloc"
 external old_hash_param :
-  int ->> int ->> 'a -> int = "caml_hash_univ_param" "noalloc"
+  int -> int -> 'a -> int = "caml_hash_univ_param" "noalloc"
 
 let hash x = seeded_hash_param 10 100 0 x
 let hash_param n1 n2 x = seeded_hash_param n1 n2 0 x
@@ -57,9 +57,12 @@ let rec power_2_above x n =
   else if x * 2 > Sys.max_array_length then x
   else power_2_above (x * 2) n
 
+(* Remove after bootstrap *)
+external force : 'a Lazy.t -> 'a = "%lazy_force";;
+
 let create ?(random = !randomized) initial_size =
   let s = power_2_above 16 initial_size in
-  let seed = if random then Random.State.bits (Lazy.force prng) else 0 in
+  let seed = if random then Random.State.bits (force prng) else 0 in
   { initial_size = s; size = 0; seed = seed; data = Array.make s Empty }
 
 let clear h =
@@ -255,14 +258,14 @@ module type S =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy: 'a t -> 'a t
-    val add: 'a t ->> key ->> 'a -> unit
-    val remove: 'a t ->> key -> unit
-    val find: 'a t ->> key -> 'a
-    val find_all: 'a t ->> key -> 'a list
-    val replace : 'a t ->> key ->> 'a -> unit
-    val mem : 'a t ->> key -> bool
-    val iter: (key ~> 'a ~> unit) ->> 'a t ~> unit
-    val fold: (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
+    val add: 'a t -> key -> 'a -> unit
+    val remove: 'a t -> key -> unit
+    val find: 'a t -> key -> 'a
+    val find_all: 'a t -> key -> 'a list
+    val replace : 'a t -> key -> 'a -> unit
+    val mem : 'a t -> key -> bool
+    val iter: (key ~> 'a ~> unit) -> 'a t ~> unit
+    val fold: (key ~> 'a ~> 'b ~> 'b) -> 'a t -> 'b ~> 'b
     val length: 'a t -> int
     val stats: 'a t -> statistics
   end
@@ -275,14 +278,14 @@ module type SeededS =
     val clear : 'a t -> unit
     val reset : 'a t -> unit
     val copy : 'a t -> 'a t
-    val add : 'a t ->> key ->> 'a -> unit
-    val remove : 'a t ->> key -> unit
-    val find : 'a t ->> key -> 'a
-    val find_all : 'a t ->> key -> 'a list
-    val replace : 'a t ->> key ->> 'a -> unit
-    val mem : 'a t ->> key -> bool
-    val iter : (key ~> 'a ~> unit) ->> 'a t ~> unit
-    val fold : (key ~> 'a ~> 'b ~> 'b) ->> 'a t ->> 'b ~> 'b
+    val add : 'a t -> key -> 'a -> unit
+    val remove : 'a t -> key -> unit
+    val find : 'a t -> key -> 'a
+    val find_all : 'a t -> key -> 'a list
+    val replace : 'a t -> key -> 'a -> unit
+    val mem : 'a t -> key -> bool
+    val iter : (key ~> 'a ~> unit) -> 'a t ~> unit
+    val fold : (key ~> 'a ~> 'b ~> 'b) -> 'a t -> 'b ~> 'b
     val length : 'a t -> int
     val stats: 'a t -> statistics
   end

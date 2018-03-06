@@ -21,6 +21,9 @@ open Lambda
 open Parmatch
 open Printf
 
+(* Remove after bootstrap *)
+external force : 'a Lazy.t -> 'a = "%lazy_force";;
+
 
 let dbg = false
 
@@ -1533,7 +1536,7 @@ let code_force_lazy_block =
   get_mod_field "CamlinternalLazy" "force_lazy_block"
 ;;
 
-(* inline_lazy_force inlines the beginning of the code of Lazy.force. When
+(* inline_lazy_force inlines the beginning of the code of force. When
    the value argument is tagged as:
    - forward, take field 0
    - lazy, call the primitive that forces (without testing again the tag)
@@ -1547,7 +1550,7 @@ let inline_lazy_force_cond arg loc =
   let idarg = Ident.create "lzarg" in
   let varg = Lvar idarg in
   let tag = Ident.create "tag" in
-  let force_fun = Lazy.force code_force_lazy_block in
+  let force_fun = force code_force_lazy_block in
   Llet(Strict, idarg, arg,
        Llet(Alias, tag, Lprim(Ptag, [varg]),
             Lifthenelse(
@@ -1556,7 +1559,7 @@ let inline_lazy_force_cond arg loc =
                     [Lvar tag; Lconst(Const_base(Const_int Obj.forward_tag))]),
               Lprim(Pfield(0, true, Mutable), [varg]),
               Lifthenelse(
-                (* ... if (tag == Obj.lazy_tag) then Lazy.force varg else ... *)
+                (* ... if (tag == Obj.lazy_tag) then force varg else ... *)
                 Lprim(Pintcomp Ceq,
                       [Lvar tag; Lconst(Const_base(Const_int Obj.lazy_tag))]),
                 Lapply(force_fun, [varg], loc),
@@ -1566,7 +1569,7 @@ let inline_lazy_force_cond arg loc =
 let inline_lazy_force_switch arg loc =
   let idarg = Ident.create "lzarg" in
   let varg = Lvar idarg in
-  let force_fun = Lazy.force code_force_lazy_block in
+  let force_fun = force code_force_lazy_block in
   Llet(Strict, idarg, arg,
        Lifthenelse(
          Lprim(Pisint, [varg]), varg,

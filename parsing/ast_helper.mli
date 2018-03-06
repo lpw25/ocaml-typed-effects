@@ -136,7 +136,6 @@ module Exp:
     val new_: ?loc:loc -> ?attrs:attrs -> lid -> expression
     val perform_:
       ?loc:loc -> ?attrs:attrs -> label -> expression list -> bool -> expression
-    val private_: ?loc:loc -> ?attrs:attrs -> expression -> expression
     val setinstvar: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val override: ?loc:loc -> ?attrs:attrs -> (str * expression) list
                   -> expression

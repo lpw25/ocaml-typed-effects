@@ -219,10 +219,6 @@ and raw_type_desc ppf = function
   | Tenil -> fprintf ppf "Tenil"
 
 and raw_effect_constructor ppf = function
-  | Estate { ec_region } ->
-     fprintf ppf
-       "Estate(@,%a)"
-       raw_type ec_region
   | Eordinary { ec_label; ec_args; ec_res } ->
      fprintf ppf
        "Eordinary(@,[<hov1>{@[%s@,%s;@]@ @[%s@,%a;@]@ @[%s@,%a;@]}@])"
@@ -623,8 +619,6 @@ let rec mark_loops_rec visited ty =
         count_effect_var ty
     | Teffect(ec, ty) ->
        begin match ec with
-       | Estate { ec_region } ->
-          mark_loops_rec visited ec_region
        | Eordinary { ec_polys; ec_args; ec_res; _ } ->
           List.iter add_alias ec_polys;
           List.iter (mark_loops_rec visited) ec_args;
@@ -648,26 +642,6 @@ let reset_and_mark_loops ty =
 
 let reset_and_mark_loops_list tyl =
   reset (); List.iter mark_loops tyl
-
-(* Printing effects *)
-let is_global ty =
-  let ty = repr ty in
-  match ty.desc with
-  | Tconstr(p, [], _, _) ->
-      Path.same p Predef.path_global
-  | _ -> false
-
-let rec split_global_state ecs =
-  match ecs with
-  | [] -> None
-  | Eordinary _ as ec :: rest -> begin
-      match split_global_state rest with
-      | None -> None
-      | Some rest -> Some (ec :: rest)
-    end
-  | Estate { ec_region } :: rest ->
-      if is_global ec_region then Some rest
-      else None
 
 (* Disabled in classic mode when printing an unification error *)
 let print_labels = ref true
@@ -823,8 +797,6 @@ and tree_of_effect_constructor sch = function
           delayed := old_delayed;
           Otyp_econstr(ec_label, tl, args, res)
     end
-  | Estate { ec_region } ->
-     Otyp_constr (Oide_ident "state", [tree_of_typexp sch ec_region])
 
 and tree_of_row_field sch (l, f) =
   match row_field_repr f with
@@ -892,28 +864,18 @@ and tree_of_typeffect sch ty =
     | Tenil -> None
     | _ -> Some (tree_of_typexp sch row)
   in
-  let io, effects =
-    match split_global_state effects with
-    | None -> false, effects
-    | Some effects_no_io -> true, effects_no_io
-  in
   let tilde, row =
     match row with
     | Some (Otyp_var(false, ("~", Osrt_effect))) -> true, None
     | _ -> false, row
   in
   let effects = List.map (tree_of_effect_constructor sch) effects in
-  match effects, io, tilde, row with
-  | [], false, false, None -> Oarr_pure
-  | [], false, false, Some _ -> Oarr_pure_row([], row)
-  | [], false, true, _ -> Oarr_pure_tilde
-  | [], true, false, None -> Oarr_io
-  | [], true, false, Some _ -> Oarr_io_row([], row)
-  | [], true, true, _ -> Oarr_io_tilde
-  | _, false, false, _ -> Oarr_pure_row(effects, row)
-  | _, false, true, _ -> Oarr_pure_tilde_row effects
-  | _, true, false, _ -> Oarr_io_row(effects, row)
-  | _, true, true, _ -> Oarr_io_tilde_row effects
+  match effects, tilde, row with
+  | [], false, None -> Oarr_io
+  | [], false, Some _ -> Oarr_io_row([], row)
+  | [], true, _ -> Oarr_io_tilde
+  | _, false, _ -> Oarr_io_row(effects, row)
+  | _, true, _ -> Oarr_io_tilde_row effects
 
 let typexp sch prio ppf ty =
   !Oprint.out_type ppf (tree_of_typexp sch ty)
@@ -1086,8 +1048,7 @@ and tree_of_constructor cd =
 and tree_of_label_mutability lmut =
   match lmut with
   | Lmut_immutable -> Olmut_immutable
-  | Lmut_mutable None -> Olmut_mutable None
-  | Lmut_mutable (Some rg) -> Olmut_mutable (Some (tree_of_typexp false rg))
+  | Lmut_mutable -> Olmut_mutable
 
 and tree_of_label l =
   (Ident.name l.ld_id,

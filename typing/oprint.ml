@@ -344,29 +344,17 @@ and print_typargs ppf =
 and print_arrow ppf =
   function
   | Oarr_io -> pp_print_string ppf "->"
-  | Oarr_pure -> pp_print_string ppf "->>"
   | Oarr_io_tilde -> pp_print_string ppf "~>"
-  | Oarr_pure_tilde -> pp_print_string ppf "~>>"
   | Oarr_io_row(cstrs, row_opt) ->
       pp_print_string ppf "-[";
       print_arrow_constructors ppf cstrs row_opt;
       pp_print_string ppf "]->"
-  | Oarr_pure_row(cstrs, row_opt) ->
-      pp_print_string ppf "-[";
-      print_arrow_constructors ppf cstrs row_opt;
-      pp_print_string ppf "]->>"
   | Oarr_io_tilde_row cstrs ->
       pp_print_string ppf "~[";
       print_list
         print_out_type (fun ppf -> pp_print_string ppf " | ")
         ppf cstrs;
       pp_print_string ppf "]~>"
-  | Oarr_pure_tilde_row cstrs ->
-      pp_print_string ppf "~[";
-      print_list
-        print_out_type (fun ppf -> pp_print_string ppf " | ")
-        ppf cstrs;
-      pp_print_string ppf "]~>>"
 
 and print_arrow_constructors ppf cstrs row_opt =
   print_list
@@ -619,8 +607,7 @@ and print_out_constr ppf (name, tyl,ret_type_opt) =
 and print_out_label_mutability ppf lmut =
   match lmut with
   | Olmut_immutable -> ()
-  | Olmut_mutable None -> fprintf ppf "mutable@;"
-  | Olmut_mutable (Some rg) -> fprintf ppf "mutable(%a)@;" !out_type rg
+  | Olmut_mutable -> fprintf ppf "mutable@;"
 
 and print_out_label ppf (name, mut, arg) =
   fprintf ppf "@[<2>%a%s :@ %a@];" print_out_label_mutability mut name

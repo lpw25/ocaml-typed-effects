@@ -42,7 +42,7 @@ type ('a, !e) te = ('a, !e) lazy_te
 exception Undefined;;
 
 (* val force : 'a t -> 'a ;; *)
-external force : ('a, !~) te ~>> 'a = "%lazy_force";;
+external force : ('a, !~) te ~> 'a = "%lazy_force";;
 (** [force x] forces the suspension [x] and returns its result.
    If [x] has already been forced, [Lazy.force x] returns the
    same value again without recomputing it.  If it raised an exception,
@@ -51,7 +51,7 @@ external force : ('a, !~) te ~>> 'a = "%lazy_force";;
    recursively.
 *)
 
-val force_val : ('a, !~) te ~>> 'a;;
+val force_val : ('a, !~) te ~> 'a;;
 (** [force_val x] forces the suspension [x] and returns its
     result.  If [x] has already been forced, [force_val x]
     returns the same value again without recomputing it.
@@ -61,7 +61,7 @@ val force_val : ('a, !~) te ~>> 'a;;
     whether [force_val x] raises the same exception or [Undefined].
 *)
 
-val from_fun : (unit ~>> 'a) -> ('a, !~) te;;
+val from_fun : (unit ~> 'a) -> ('a, !~) te;;
 (** [from_fun f] is the same as [lazy (f ())] but slightly more efficient.
     @since 4.00.0 *)
 
@@ -76,7 +76,7 @@ val is_val : ('a, !e) te -> bool;;
     did not raise an exception.
     @since 4.00.0 *)
 
-val lazy_from_fun : (unit ~>> 'a) -> ('a, !~) te
+val lazy_from_fun : (unit ~> 'a) -> ('a, !~) te
   [@@ocaml.deprecated "Use Lazy.from_fun instead."];;
 (** @deprecated synonym for [from_fun]. *)
 

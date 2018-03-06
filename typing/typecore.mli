@@ -130,7 +130,6 @@ type error =
   | Missing_continuation_pattern of Longident.t
   | Toplevel_no_default_handler of string * string
   | Toplevel_unknown_effects of type_expr * string
-  | Toplevel_unknown_region of type_expr * string
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

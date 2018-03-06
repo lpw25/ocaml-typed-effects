@@ -18,21 +18,21 @@ type counter = Line_counter | Char_counter | Token_counter
 type ('a, 'b, !~) padding =
   | No_padding  : ('a, 'a, !~) padding
   | Lit_padding : padty * int -> ('a, 'a, !~) padding
-  | Arg_padding : padty -> (int ~>> 'a, 'a, !~) padding
+  | Arg_padding : padty -> (int ~> 'a, 'a, !~) padding
 
 type pad_option = int option
 
 type ('a, 'b, !~) precision =
   | No_precision : ('a, 'a, !~) precision
   | Lit_precision : int -> ('a, 'a, !~) precision
-  | Arg_precision : (int ~>> 'a, 'a, !~) precision
+  | Arg_precision : (int ~> 'a, 'a, !~) precision
 
 type prec_option = int option
 
 type ('a, 'b, 'c, !~) custom_arity =
   | Custom_zero : ('a, string, 'a, !~) custom_arity
   | Custom_succ : ('a, 'b, 'c, !~) custom_arity ->
-    ('a, 'x ~>> 'b, 'x ~>> 'c, !~) custom_arity
+    ('a, 'x ~> 'b, 'x ~> 'c, !~) custom_arity
 
 type block_type = Pp_hbox | Pp_vbox | Pp_hvbox | Pp_hovbox | Pp_box | Pp_fits
 
@@ -62,50 +62,50 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
 | Char_ty :                                                 (* %c  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (char -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     char -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (char -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     char -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | String_ty :                                               (* %s  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (string -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     string -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (string -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     string -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Int_ty :                                                  (* %d  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (int -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     int -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (int -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     int -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Int32_ty :                                                (* %ld *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (int32 -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     int32 -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (int32 -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     int32 -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Nativeint_ty :                                            (* %nd *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (nativeint -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     nativeint -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (nativeint -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     nativeint -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Int64_ty :                                                (* %Ld *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (int64 -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     int64 -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (int64 -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     int64 -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Float_ty :                                                (* %f  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (float -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     float -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (float -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     float -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Bool_ty :                                                 (* %B  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (bool -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     bool -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    (bool -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     bool -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Format_arg_ty :                                           (* %{...%} *)
     ('g, 'h, 'i, 'j, 'k, 'l, !q) fmtty *
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p1]->>
+    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p1]->
        'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     ('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p2]->>
+     ('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p2]->
        'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Format_subst_ty :                                         (* %(...%) *)
     ('g, 'h, 'i, 'j, 'k, 'l, !q,
@@ -114,45 +114,45 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'g2, 'b2, 'c2, 'j2, 'd2, 'a2, !p2) fmtty_rel *
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p1]->>
+    (('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p1]->
       'g1, 'b1, 'c1, 'j1, 'e1, 'f1, !p1,
-     ('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p2]->>
+     ('g, 'h, 'i, 'j, 'k, 'l, !q) format6e -[!p2]->
       'g2, 'b2, 'c2, 'j2, 'e2, 'f2, !p2) fmtty_rel
 
 (* Printf and Format specific constructors. *)
 | Alpha_ty :                                                (* %a  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (('b1 -[!p1]->> 'x -[!p1]->> 'c1) -[!p1]->> 'x -[!p1]->>
+    (('b1 -[!p1]-> 'x -[!p1]-> 'c1) -[!p1]-> 'x -[!p1]->
       'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     ('b2 -[!p2]->> 'x -[!p2]->> 'c2) -[!p2]->> 'x -[!p2]->>
+     ('b2 -[!p2]-> 'x -[!p2]-> 'c2) -[!p2]-> 'x -[!p2]->
       'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Theta_ty :                                                (* %t  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    (('b1 -[!p1]->> 'c1) -[!p1]->>
+    (('b1 -[!p1]-> 'c1) -[!p1]->
      'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     ('b2 -[!p2]->> 'c2) -[!p2]->>
+     ('b2 -[!p2]-> 'c2) -[!p2]->
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 | Any_ty :                                                  (* Used for custom formats *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    ('x -[!p1]->> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-     'x -[!p2]->> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
+    ('x -[!p1]-> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
+     'x -[!p2]-> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel
 
 (* Scanf specific constructor. *)
 | Reader_ty :                                               (* %r  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    ('x -[!p1]->> 'a1, 'b1, 'c1, ('b1 -[!p1]->> 'x) -[!p1]->> 'd1,
+    ('x -[!p1]-> 'a1, 'b1, 'c1, ('b1 -[!p1]-> 'x) -[!p1]-> 'd1,
       'e1, 'f1, !p1,
-     'x -[!p2]->> 'a2, 'b2, 'c2, ('b2 -[!p2]->> 'x) -[!p2]->> 'd2,
+     'x -[!p2]-> 'a2, 'b2, 'c2, ('b2 -[!p2]-> 'x) -[!p2]-> 'd2,
       'e2, 'f2, !p2) fmtty_rel
 | Ignored_reader_ty :                                       (* %_r  *)
     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
      'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
-    ('a1, 'b1, 'c1, ('b1 -[!p1]->> 'x) -[!p1]->> 'd1, 'e1, 'f1, !p1,
-     'a2, 'b2, 'c2, ('b2 -[!p2]->> 'x) -[!p2]->> 'd2, 'e2, 'f2, !p2) fmtty_rel
+    ('a1, 'b1, 'c1, ('b1 -[!p1]-> 'x) -[!p1]-> 'd1, 'e1, 'f1, !p1,
+     'a2, 'b2, 'c2, ('b2 -[!p2]-> 'x) -[!p2]-> 'd2, 'e2, 'f2, !p2) fmtty_rel
 
 | End_of_fmtty :
     ('f1, 'b1, 'c1, 'd1, 'd1, 'f1, !p1,
@@ -164,42 +164,42 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
 and ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt =
 | Char :                                                   (* %c *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (char ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Caml_char :                                              (* %C *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (char ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | String :                                                 (* %s *)
-    ('x, string ~>> 'a, !~) padding
+    ('x, string ~> 'a, !~) padding
     * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Caml_string :                                            (* %S *)
-    ('x, string ~>> 'a, !~) padding
+    ('x, string ~> 'a, !~) padding
     * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int :                                                    (* %[dixXuo] *)
-    int_conv * ('x, 'y, !~) padding * ('y, int ~>> 'a, !~) precision *
+    int_conv * ('x, 'y, !~) padding * ('y, int ~> 'a, !~) precision *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int32 :                                                  (* %l[dixXuo] *)
-    int_conv * ('x, 'y, !~) padding * ('y, int32 ~>> 'a, !~) precision *
+    int_conv * ('x, 'y, !~) padding * ('y, int32 ~> 'a, !~) precision *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Nativeint :                                              (* %n[dixXuo] *)
     int_conv * ('x, 'y, !~) padding
-    * ('y, nativeint ~>> 'a, !~) precision *
+    * ('y, nativeint ~> 'a, !~) precision *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Int64 :                                                  (* %L[dixXuo] *)
-    int_conv * ('x, 'y, !~) padding * ('y, int64 ~>> 'a, !~) precision *
+    int_conv * ('x, 'y, !~) padding * ('y, int64 ~> 'a, !~) precision *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Float :                                                  (* %[feEgGF] *)
-    float_conv * ('x, 'y, !~) padding * ('y, float ~>> 'a, !~) precision *
+    float_conv * ('x, 'y, !~) padding * ('y, float ~> 'a, !~) precision *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('x, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Bool :                                                   (* %[bB] *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (bool ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (bool ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Flush :                                                  (* %! *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
       ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt
@@ -214,24 +214,24 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt =
 | Format_arg :                                             (* %{...%} *)
     pad_option * ('g, 'h, 'i, 'j, 'k, 'l, !p) fmtty *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (('g, 'h, 'i, 'j, 'k, 'l, !p) format6e ~>>
+      (('g, 'h, 'i, 'j, 'k, 'l, !p) format6e ~>
        'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Format_subst :                                           (* %(...%) *)
     pad_option *
     ('g, 'h, 'i, 'j, 'k, 'l, !p,
      'g2, 'b, 'c, 'j2, 'd, 'a, !~) fmtty_rel *
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-    (('g, 'h, 'i, 'j, 'k, 'l, !p) format6e ~>>
+    (('g, 'h, 'i, 'j, 'k, 'l, !p) format6e ~>
       'g2, 'b, 'c, 'j2, 'e, 'f, !~) fmt
 
 (* Printf and Format specific constructor. *)
 | Alpha :                                                  (* %a *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (('b ~>> 'x ~>> 'c) ~>> 'x ~>>
+      (('b ~> 'x ~> 'c) ~> 'x ~>
        'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Theta :                                                  (* %t *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (('b ~>> 'c) ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (('b ~> 'c) ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
 (* Format specific constructor: *)
 | Formatting_lit :                                         (* @_ *)
@@ -245,16 +245,16 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt =
 (* Scanf specific constructors: *)
 | Reader :                                                 (* %r *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      ('x ~>> 'a, 'b, 'c, ('b ~>> 'x) ~>> 'd, 'e, 'f, !~) fmt
+      ('x ~> 'a, 'b, 'c, ('b ~> 'x) ~> 'd, 'e, 'f, !~) fmt
 | Scan_char_set :                                          (* %[...] *)
     pad_option * char_set * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (string ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (string ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Scan_get_counter :                                       (* %[nlNL] *)
     counter * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-      (int ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+      (int ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
 | Scan_next_char :                                         (* %0c *)
     ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
-    (char ~>> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
+    (char ~> 'a, 'b, 'c, 'd, 'e, 'f, !~) fmt
   (* %0c behaves as %c for printing, but when scanning it does not
      consume the character from the input stream *)
 | Ignored_param :                                          (* %_ *)
@@ -264,7 +264,7 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt =
 
 (* Custom printing format *)
 | Custom :
-    ('a, 'x, 'y, !~) custom_arity * (unit ~>> 'x)
+    ('a, 'x, 'y, !~) custom_arity * (unit ~> 'x)
     * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmt ->
     ('y, 'b, 'c, 'd, 'e, 'f, !~) fmt
 
@@ -300,7 +300,7 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) ignored =
       pad_option * ('a, 'b, 'c, 'd, 'e, 'f, !~) fmtty ->
         ('a, 'b, 'c, 'd, 'e, 'f, !~) ignored
   | Ignored_reader :
-      ('a, 'b, 'c, ('b ~>> 'x) ~>> 'd, 'd, 'a, !~) ignored
+      ('a, 'b, 'c, ('b ~> 'x) ~> 'd, 'd, 'a, !~) ignored
   | Ignored_scan_char_set :
       pad_option * char_set -> ('a, 'b, 'c, 'd, 'd, 'a, !~) ignored
   | Ignored_scan_get_counter :
@@ -314,18 +314,18 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) format6e =
 
 val concat_fmtty :
   ('g1, 'b1, 'c1, 'j1, 'd1, 'a1, !p1,
-   'g2, 'b2, 'c2, 'j2, 'd2, 'a2, !p2) fmtty_rel ->>
+   'g2, 'b2, 'c2, 'j2, 'd2, 'a2, !p2) fmtty_rel ->
   ('a1, 'b1, 'c1, 'd1, 'e1, 'f1, !p1,
-   'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->>
+   'a2, 'b2, 'c2, 'd2, 'e2, 'f2, !p2) fmtty_rel ->
   ('g1, 'b1, 'c1, 'j1, 'e1, 'f1, !p1,
    'g2, 'b2, 'c2, 'j2, 'e2, 'f2, !p2) fmtty_rel
 
 val erase_rel :
   ('a, 'b, 'c, 'd, 'e, 'f, !p,
-   'g, 'h, 'i, 'j, 'k, 'l, !q) fmtty_rel ->>
+   'g, 'h, 'i, 'j, 'k, 'l, !q) fmtty_rel ->
   ('a, 'b, 'c, 'd, 'e, 'f, !p) fmtty
 
 val concat_fmt :
-  ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->>
-  ('f, 'b, 'c, 'e, 'g, 'h, !p) fmt ->>
+  ('a, 'b, 'c, 'd, 'e, 'f, !p) fmt ->
+  ('f, 'b, 'c, 'e, 'g, 'h, !p) fmt ->
   ('a, 'b, 'c, 'd, 'g, 'h, !p) fmt

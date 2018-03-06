@@ -44,7 +44,6 @@ and type_desc =
   | Tenil
 
 and effect_constructor =
-  | Estate of effect_constructor_state
   | Eordinary of effect_constructor_ordinary
 
 and effect_constructor_state = (* inline once rebased to 4.03 *)
@@ -177,7 +176,7 @@ type label_description =
 
 and label_mutability =
   | Lmut_immutable
-  | Lmut_mutable of type_expr option
+  | Lmut_mutable
 
 and record_representation =
     Record_regular                      (* All fields are boxed / tagged *)

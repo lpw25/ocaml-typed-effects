@@ -213,7 +213,6 @@ and package_with i ppf (s, t) =
   core_type i ppf t
 
 and effect_type i ppf x =
-  line i ppf "Peft_io = %b\n" x.eft_io;
   line i ppf "Peft_tilde = %b\n" x.eft_tilde;
   line i ppf "Peft_row\n";
   option (i+1) effect_row ppf x.eft_row
@@ -305,9 +304,6 @@ and expression_extra i ppf x attrs =
       option i core_type ppf cto;
   | Texp_newtype (n, s) ->
       line i ppf "Pexp_newtype \"%s\" %a\n" n fmt_effect_flag s;
-      attributes i ppf attrs;
-  | Texp_private ->
-      line i ppf "Pexp_private\n";
       attributes i ppf attrs;
 
 and expression i ppf x =
@@ -870,9 +866,8 @@ and label_mut i ppf x =
   match x with
   | Tlmut_immutable ->
       line i ppf "Plmut_immutable\n"
-  | Tlmut_mutable cto ->
-      line i ppf "Plmut_immutable\n";
-      option (i+1) core_type ppf cto
+  | Tlmut_mutable ->
+      line i ppf "Plmut_immutable\n"
 
 and longident_x_pattern i ppf (li, _, p) =
   line i ppf "%a\n" fmt_longident li;

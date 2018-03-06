@@ -251,8 +251,6 @@ let rec iter_row f row =
 
 let iter_effect_constructor f ec =
   match ec with
-  | Estate { ec_region } ->
-     f ec_region
   | Eordinary { ec_polys; ec_args; ec_res; _ } ->
      List.iter f ec_polys;
      List.iter f ec_args;
@@ -364,14 +362,7 @@ let type_iterators =
   and it_type_kind it = function
       Type_abstract -> ()
     | Type_record (ll, _) ->
-        List.iter
-          (fun ld ->
-            it.it_type_expr it ld.ld_type;
-            match ld.ld_mutable with
-            | Lmut_immutable | Lmut_mutable None -> ()
-            | Lmut_mutable (Some rg) ->
-                it.it_type_expr it rg)
-          ll
+        List.iter (fun ld -> it.it_type_expr it ld.ld_type) ll
     | Type_variant cl ->
         List.iter (fun cd ->
           List.iter (it.it_type_expr it) cd.cd_args;
@@ -463,8 +454,6 @@ let rec copy_type_desc ?(keep_names=false) f = function
   | Teffect (p, ty)    ->
      let ec =
        match p with
-       | Estate { ec_region } ->
-          Estate { ec_region = f ec_region }
        | Eordinary { ec_polys; ec_label; ec_args; ec_res } ->
            let ec_polys = List.map (fun x -> norm_univar (f x)) ec_polys in
            let ec_args = List.map f ec_args in
