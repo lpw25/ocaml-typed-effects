@@ -34,7 +34,6 @@ exception Exit
 
 (* Effects *)
 
-(* Replace after bootstrap
 type ('a, !p, 'b) stack
 external take_cont :
   ('a, !p, 'b) continuation -> ('a, !p, 'b) stack =
@@ -46,7 +45,7 @@ let continue k v =
   resume (take_cont k) (fun x -> x) v
 let discontinue k e =
   resume (take_cont k) (fun e -> raise e) e
-*)
+
 (* Composition operators *)
 
 external ( |> ) : 'a -> ('a ~> 'b) ~> 'b = "%revapply"

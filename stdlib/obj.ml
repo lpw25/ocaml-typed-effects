@@ -94,8 +94,7 @@ let extension_slot x =
     extension_slot x
   with Not_found -> invalid_arg "Obj.extension_slot"
 
-(* Replace after bootstrap
 external clone_continuation :
   ('a, !p, 'b) continuation -> ('a, !p, 'b) continuation =
   "caml_clone_continuation"
-*)
+
