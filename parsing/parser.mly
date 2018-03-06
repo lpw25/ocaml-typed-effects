@@ -567,7 +567,6 @@ let class_of_let_bindings lbs body =
 %token RBRACKETTILDEGREATER
 %token RBRACKETTILDEGREATERGREATER
 %token REC
-%token REGION
 %token RPAREN
 %token SEMI
 %token SEMISEMI
@@ -1570,19 +1569,11 @@ poly_type_list_effect:
   | LIDENT poly_type_list_effect
       { ($1, Effect) :: $2 }
 ;
-poly_type_list_region:
-    LIDENT
-      { [$1, Region] }
-  | LIDENT poly_type_list_region
-      { ($1, Region) :: $2 }
-;
 poly_type_list:
   | TYPE poly_type_list_type                        { $2 }
   | EFFECT poly_type_list_effect                    { $2 }
-  | REGION poly_type_list_region                    { $2 }
   | TYPE poly_type_list_type poly_type_list         { $2 @ $3 }
   | EFFECT poly_type_list_effect poly_type_list     { $2 @ $3 }
-  | REGION poly_type_list_region poly_type_list     { $2 @ $3 }
 ;
 let_binding_body:
     val_ident fun_binding
@@ -1946,7 +1937,6 @@ constraints:
 ;
 type_sort:
   | EFFECT           { Effect }
-  | REGION           { Region }
   | TYPE             { Type }
 ;
 
@@ -1989,7 +1979,6 @@ optional_type_variable:
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
   | BANG TILDE                                  { mktyp(Ptyp_var("~", Effect)) }
   | BANGTILDE                                   { mktyp(Ptyp_var("~", Effect)) }
-  | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
   | UNDERSCORE                                  { mktyp(Ptyp_any) }
 ;
 
@@ -2012,7 +2001,6 @@ type_variable:
   | BANG ident                                  { mktyp(Ptyp_var($2, Effect)) }
   | BANG TILDE                                  { mktyp(Ptyp_var("~", Effect)) }
   | BANGTILDE                                   { mktyp(Ptyp_var("~", Effect)) }
-  | AT ident                                    { mktyp(Ptyp_var($2, Region)) }
 ;
 type_parameter_list:
     type_parameter                              { [$1] }
@@ -2191,12 +2179,10 @@ typevar_list:
       | BANG ident                              { [$2, Effect] }
       | BANG TILDE                              { ["~", Effect] }
       | BANGTILDE                               { ["~", Effect] }
-      | AT ident                                { [$2, Region] }
       | typevar_list QUOTE ident                { ($3, Type) :: $1 }
       | typevar_list BANG ident                 { ($3, Effect) :: $1 }
       | typevar_list BANG TILDE                 { ("~", Effect) :: $1 }
       | typevar_list BANGTILDE                  { ("~", Effect) :: $1 }
-      | typevar_list AT ident                   { ($3, Region) :: $1 }
 ;
 poly_type:
         core_type
@@ -2230,8 +2216,6 @@ core_type_no_attr:
       { mktyp(Ptyp_alias($1, "~", Effect)) }
   | core_type2 AS BANGTILDE
       { mktyp(Ptyp_alias($1, "~", Effect)) }
-  | core_type2 AS AT ident
-      { mktyp(Ptyp_alias($1, $4, Region)) }
 ;
 core_type2:
     simple_core_type_or_tuple
@@ -2348,8 +2332,6 @@ simple_core_type2:
       { mktyp(Ptyp_var("~", Effect)) }
   | BANGTILDE
       { mktyp(Ptyp_var("~", Effect)) }
-  | AT ident
-      { mktyp(Ptyp_var($2, Region)) }
   | UNDERSCORE
       { mktyp(Ptyp_any) }
   | type_longident
@@ -2696,7 +2678,6 @@ single_attr_id:
   | PERFORM { "perform" }
   | PRIVATE { "private" }
   | REC { "rec" }
-  | REGION { "region" }
   | SIG { "sig" }
   | STRUCT { "struct" }
   | THEN { "then" }

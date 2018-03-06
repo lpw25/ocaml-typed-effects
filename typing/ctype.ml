@@ -753,7 +753,6 @@ let close_type env ty =
     close_pure_evars false (ref []) (List.map fst evars) false ty;
   List.iter
     (fun (v, _) ->
-      (* TODO unify free vars in the region with global *)
       if is_evar v then begin
           let eff = newty2 v.level Tenil in
           link_type v eff

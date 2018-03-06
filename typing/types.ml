@@ -17,7 +17,6 @@ open Asttypes
 type type_sort =
   | Stype
   | Seffect
-  | Sregion
 
 (* Type expressions for the core language *)
 
@@ -45,9 +44,6 @@ and type_desc =
 
 and effect_constructor =
   | Eordinary of effect_constructor_ordinary
-
-and effect_constructor_state = (* inline once rebased to 4.03 *)
-  { ec_region: type_expr; }
 
 and effect_constructor_ordinary =
   { ec_label: label;

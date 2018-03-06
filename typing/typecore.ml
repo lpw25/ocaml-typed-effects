@@ -951,7 +951,7 @@ let unify_head_only loc env ty constr =
 (* Typing of patterns *)
 
 (* Simplified patterns for effect continuations *)
-let type_continuation_pat env outer_eff expected_ty reg_cont sp =
+let type_continuation_pat env outer_eff expected_ty sp =
   let loc = sp.ppat_loc in
   match sp.ppat_desc with
   | Ppat_any -> None
@@ -1344,7 +1344,6 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
        List.map2 (fun sarg arg -> type_pat sarg arg) sargs args
      in
      (* Type check the continuation argument *)
-     let reg_cont = newvar Sregion in
      let cont =
        match scont, res with
        | None, None -> None
@@ -1352,10 +1351,10 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
           let ty_cont =
             (* Construct type ('a, !e, 'b, @r) continuation *)
             instance_def
-              (Predef.type_continuation res outer_eff cont_ty reg_cont)
+              (Predef.type_continuation res outer_eff cont_ty)
           in
           (* Type check the continuation pattern with the constructed type *)
-          Some (type_continuation_pat !env outer_eff ty_cont reg_cont scont)
+          Some (type_continuation_pat !env outer_eff ty_cont scont)
        | None, Some _ | Some _, None -> assert false
      in
      rp {
@@ -1979,13 +1978,6 @@ let make_exception_default caselist =
               { pat with ppat_desc =
                   Ppat_exception pat }})
     caselist
-
-let private_region_counter = ref 0
-
-let get_new_private_region_name () =
-  let index = !private_region_counter in
-  incr private_region_counter;
-  Printf.sprintf "local#%d" index
 
 (* Typing of expressions *)
 

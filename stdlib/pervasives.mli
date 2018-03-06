@@ -43,7 +43,7 @@ exception Exit
 (** The [Exit] exception is not raised by any library function.  It is
     provided for use in your programs. *)
 
-
+(* Replace after bootstrap
 (** {6 Effects} *)
 
 (** [continue k x] resumes the continuation [k] by passing [x] to [k].
@@ -51,7 +51,7 @@ exception Exit
     @raise Invalid_argument if the continuation has already been
     resumed. *)
 val continue:
-  ('a, !~ , 'b, @r) continuation -> 'a ~> 'b
+  ('a, !~ , 'b) continuation -> 'a ~> 'b
 
 (** [discontinue k e] resumes the continuation [k] by raising the
     exception [e] in [k].
@@ -59,8 +59,8 @@ val continue:
     @raise Invalid_argument if the continuation has already been
     resumed. *)
 val discontinue:
-  ('a, !~ , 'b, @r) continuation -> exn ~> 'b
-
+  ('a, !~ , 'b) continuation -> exn ~> 'b
+*)
 (** {6 Comparisons} *)
 
 external ( = ) : 'a -> 'a -> bool = "%equal"

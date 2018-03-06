@@ -92,7 +92,6 @@ type error =
   | Varying_anonymous
   | Not_allowed_in_functor_body
   | Effect_type_with_definition
-  | Region_type_with_definition
 
 exception Error of Location.t * error
 

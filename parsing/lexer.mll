@@ -73,7 +73,6 @@ let keyword_table =
 (*  "parser", PARSER; *)
     "private", PRIVATE;
     "rec", REC;
-    "region", REGION;
     "sig", SIG;
     "struct", STRUCT;
     "then", THEN;
@@ -454,15 +453,11 @@ rule token = parse
   | "*"  { STAR }
   | ","  { COMMA }
   | "->" { MINUSGREATER }
-  | "->>" { MINUSGREATERGREATER }
   | "-[" { MINUSLBRACKET }
   | "]->" { RBRACKETMINUSGREATER }
-  | "]->>" { RBRACKETMINUSGREATERGREATER }
   | "~>" { TILDEGREATER }
-  | "~>>" { TILDEGREATERGREATER }
   | "~[" { TILDELBRACKET }
   | "]~>" { RBRACKETTILDEGREATER }
-  | "]~>>" { RBRACKETTILDEGREATERGREATER }
   | "![" { BANGLBRACKET }
   | "."  { DOT }
   | ".." { DOTDOT }

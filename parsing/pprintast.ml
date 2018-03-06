@@ -95,16 +95,13 @@ let type_variance = function
 let type_sort = function
   | Type -> "type"
   | Effect -> "effect"
-  | Region -> "region"
 
 let and_type_sort default sort =
   match default, sort with
   | Type, Type -> "and"
-  | (Effect | Region), Type -> "and type"
+  | Effect, Type -> "and type"
   | Effect, Effect -> "and"
-  | (Type | Region), Effect -> "and effect"
-  | Region, Region -> "and"
-  | (Type | Effect), Region -> "and region"
+  | Type, Effect -> "and effect"
 
 type construct =
   [ `cons of expression list
@@ -231,7 +228,6 @@ class printer  ()= object(self:'self)
     match v with
     | (str, Type) -> pp f "'%s" str
     | (str, Effect) -> pp f "!%s" str
-    | (str, Region) -> pp f "@%s" str
 
   method string_quot f x = pp f "`%s" x
 

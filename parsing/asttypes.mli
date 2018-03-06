@@ -35,7 +35,7 @@ type override_flag = Override | Fresh
 
 type closed_flag = Closed | Open
 
-type sort = Effect | Region | Type
+type sort = Effect | Type
 
 type label = string
 

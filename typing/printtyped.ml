@@ -92,7 +92,6 @@ let fmt_effect_flag f x =
   match x with
   | Type -> fprintf f "Type"
   | Effect -> fprintf f "Effect"
-  | Region -> fprintf f "Region"
 
 let fmt_rec_flag f x =
   match x with
@@ -155,7 +154,6 @@ let fmt_var ppf x =
   match x with
   | (v, Type) -> fprintf ppf "'%s" v
   | (v, Effect) -> fprintf ppf "!%s" v
-  | (v, Region) -> fprintf ppf "@%s" v
 
 let rec core_type i ppf x =
   line i ppf "core_type %a\n" fmt_location x.ctyp_loc;

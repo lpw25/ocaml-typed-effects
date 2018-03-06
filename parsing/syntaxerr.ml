@@ -50,7 +50,6 @@ let prepare_error = function
         match sort with
         | Asttypes.Type -> "'"
         | Asttypes.Effect -> "!"
-        | Asttypes.Region -> "@"
       in
       Location.errorf ~loc
         "Error: In this scoped type, variable %s%s \

@@ -71,9 +71,8 @@ type error =
   | Ill_typed_functor_application of Longident.t
   | Illegal_reference_to_recursive_module
   | Access_functor_as_structure of Longident.t
-  | Unexpected_value_type of bool
-  | Unexpected_effect_type of bool
-  | Unexpected_region_type of bool
+  | Unexpected_value_type
+  | Unexpected_effect_type
   | Effect_tags of string * string
   | Not_a_closed_effect of type_expr
 

@@ -116,8 +116,8 @@ type type_mismatch =
   | Constraint
   | Manifest
   | Variance
-  | Sort of bool * bool
-  | Param_sort of int * bool * bool
+  | Sort of bool
+  | Param_sort of int * bool
   | Field_type of Ident.t
   | Field_mutable of Ident.t
   | Field_arity of Ident.t
@@ -134,14 +134,12 @@ let report_type_mismatch0 first second decl ppf err =
   | Constraint -> pr "Their constraints differ"
   | Manifest -> ()
   | Variance -> pr "Their variances do not agree"
-  | Sort(b, e) ->
-      pr "Their sorts differ:@ %s %s is %s type"
+  | Sort b ->
+      pr "Their sorts differ:@ %s %s is an effect type"
         (if b then second else first) decl
-        (if e then "an effect" else "a region")
-  | Param_sort(n, b, e) ->
-      pr "The sorts for parameter number %i differ:@ %s %s has %s type parameter"
+  | Param_sort(n, b) ->
+      pr "The sorts for parameter number %i differ:@ %s %s has an effect type parameter"
         n (if b then second else first) decl
-        (if e then "an effect" else "a region")
   | Field_type s ->
       pr "The types for field %s are not equal" (Ident.name s)
   | Field_mutable s ->
@@ -169,11 +167,8 @@ let type_sort decl1 decl2 =
   match decl1.type_sort, decl2.type_sort with
   | Stype, Stype -> []
   | Seffect, Seffect -> []
-  | Sregion, Sregion -> []
-  | Seffect, (Stype | Sregion) -> [Sort(false, true)]
-  | (Stype | Sregion), Seffect -> [Sort(true, true)]
-  | Sregion, Stype -> [Sort(false, false)]
-  | Stype, Sregion -> [Sort(true, false)]
+  | Seffect, Stype -> [Sort false]
+  | Stype, Seffect -> [Sort true]
 
 let type_param_sorts decl1 decl2 =
   let rec loop i params1 params2 =
@@ -183,11 +178,8 @@ let type_param_sorts decl1 decl2 =
         match Btype.type_sort param1, Btype.type_sort param2 with
         | Seffect, Seffect -> loop (i + 1) rest1 rest2
         | Stype, Stype -> loop (i + 1) rest1 rest2
-        | Sregion, Sregion -> loop (i + 1) rest1 rest2
-        | Seffect, (Stype | Sregion) -> [Param_sort(i, false, true)]
-        | (Stype | Sregion), Seffect -> [Param_sort(i, true, true)]
-        | Sregion, Stype -> [Param_sort(i, false, false)]
-        | Stype, Sregion -> [Param_sort(i, true, false)]
+        | Seffect, Stype -> [Param_sort(i, false)]
+        | Stype, Seffect -> [Param_sort(i, true)]
       end
     | [], _ :: _ -> assert false
     | _ :: _, [] -> assert false

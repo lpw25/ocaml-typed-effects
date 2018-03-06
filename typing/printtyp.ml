@@ -88,7 +88,6 @@ let tree_of_rec = function
 let tree_of_sort = function
   | Stype -> Osrt_type
   | Seffect -> Osrt_effect
-  | Sregion -> Osrt_region
 
 let tree_of_type_rec default_sort sort = function
   | Trec_not -> Otype_not (tree_of_sort sort)
@@ -97,11 +96,9 @@ let tree_of_type_rec default_sort sort = function
       match default_sort, sort with
       | None, _ -> Otype_next (Some (tree_of_sort sort))
       | Some Stype, Stype -> Otype_next None
-      | Some (Seffect | Sregion), Stype -> Otype_next (Some (Osrt_type))
+      | Some Seffect, Stype -> Otype_next (Some (Osrt_type))
       | Some Seffect, Seffect -> Otype_next None
-      | Some (Stype | Sregion), Seffect -> Otype_next (Some (Osrt_effect))
-      | Some Sregion, Sregion -> Otype_next None
-      | Some (Stype | Seffect), Sregion -> Otype_next (Some (Osrt_region))
+      | Some Stype, Seffect -> Otype_next (Some (Osrt_effect))
 
 (* Print a raw type expression, with sharing *)
 
@@ -143,7 +140,6 @@ let print_name ppf = function
 let raw_type_sort ppf = function
   | Stype -> fprintf ppf "Stype"
   | Seffect -> fprintf ppf "Seffect"
-  | Sregion -> fprintf ppf "Sregion"
 
 let option f ppf x =
   match x with
@@ -418,7 +414,6 @@ let best_type_path p =
 let names = ref ([] : (type_expr * (string * type_sort)) list)
 let type_name_counter = ref 0
 let effect_name_counter = ref 0
-let region_name_counter = ref 0
 let named_vars = ref ([] : (string * type_sort) list)
 let tilde_effect_var = ref (None : type_expr option)
 let single_effect_var = ref true
@@ -427,7 +422,6 @@ let reset_names () =
   names := [];
   type_name_counter := 0;
   effect_name_counter := 0;
-  region_name_counter := 0;
   named_vars := [];
   tilde_effect_var := None;
   single_effect_var := true
@@ -471,7 +465,6 @@ let rec new_name sort =
         match sort with
         | Stype -> type_name_counter, 0
         | Seffect -> effect_name_counter, 15
-        | Sregion -> region_name_counter, 20
       in
       let num = (!name_counter + offset) mod 26 in
       let base = String.make 1 (Char.chr(97 + num)) in

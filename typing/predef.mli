@@ -23,7 +23,7 @@ val type_bool: type_expr
 val type_unit: type_expr
 val type_exn: type_expr
 val type_continuation:
-  type_expr -> type_expr -> type_expr -> type_expr -> type_expr
+  type_expr -> type_expr -> type_expr -> type_expr
 val type_array: type_expr -> type_expr
 val type_list: type_expr -> type_expr
 val type_option: type_expr -> type_expr
