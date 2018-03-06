@@ -21,9 +21,6 @@ open Lambda
 open Parmatch
 open Printf
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 
 let dbg = false
 
@@ -1550,7 +1547,7 @@ let inline_lazy_force_cond arg loc =
   let idarg = Ident.create "lzarg" in
   let varg = Lvar idarg in
   let tag = Ident.create "tag" in
-  let force_fun = force code_force_lazy_block in
+  let force_fun = Lazy.force code_force_lazy_block in
   Llet(Strict, idarg, arg,
        Llet(Alias, tag, Lprim(Ptag, [varg]),
             Lifthenelse(
@@ -1569,7 +1566,7 @@ let inline_lazy_force_cond arg loc =
 let inline_lazy_force_switch arg loc =
   let idarg = Ident.create "lzarg" in
   let varg = Lvar idarg in
-  let force_fun = force code_force_lazy_block in
+  let force_fun = Lazy.force code_force_lazy_block in
   Llet(Strict, idarg, arg,
        Lifthenelse(
          Lprim(Pisint, [varg]), varg,

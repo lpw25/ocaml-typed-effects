@@ -18,9 +18,6 @@ open Typecore
 open Typetexp
 open Format
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 type error =
     Unconsistent_constraint of (type_expr * type_expr) list
   | Field_type_mismatch of string * string * (type_expr * type_expr) list
@@ -513,7 +510,7 @@ and class_type env scty =
 let class_type env scty =
   delayed_meth_specs := [];
   let cty = class_type env scty in
-  List.iter force (List.rev !delayed_meth_specs);
+  List.iter Lazy.force (List.rev !delayed_meth_specs);
   delayed_meth_specs := [];
   cty
 
@@ -833,7 +830,7 @@ and class_structure cl_num final val_env met_env loc
   (* Typing of method bodies *)
   if !Clflags.principal then
     List.iter (fun (_,_,ty) -> Ctype.generalize_spine ty) methods;
-  let fields = List.map force (List.rev fields) in
+  let fields = List.map Lazy.force (List.rev fields) in
   if !Clflags.principal then
     List.iter (fun (_,_,ty) -> Ctype.unify val_env ty (Ctype.newvar Stype))
       methods;

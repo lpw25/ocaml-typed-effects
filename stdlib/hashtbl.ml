@@ -57,12 +57,9 @@ let rec power_2_above x n =
   else if x * 2 > Sys.max_array_length then x
   else power_2_above (x * 2) n
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 let create ?(random = !randomized) initial_size =
   let s = power_2_above 16 initial_size in
-  let seed = if random then Random.State.bits (force prng) else 0 in
+  let seed = if random then Random.State.bits (Lazy.force prng) else 0 in
   { initial_size = s; size = 0; seed = seed; data = Array.make s Empty }
 
 let clear h =

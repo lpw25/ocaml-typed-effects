@@ -20,9 +20,6 @@ open Parsetree
 open Ast_helper
 open Docstrings
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 let mktyp d = Typ.mk ~loc:(symbol_rloc()) d
 let mkpat d = Pat.mk ~loc:(symbol_rloc()) d
 let mkexp d = Exp.mk ~loc:(symbol_rloc()) d
@@ -419,8 +416,8 @@ let val_of_let_bindings lbs =
           List.map
             (fun lb ->
                Vb.mk ~loc:lb.lb_loc ~attrs:lb.lb_attributes
-                 ~docs:(force lb.lb_docs)
-                 ~text:(force lb.lb_text)
+                 ~docs:(Lazy.force lb.lb_docs)
+                 ~text:(Lazy.force lb.lb_text)
                  lb.lb_pattern lb.lb_expression)
             bindings
         in

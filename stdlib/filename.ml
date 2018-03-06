@@ -210,11 +210,8 @@ external close_desc: int -> unit = "caml_sys_close"
 
 let prng = lazy(Random.State.make_self_init ());;
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 let temp_file_name temp_dir prefix suffix =
-  let rnd = (Random.State.bits (force prng)) land 0xFFFFFF in
+  let rnd = (Random.State.bits (Lazy.force prng)) land 0xFFFFFF in
   concat temp_dir (Printf.sprintf "%s%06x%s" prefix rnd suffix)
 ;;
 

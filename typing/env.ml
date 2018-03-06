@@ -21,9 +21,6 @@ open Path
 open Types
 open Btype
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 let add_delayed_check_forward = ref (fun _ -> assert false)
 
 let value_declarations : ((string * Location.t), (unit -> unit)) Hashtbl.t =
@@ -1670,7 +1667,7 @@ let rec add_signature sg env =
 let open_signature slot root sg env0 =
   (* First build the paths and substitution *)
   let (pl, sub, sg) = prefix_idents_and_subst root Subst.identity sg in
-  let sg = force sg in
+  let sg = Lazy.force sg in
 
   (* Then enter the components in the environment after substitution *)
 

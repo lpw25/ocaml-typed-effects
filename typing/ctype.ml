@@ -17,9 +17,6 @@ open Asttypes
 open Types
 open Btype
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 (*
    Type manipulation after type inference
    ======================================
@@ -1592,7 +1589,7 @@ let instance_poly ?(keep_names=false) fixed univars sch =
   let pairs = List.map2 (fun u v -> u, (v, [])) univars vars in
   delayed_copy := [];
   let ty = copy_sep fixed (compute_univars sch) [] pairs sch in
-  List.iter force !delayed_copy;
+  List.iter Lazy.force !delayed_copy;
   delayed_copy := [];
   cleanup_types ();
   vars, ty
@@ -1644,7 +1641,7 @@ let instance_effect_constructor ?in_pattern ec =
       in
       let args = List.map copy_sep ec.ec_args in
       let res = Misc.may_map copy_sep ec.ec_res in
-      List.iter force !delayed_copy;
+      List.iter Lazy.force !delayed_copy;
       delayed_copy := [];
       cleanup_types ();
       begin match in_pattern with

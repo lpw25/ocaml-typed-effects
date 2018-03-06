@@ -40,9 +40,6 @@ let fill_buff b =
   b.len <- input b.ic b.buff 0 (Bytes.length b.buff); b.ind <- 0
 ;;
 
-(* Remove after bootstrap *)
-external force : 'a Lazy.t -> 'a = "%lazy_force";;
-
 let rec get_data count d = match d with
  (* Returns either Sempty or Scons(a, _) even when d is a generator
     or a buffer. In those cases, the item a is seen as extracted from
@@ -70,7 +67,7 @@ let rec get_data count d = match d with
        let r = Obj.magic (Bytes.unsafe_get b.buff b.ind) in
        (* Warning: anyone using g thinks that an item has been read *)
        b.ind <- succ b.ind; Scons(r, d)
- | Slazy f -> get_data count (force f)
+ | Slazy f -> get_data count (Lazy.force f)
 ;;
 
 let rec peek s =
@@ -84,7 +81,7 @@ let rec peek s =
      | Sempty -> None
      | _ -> assert false
      end
- | Slazy f -> set_data s (force f); peek s
+ | Slazy f -> set_data s (Lazy.force f); peek s
  | Sgen {curr = Some a} -> a
  | Sgen g -> let x = g.func s.count in g.curr <- Some x; x
  | Sbuffio b ->
