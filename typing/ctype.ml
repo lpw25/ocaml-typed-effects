@@ -348,45 +348,6 @@ let flatten_expanded_effects env ty =
   in
   flatten [] ty
 
-(* let rec expand_effect env p =
- *   match Env.find_effect_expansion p env with
- *   | p -> expand_effect env p
- *   | exception Not_found -> p *)
-
-(* let equal_effect_constructor env ec1 ec2 =
- *   (\* Definition: Effect constructor equality.
- *      Suppose ec1 and ec2 are effect constructors then whenever
- *           i) ec1.ec_label = ec2.ec_label,
- *          ii) |ec1.ec_args| = |ec2.ec_args|, and
- *         iii) ec1.ec_args is point-wise equal to ec2.ec_args
- *          iv) ec1.res_type = ec2.res_type
- *      we say that ec1 = ec2.
- *    *\)
- *   match ec1, ec2 with
- *   | Estate { ec_region = r1 }, Estate { ec_region = r2 } ->
- *      TypeOps.equal r1 r2
- *   | Eordinary ec1, Eordinary ec2 ->
- *      begin match ec1.res_type, ec2.res_type with
- *      | Some ty1, Some ty2 when eqtype 
- *      ec1.ec_name = ec2.ec_name
- *      && List.length (ec1.ec_args) = List.length (ec2.ec_args)
- *      && (List.fold_left2 (\* We could potentially short circuit evaluation here *\)
- *            (fun acc x1 x2 ->
- *              TypeOps.equal x1 x2 && acc)
- *            true ec1.ec_args ec2.ec_args)
- *   | _, _ -> false
- * 
- * let equal_effect env eff eff' = (\* TODO: handle effect aliases *\)
- *   equal_effect_constructor env eff eff'
- * 
- *   (\* if String.compare p1 p2 = 0 then true
- *    * else begin
- *    *   let p1 = expand_effect env p1 in
- *    *   let p2 = expand_effect env p2 in
- *    *   Path.same p1 p2
- *    * end *\) *)
-
-
 let diff_effects _env effs1 effs2  =
   let equal_effect_constr ec1 ec2 =
     match ec1, ec2 with
@@ -5390,43 +5351,6 @@ let nondep_extension_constructor env mid ext =
   with Not_found ->
     clear_hash ();
     raise Not_found
-
-(* let nondep_effect_decl env mid is_covariant eff =
- *   try
- *     let ek =
- *       try match eff.eff_kind with
- *       | Eff_abstract -> Eff_abstract
- *       | Eff_variant ecs ->
- *           Eff_variant
- *             (List.map
- *                (fun ec ->
- *                  {ec with
- *                   ec_args = List.map (nondep_type_rec env mid) ec.ec_args;
- *                   ec_res = may_map (nondep_type_rec env mid) ec.ec_res;
- *                  }
- *                )
- *                ecs)
- *       with Not_found when is_covariant -> Eff_abstract
- *     and em =
- *       try match eff.eff_manifest with
- *       | None -> None
- *       | Some p ->
- *           if Path.isfree mid p then
- *             let p' = expand_effect env p in
- *             if Path.isfree mid p' then raise Not_found
- *             else Some p'
- *           else Some p
- *       with Not_found when is_covariant -> None
- *     in
- *     clear_hash ();
- *     { eff_kind = ek;
- *       eff_manifest = em;
- *       eff_loc = eff.eff_loc;
- *       eff_attributes = eff.eff_attributes;
- *     }
- *   with Not_found ->
- *     clear_hash ();
- *     raise Not_found *)
 
 (* Preserve sharing inside class types. *)
 let nondep_class_signature env id sign =

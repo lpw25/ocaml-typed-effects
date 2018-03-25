@@ -693,9 +693,6 @@ and signature_item i ppf x =
   | Tsig_exception ext ->
       line i ppf "Psig_exception\n";
       extension_constructor i ppf ext
-  (* | Tsig_effect eff ->
-   *     line i ppf "Psig_effect\n";
-   *     effect_declaration i ppf eff *)
   | Tsig_module md ->
       line i ppf "Psig_module \"%a\"\n" fmt_ident md.md_id;
       attributes i ppf md.md_attributes;

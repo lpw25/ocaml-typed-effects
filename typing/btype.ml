@@ -308,7 +308,6 @@ let type_iterators =
   and it_signature_item it = function
       Sig_value (_, vd)     -> it.it_value_description it vd
     | Sig_type (_, td, _)   -> it.it_type_declaration it td
-    (* | Sig_effect (_, ed)   -> it.it_effect_declaration it ed *)
     | Sig_typext (_, td, _) -> it.it_extension_constructor it td
     | Sig_module (_, md, _) -> it.it_module_declaration it md
     | Sig_modtype (_, mtd)  -> it.it_modtype_declaration it mtd

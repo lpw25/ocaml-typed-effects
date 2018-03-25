@@ -155,7 +155,6 @@ let item_ident_name = function
     Sig_value(id, d) -> (id, d.val_loc, Field_value(Ident.name id))
   | Sig_type(id, d, _) -> (id, d.type_loc, Field_type(Ident.name id))
   | Sig_typext(id, d, _) -> (id, d.ext_loc, Field_typext(Ident.name id))
-  (* | Sig_effect(id, d) -> (id, d.eff_loc, Field_effect(Ident.name id)) *)
   | Sig_module(id, d, _) -> (id, d.md_loc, Field_module(Ident.name id))
   | Sig_modtype(id, d) -> (id, d.mtd_loc, Field_modtype(Ident.name id))
   | Sig_class(id, d, _) -> (id, d.cty_loc, Field_class(Ident.name id))
@@ -167,7 +166,6 @@ let is_runtime_component = function
   | Sig_modtype(_,_)
   | Sig_class_type(_,_,_) -> false
   | Sig_value(_,_)
-  (* | Sig_effect(_,_) *)
   | Sig_typext(_,_,_)
   | Sig_module(_,_,_)
   | Sig_class(_, _,_) -> true
@@ -355,8 +353,6 @@ and signatures env cxt subst sig1 sig2 =
             match item2 with
               Sig_type _ ->
                 Subst.add_type id2 (Pident id1) subst
-            (* | Sig_effect _ ->
-             *     Subst.add_effect id2 (Pident id1) subst *)
             | Sig_module _ ->
                 Subst.add_module id2 (Pident id1) subst
             | Sig_modtype _ ->
@@ -397,9 +393,6 @@ and signature_components old_env env cxt subst paired =
     :: rem ->
       extension_constructors env cxt subst id1 ext1 ext2;
       (pos, Tcoerce_none) :: comps_rec rem
-  (* | (Sig_effect(id1, eff1), Sig_effect(id2, eff2), pos) :: rem ->
-   *     effect_declarations env cxt subst id1 eff1 eff2;
-   *     (pos, Tcoerce_none) :: comps_rec rem *)
   | (Sig_module(id1, mty1, _), Sig_module(id2, mty2, _), pos) :: rem ->
       let cc =
         modtypes env (Module id1::cxt) subst

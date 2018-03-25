@@ -402,8 +402,6 @@ and untype_signature_item item =
         Psig_typext (untype_type_extension tyext)
     | Tsig_exception ext ->
         Psig_exception (untype_extension_constructor ext)
-    (* | Tsig_effect eff ->
-     *     Psig_effect (untype_effect_declaration eff) *)
     | Tsig_module md ->
         Psig_module {pmd_name = md.md_name;
                      pmd_type = untype_module_type md.md_type;

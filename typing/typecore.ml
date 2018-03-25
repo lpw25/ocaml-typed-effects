@@ -200,7 +200,6 @@ let iter_expression f e =
     | Pstr_type _
     | Pstr_typext _
     | Pstr_exception _
-    (* | Pstr_effect _ *)
     | Pstr_modtype _
     | Pstr_open _
     | Pstr_class_type _
@@ -1662,12 +1661,7 @@ and is_nonexpansive_mod mexp =
                 id_mod_list
           | Tstr_exception {ext_kind = Text_decl _} ->
               false (* true would be unsound *)
-          (* | Tstr_effect {eff_kind = Teff_variant _; eff_manifest = None} ->
-           *     false (\* true would be unsound *\) *)
           | Tstr_exception {ext_kind = Text_rebind _} -> true
-          (* | Tstr_effect ({eff_kind = Teff_abstract}
-           *                | {eff_manifest = Some _}) ->
-           *     true *)
           | Tstr_typext te ->
               List.for_all
                 (function {ext_kind = Text_decl _} -> false

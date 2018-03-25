@@ -272,8 +272,6 @@ and add_sig_item bv item =
       add_type_extension bv te; bv
   | Psig_exception pext ->
       add_extension_constructor bv pext; bv
-  (* | Psig_effect peff ->
-   *     add_effect_declaration bv peff; bv *)
   | Psig_module pmd ->
       add_modtype bv pmd.pmd_type; StringSet.add pmd.pmd_name.txt bv
   | Psig_recmodule decls ->

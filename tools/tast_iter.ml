@@ -201,8 +201,6 @@ let signature_item sub item =
       sub # type_extension te
   | Tsig_exception ext ->
       sub # extension_constructor ext
-  (* | Tsig_effect eff ->
-   *     sub # effect_declaration eff *)
   | Tsig_module md ->
       sub # module_type md.md_type
   | Tsig_recmodule list ->
