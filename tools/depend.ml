@@ -73,8 +73,17 @@ and add_effect_type bv eft =
        | Some efr -> add_effect_row bv efr
 
 and add_effect_row bv efr =
-  (* List.iter (add bv) efr.pefr_effects; *) (* TODO: FIXME *)
+  List.iter (add_effect_field bv) efr.pefr_effects;
   add_opt add_type bv efr.pefr_next
+
+and add_effect_field bv efd =
+  match efd.pefd_desc with
+  | Pefd_inherit(lid, ctl) ->
+      add bv lid;
+      List.iter (add_type bv) ctl
+  | Pefd_constructor eff ->
+      List.iter (add_type bv) eff.peff_args;
+      add_opt add_type bv eff.peff_res
 
 let add_constructor_decl bv pcd =
   List.iter (add_type bv) pcd.pcd_args; Misc.may (add_type bv) pcd.pcd_res
