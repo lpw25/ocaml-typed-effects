@@ -143,7 +143,6 @@ let check_implems filename ui implems =
          |"Sys_blocked_io"
          |"Assert_failure"
          |"Undefined_recursive_module"
-         |"Unhandled" -> ()
          | _ ->
        try
          let (old_crc,old_src,state) = StrMap.find name implems in
