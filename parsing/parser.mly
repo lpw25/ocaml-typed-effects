@@ -1355,8 +1355,6 @@ expr:
       { mkexp_attrs (Pexp_perform($4, $6, true, Some $9)) $2 }
   | THROW ext_attributes ident LPAREN effect_arg_list RPAREN
       { mkexp_attrs (Pexp_perform($3, $5, false, None)) $2 }
-  | THROW ext_attributes QUESTION ident LPAREN effect_arg_list RPAREN AS expr
-      { mkexp_attrs (Pexp_perform($4, $6, false, Some $9)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -1762,8 +1760,6 @@ computation_pattern:
       { mkpat(Ppat_effect($2, $4, None, false)) }
   | EFFECT UIDENT LPAREN effect_param_list RPAREN COMMA pattern
       { mkpat(Ppat_effect($2, $4, Some $7, false)) }
-  | EFFECT QUESTION UIDENT LPAREN effect_param_list RPAREN
-      { mkpat(Ppat_effect($3, $5, None, true)) }
   | EFFECT QUESTION UIDENT LPAREN effect_param_list RPAREN COMMA pattern
       { mkpat(Ppat_effect($3, $5, Some $8, true)) }
 ;
@@ -2281,10 +2277,6 @@ effect_constructor:
       { mkeconstructor $1 $3 $5 (Some $7) false ~attrs:$8 }
   | UIDENT COLON simple_core_type attributes
       { mkeconstructor $1 [] [] (Some $3) false ~attrs:$4 }
-  | QUESTION UIDENT attributes
-      { mkeconstructor $2 [] [] None true ~attrs:$3 }
-  | QUESTION UIDENT OF core_type_list attributes
-      { mkeconstructor $2 [] $4 None true ~attrs:$5 }
   | QUESTION UIDENT COLON core_type_list MINUSGREATER
     simple_core_type attributes
       { mkeconstructor $2 [] $4 (Some $6) true ~attrs:$7 }

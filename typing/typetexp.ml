@@ -883,10 +883,11 @@ and transl_effect_row_with_tail env policy row tail =
             List.map (transl_type env policy (Some Stype)) eff.peff_args
           in
           let args = List.map (fun ctyp -> ctyp.ctyp_type) targs in
-          let tres  =
+          let tres =
             Misc.may_map (transl_type env policy (Some Stype)) eff.peff_res
           in
-          let res  = Misc.may_map (fun ctyp -> ctyp.ctyp_type) tres in
+          let res = Misc.may_map (fun ctyp -> ctyp.ctyp_type) tres in
+          assert (not (eff.peff_default && res = None));
           univars := old_univars;
           end_def();
           List.iter generalize args;
