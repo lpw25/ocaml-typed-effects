@@ -1370,7 +1370,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
      let reg_cont = newvar Sregion in
      let cont =
        match scont, res with
-       | None, None -> None
+       | None, None -> assert (not sdef); None
        | Some scont, Some res ->
           let ty_cont =
             (* Construct type ('a, !e, 'b, @r) continuation *)
@@ -2004,13 +2004,6 @@ let get_new_private_region_name () =
   let index = !private_region_counter in
   incr private_region_counter;
   Printf.sprintf "local#%d" index
-
-let default_handler_result_counter = ref 0
-
-let get_new_default_handler_result_name () =
-  let index = !default_handler_result_counter in
-  incr default_handler_result_counter;
-  Printf.sprintf "result#%d" index
 
 (* Typing of expressions *)
 
@@ -3923,33 +3916,10 @@ and type_perform env loc expected_eff label sargs
       (fun sdef ->
         begin_def ();
         let expectation = new_toplevel_expectation () in
-        let env, ret =
+        let ret =
           match res with
-          | Some res -> env, res
-          | None ->
-              let name = get_new_default_handler_result_name () in
-              let ty = newvar Stype in
-              let level = get_current_level () in
-              let decl = {
-                type_params = [];
-                type_arity = 0;
-                type_sort = Stype;
-                type_kind = Type_abstract;
-                type_private = Public;
-                type_manifest = None;
-                type_variance = [];
-                type_newtype_level = Some (level, level);
-                type_loc = loc;
-                type_attributes = [];
-              }
-              in
-              Ident.set_current_time ty.level;
-              let (id, env) = Env.enter_type name decl env in
-              Ctype.init_def(Ident.current_time());
-              let ret =
-                newty (Tconstr (Path.Pident id, [], Stype, ref Mnil))
-              in
-              env, ret
+          | Some res -> res
+          | None -> assert false
         in
         let args =
           match args with

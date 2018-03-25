@@ -308,8 +308,7 @@ class printer  ()= object(self:'self)
     in
     match x.peff_res with
     | None ->
-        pp f "%a%s%a@;%a"
-          effect_default x.peff_default x.peff_label
+        pp f "%s%a@;%a" x.peff_label
           (fun f -> function
              | [] -> ()
              | l -> pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l
@@ -804,12 +803,9 @@ class printer  ()= object(self:'self)
     | Pexp_perform (l, el, true, Some e) ->
         pp f "@[<2>perform ?%s(%a)@ as %a@]"
            l (self#list self#simple_expr ~sep:",@;") el self#simple_expr e
-    | Pexp_perform (l, el, false, None) ->
+    | Pexp_perform (l, el, false, _) ->
         pp f "@[<2>throw %s(%a)@]"
            l (self#list self#simple_expr ~sep:",@;") el
-    | Pexp_perform (l, el, false, Some e) ->
-        pp f "@[<2>throw ?%s(%a)@ as %a@]"
-           l (self#list self#simple_expr ~sep:",@;") el self#simple_expr e
     | _ ->  self#paren true self#expression f x
 
   method attributes f l =

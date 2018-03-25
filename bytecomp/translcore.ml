@@ -571,6 +571,58 @@ let rec push_defaults loc bindings cases partial =
   | _ ->
       cases
 
+let effect_handler_args eff arity =
+  if arity = 0 then [lambda_unit]
+  else begin
+    let rec loop n acc =
+      if n = 0 then acc
+      else begin
+        let arg = Lprim(Pfield(n + 2, true, Immutable), [eff]) in
+        loop (n - 1) (arg :: acc)
+      end
+    in
+    loop arity []
+  end
+
+let perform_default_handler handler_id arity =
+  let eff_id = Ident.create "eff" in
+  let kind = Curried in
+  let params = [eff_id] in
+  let args = effect_handler_args (Lvar eff_id) arity in
+  let body =
+    Lapply(Lvar handler_id, args, Location.none)
+  in
+  Lfunction(kind, params, body)
+
+let reperform_default_handler handler_id arity =
+  let eff_id = Ident.create "eff" in
+  let cont_id = Ident.create "k" in
+  let exn_id = Ident.create "exn" in
+  let val_id = Ident.create "v" in
+  let continue =
+    let arg_id = Ident.create "x" in
+    Lfunction(Curried, [arg_id], Lvar arg_id)
+  in
+  let discontinue =
+    let arg_id = Ident.create "x" in
+    Lfunction(Curried, [arg_id], Lprim(Praise Raise_regular, [Lvar arg_id]))
+  in
+  let kind = Curried in
+  let params = [eff_id; cont_id] in
+  let args = effect_handler_args (Lvar eff_id) arity in
+  let static_exception_id = next_negative_raise_count () in
+  let body =
+    Lstaticcatch
+      (Ltrywith
+         (Lstaticraise (static_exception_id,
+            [Lapply(Lvar handler_id, args, Location.none)]),
+         exn_id, Lprim(Presume Location.none,
+                       [Lvar cont_id; discontinue; Lvar exn_id])),
+      (static_exception_id, [val_id]),
+      Lprim(Presume Location.none, [Lvar cont_id; continue; Lvar val_id]))
+  in
+  Lfunction(kind, params, body)
+
 (* Insertion of debugging events *)
 
 let event_before exp lam = match lam with
@@ -857,13 +909,32 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(lbl, args, returns, _) ->
+  | Texp_perform(lbl, args, returns, default) ->
       let tag = Lconst(Const_pointer (Btype.hash_variant lbl)) in
       let constr =
-        match args with
-        | [] -> tag
-        | args ->
-            Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
+        match default with
+        | None -> begin
+            match args with
+            | [] -> tag
+            | args ->
+                Lprim(Pmakeblock(1, Immutable), tag :: transl_list args)
+          end
+        | Some def ->
+            assert returns;
+            let arity = List.length args in
+            let handler_id = Ident.create "handler" in
+            let perform_handler_id = Ident.create "perform_handler" in
+            let reperform_handler_id = Ident.create "reperform_handler" in
+            let fields =
+              tag :: Lvar perform_handler_id
+              :: Lvar reperform_handler_id :: transl_list args
+            in
+            Llet(Strict, handler_id, transl_exp def,
+            Llet(Strict, perform_handler_id,
+                 perform_default_handler handler_id arity,
+            Llet(Strict, reperform_handler_id,
+                 reperform_default_handler handler_id arity,
+                 Lprim(Pmakeblock(2, Immutable), fields))))
       in
       if returns then
         Lprim(Pperform e.exp_loc, [event_after e constr])

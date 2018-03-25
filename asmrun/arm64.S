@@ -187,6 +187,11 @@
 #define Stack_handle_effect(REG)    [REG, 32]
 #define Stack_parent(REG)           [REG, 40]
 
+/* Fields */
+#define First(REG)                  [REG]
+#define Second(REG)                 [REG, 8]
+#define Third(REG)                  [REG, 16]
+
 /******************************************************************************/
 /* Allocation functions and GC interface */
 /******************************************************************************/
@@ -825,9 +830,11 @@ CFI_STARTPROC
         mov     x2, x21           /* x2 = closure environment */
         ADDRGLOBAL(ARG, caml_apply2)
         br      ARG
-1:  /* No parent stack. Raise Unhandled. */
-        ADDRGLOBAL(x0, caml_exn_Unhandled)
-        b       .Lcaml_raise_exn
+1:  /* No parent stack. Use default handler. */
+        mov     x0, x19           /* x0 = first argument */
+        ldr     x1, Second(x19)   /* x1 = closure environment */
+        ldr     ARG, [x1]
+        br      ARG
 CFI_ENDPROC
         .type caml_perform, %function
         .size caml_perform, .-caml_perform
@@ -851,9 +858,12 @@ CFI_STARTPROC
         mov     x2, x21           /* x2 = closure environment */
         ADDRGLOBAL(ARG, caml_apply2)
         br      ARG
-1:  /* No parent stack. Raise Unhandled. */
-        ADDRGLOBAL(x0, caml_exn_Unhandled)
-        b       .Lcaml_raise_exn
+1:  /* No parent stack. Use default handler. */
+        mov     x0, x19           /* x0 = first argument */
+        mov     x1, x20           /* x1 = second argument */
+        ldr     x2, Third(x19)    /* x2 = closure environment */
+        ADDRGLOBAL(ARG, caml_apply2)
+        br      ARG
 CFI_ENDPROC
         .type caml_reperform, %function
         .size caml_reperform, .-caml_reperform

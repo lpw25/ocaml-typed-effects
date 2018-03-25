@@ -1659,11 +1659,12 @@ let matcher_effect_nonconst lab arity p rem = match p.pat_desc with
 | Tpat_any -> Parmatch.omegas arity @ rem
 | _   -> raise NoMatch
 
-let make_effect_matching_nonconst p lab arity def ctx = function
+let make_effect_matching_nonconst p lab has_default arity def ctx = function
     [] -> fatal_error "Matching.make_effect_matching_nonconst"
   | ((arg, mut) :: argl) ->
       let def = make_default (matcher_effect_nonconst lab arity) def in
-      let args = make_field_args Alias arg 1 arity argl in
+      let first, last = if has_default then 3, arity + 2 else 1, arity in
+      let args = make_field_args Alias arg first last argl in
       let ctx = filter_ctx p ctx in
       {pm = { cases = [];
               args = args;
@@ -1673,23 +1674,27 @@ let make_effect_matching_nonconst p lab arity def ctx = function
 
 let get_key_effect p = match p.pat_desc with
 | Tpat_effect(lab, _ :: _ , _, _) ->  Cstr_block (Btype.hash_variant lab)
-| Tpat_effect(lab, [], _, _) -> Cstr_constant (Btype.hash_variant lab)
+| Tpat_effect(lab, [], _, true) -> Cstr_block (Btype.hash_variant lab)
+| Tpat_effect(lab, [], _, false) -> Cstr_constant (Btype.hash_variant lab)
 |  _ -> assert false
 
 let divide_effect ctx {cases = cl; args = al; default=def} =
   let rec divide = function
-    | ({pat_desc = Tpat_effect(lab, pats, _, _)} as p :: patl, action) :: rem ->
+    | ({pat_desc =
+          Tpat_effect(lab, pats, _, has_default)} as p :: patl, action)
+      :: rem ->
         let effects = divide rem in
-        let tag = Btype.hash_variant lab in begin
+        let key = get_key_effect p in begin
           match pats with
           | [] ->
               add p.pat_env (make_effect_matching_constant p lab def ctx)
-                effects equal_constr_key (Cstr_constant tag)
+                effects equal_constr_key key
                 (patl, action) al
           | pats ->
               let arity = List.length pats in
-              add p.pat_env (make_effect_matching_nonconst p lab arity def ctx)
-                effects equal_constr_key (Cstr_block tag)
+              add p.pat_env
+                (make_effect_matching_nonconst p lab has_default arity def ctx)
+                effects equal_constr_key key
                 (pats @ patl, action) al
         end
     | cl -> []
@@ -2704,7 +2709,7 @@ let combine_effect arg partial ctx def (tag_lambda_list, total1, pats) =
           let lam_const =
             call_switcher_variant_constant fail arg consts
           in
-          let  lam_nonconst =
+          let lam_nonconst =
             call_switcher_variant_constr fail arg nonconsts
           in
           test_int_or_block arg lam_const lam_nonconst

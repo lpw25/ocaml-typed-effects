@@ -346,6 +346,11 @@
 #define Stack_handle_effect(REG)    32(REG)
 #define Stack_parent(REG)           40(REG)
 
+/* Fields */
+#define First(REG)                  (REG)
+#define Second(REG)                 8(REG)
+#define Third(REG)                  16(REG)
+
 /******************************************************************************/
 /* text section
 /******************************************************************************/
@@ -1131,9 +1136,10 @@ CFI_STARTPROC
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
 LBL(112):
-    /* No parent stack. Raise Unhandled. */
-        LEA_VAR(caml_exn_Unhandled, %rax)
-        jmp LBL(caml_raise_exn)
+    /* No parent stack. Use default handler. */
+        movq    Second(%rax), %rbx
+        movq    (%rbx), %rsi
+        jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_reperform))
@@ -1155,9 +1161,11 @@ CFI_STARTPROC
         LEA_VAR(caml_apply2, %rsi)
         jmp     *%rsi
 LBL(113):
-    /* No parent stack. Raise Unhandled. */
-        LEA_VAR(caml_exn_Unhandled, %rax)
-        jmp LBL(caml_raise_exn)
+    /* No parent stack. Use default handler. */
+        movq    %r12, %rax
+        movq    Third(%rax), %rdi
+        LEA_VAR(caml_apply2, %rsi)
+        jmp     *%rsi
 CFI_ENDPROC
 
 FUNCTION(G(caml_resume))
@@ -1197,7 +1205,7 @@ G(caml_system__code_end):
         .globl  G(caml_system__frametable)
         .align  EIGHT_ALIGN
 G(caml_system__frametable):
-        .quad   4           /* three descriptors */
+        .quad   4           /* four descriptors */
         .quad   LBL(108)    /* return address into callback */
         .value  -1          /* negative frame size => use callback link */
         .value  0           /* no roots here */
