@@ -57,7 +57,7 @@ and pattern_desc =
   | Tpat_lazy of pattern
   | Tpat_exception of pattern
   | Tpat_effect of
-      label * pattern list * continuation option
+      label * pattern list * continuation option * bool
 
 and continuation = (Ident.t * string loc) option
 
@@ -104,7 +104,7 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
-  | Texp_perform of label * expression list * bool
+  | Texp_perform of label * expression list * bool * expression option
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -486,6 +486,7 @@ and effect_constructor =
      eff_polys: (string * sort) list;
      eff_args: core_type list;
      eff_res: core_type option;
+     eff_default: bool;
      eff_attributes: attribute list;
     }
 
@@ -559,7 +560,7 @@ let iter_pattern_desc f = function
   | Tpat_or(p1, p2, _) -> f p1; f p2
   | Tpat_lazy p -> f p
   | Tpat_exception p -> f p
-  | Tpat_effect(_, patl, cont_pat) -> List.iter f patl
+  | Tpat_effect(_, patl, cont_pat, _) -> List.iter f patl
   | Tpat_any
   | Tpat_var _
   | Tpat_constant _ -> ()
@@ -582,8 +583,8 @@ let map_pattern_desc f d =
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f p1, f p2, path)
   | Tpat_exception p1 -> Tpat_exception (f p1)
-  | Tpat_effect (label, pats, cont) ->
-      Tpat_effect (label, List.map f pats, cont)
+  | Tpat_effect (label, pats, cont, def) ->
+      Tpat_effect (label, List.map f pats, cont, def)
   | Tpat_var _
   | Tpat_constant _
   | Tpat_any

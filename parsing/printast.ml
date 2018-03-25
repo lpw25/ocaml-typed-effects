@@ -292,10 +292,11 @@ and pattern i ppf x =
   | Ppat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p
-  | Ppat_effect(s, p1, p2) ->
+  | Ppat_effect(s, p1, p2, b) ->
       line i ppf "Ppat_effect %s\n" s;
       list i pattern ppf p1;
-      option i pattern ppf p2
+      option i pattern ppf p2;
+      bool i ppf b
   | Ppat_extension (s, arg) ->
       line i ppf "Ppat_extension \"%s\"\n" s.txt;
       payload i ppf arg
@@ -384,9 +385,10 @@ and expression i ppf x =
       expression i ppf e;
       option i core_type ppf cto1;
       core_type i ppf cto2;
-  | Pexp_perform (s, l, b) ->
+  | Pexp_perform (s, l, b, o) ->
       line i ppf "Pexp_perfrom %s %a\n" s fmt_bool b;
       list i expression ppf l;
+      option i expression ppf o;
   | Pexp_private (e) ->
       line i ppf "Pexp_private\n";
       expression i ppf e;

@@ -71,17 +71,6 @@ let extension_constructor sub ext =
       opt (sub # core_type) cto
   | Text_rebind _ -> ()
 
-(* let effect_constructor sub ec =
- *   List.iter (sub # core_type) ec.ec_args;
- *   opt (sub # core_type) ec.ec_res *)
-
-(* let effect_kind sub = function
- *   | Teff_abstract -> ()
- *   | Teff_variant ecs -> List.iter (effect_constructor sub) ecs
- * 
- * let effect_declaration sub eff =
- *   effect_kind sub eff.eff_kind *)
-
 let pattern sub pat =
   let extra = function
     | Tpat_type _
@@ -102,7 +91,7 @@ let pattern sub pat =
   | Tpat_alias (p, _, _)
   | Tpat_lazy p -> sub # pattern p
   | Tpat_exception p -> sub # pattern p
-  | Tpat_effect (_, args, _) -> List.iter (sub # pattern) args
+  | Tpat_effect (_, args, _, _) -> List.iter (sub # pattern) args
 
 let expression sub exp =
   let extra = function
@@ -163,8 +152,9 @@ let expression sub exp =
       sub # expression exp1;
       sub # expression exp2;
       sub # expression exp3
-  | Texp_perform (_, args, _) ->
-      List.iter (sub # expression) args
+  | Texp_perform (_, args, _, def) ->
+      List.iter (sub # expression) args;
+      opt (sub # expression) def
   | Texp_send (exp, _meth, expo) ->
       sub # expression exp;
       opt (sub # expression) expo

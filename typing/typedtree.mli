@@ -55,7 +55,7 @@ and pattern_desc =
   | Tpat_or of pattern * pattern * row_desc option
   | Tpat_lazy of pattern
   | Tpat_exception of pattern
-  | Tpat_effect of label * pattern list * continuation option
+  | Tpat_effect of label * pattern list * continuation option * bool
 
 and continuation = (Ident.t * string loc) option
 
@@ -102,7 +102,7 @@ and expression_desc =
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
-  | Texp_perform of label * expression list * bool
+  | Texp_perform of label * expression list * bool * expression option
   | Texp_send of expression * meth * expression option
   | Texp_new of Path.t * Longident.t loc * Types.class_declaration
   | Texp_instvar of Path.t * Path.t * string loc
@@ -485,6 +485,7 @@ and effect_constructor =
      eff_polys: (string * sort) list;
      eff_args: core_type list;
      eff_res: core_type option;
+     eff_default: bool;
      eff_attributes: attribute list;
     }
 

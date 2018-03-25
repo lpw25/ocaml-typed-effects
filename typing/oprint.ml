@@ -269,33 +269,38 @@ and print_simple_out_type ppf =
           print_out_type ppf row
       end;
       pp_print_string ppf "]"
-  | Otyp_econstr (label, polys, args, res_opt) ->
+  | Otyp_econstr (label, polys, args, res_opt, def) ->
      let print_args ppf args =
        print_typlist print_simple_out_type " * " ppf args
      in
+     let print_default ppf def =
+       if def then fprintf ppf "?"
+       else ()
+     in
      match polys, res_opt, args with
      | _, None, [] ->
-        fprintf ppf "%s" label
+        fprintf ppf "%a%s" print_default def label
      | _, None, args ->
         fprintf ppf
-          "%s of %a"
-          label print_args args
+          "%a%s of %a"
+          print_default def label print_args args
      | [], Some res, [] ->
         fprintf ppf
-          "%s : %a"
-          label print_out_type res
+          "%a%s : %a"
+          print_default def label print_out_type res
      | [], Some res, args ->
         fprintf ppf
-          "%s : %a -> %a"
-          label print_args args print_out_type res
+          "%a%s : %a -> %a"
+          print_default def label print_args args print_out_type res
      | polys, Some res, [] ->
         fprintf ppf
-          "%s : %a.@ %a"
-          label pr_vars polys print_out_type res
+          "%a%s : %a.@ %a"
+          print_default def label pr_vars polys print_out_type res
      | polys, Some res, args ->
         fprintf ppf
-          "%s : %a.@ %a -> %a"
-          label pr_vars polys print_args args print_out_type res
+          "%a%s : %a.@ %a -> %a"
+          print_default def label pr_vars polys
+          print_args args print_out_type res
 
 and print_fields rest ppf =
   function

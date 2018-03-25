@@ -261,7 +261,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tpat_or (p1, p2, _) -> iter_pattern p1; iter_pattern p2
         | Tpat_lazy p -> iter_pattern p
         | Tpat_exception p -> iter_pattern p
-        | Tpat_effect (_, args, _) ->
+        | Tpat_effect (_, args, _, _) ->
            List.iter iter_pattern args;
       end;
       Iter.leave_pattern pat
@@ -346,8 +346,9 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_expression exp1;
             iter_expression exp2;
             iter_expression exp3
-        | Texp_perform (_, args, _) ->
-            List.iter iter_expression args
+        | Texp_perform (_, args, _, def) ->
+            List.iter iter_expression args;
+            option iter_expression def
         | Texp_send (exp, meth, expo) ->
             iter_expression exp;
           begin

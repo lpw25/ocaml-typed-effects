@@ -87,7 +87,7 @@ module Pat:
     val exception_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
     val effect_:
       ?loc:loc -> ?attrs:attrs ->
-      label -> pattern list -> pattern option -> pattern
+      label -> pattern list -> pattern option -> bool -> pattern
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> pattern
   end
 
@@ -135,7 +135,8 @@ module Exp:
     val send: ?loc:loc -> ?attrs:attrs -> expression -> string -> expression
     val new_: ?loc:loc -> ?attrs:attrs -> lid -> expression
     val perform_:
-      ?loc:loc -> ?attrs:attrs -> label -> expression list -> bool -> expression
+      ?loc:loc -> ?attrs:attrs -> label -> expression list -> bool
+      -> expression option -> expression
     val private_: ?loc:loc -> ?attrs:attrs -> expression -> expression
     val setinstvar: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val override: ?loc:loc -> ?attrs:attrs -> (str * expression) list

@@ -47,7 +47,7 @@ val type_self_pattern:
 val check_partial:
         ?lev:int -> env:Env.t -> outer_eff:type_expr -> inner_eff:type_expr ->
         cont_ty:type_expr -> type_expr -> Location.t -> Typedtree.case list ->
-        Typedtree.partial * (label * int * bool) list
+        Typedtree.partial * (label * int * bool * bool) list
 val type_expect:
         ?in_function:(Location.t * type_expr) ->
         Env.t -> type_expr -> Parsetree.expression -> type_expr ->

@@ -302,7 +302,7 @@ let opened_effect ty =
   | Tvar _  | Tunivar _ | Tconstr _ -> true
   | _                               -> false
 
-let simple_effect2 level name arity returns =
+let simple_effect2 level name arity returns def =
   let rec make_args n acc =
     if n = 0 then acc
     else make_args (n-1) ((newvar2 Stype level) :: acc)
@@ -312,18 +312,19 @@ let simple_effect2 level name arity returns =
     if returns then Some (newvar2 Stype level)
     else None
   in
-  { ec_label = name; ec_polys = []; ec_args = args; ec_res = res }
+  { ec_label = name; ec_polys = []; ec_args = args;
+    ec_res = res; ec_default = def }
 
-let simple_effect_type2 level name arity returns =
-  let ec = simple_effect2 level name arity returns in
+let simple_effect_type2 level name arity returns def =
+  let ec = simple_effect2 level name arity returns def in
   let rest = newvar2 Seffect level in
   newty2 level (Teffect(Eordinary ec, rest))
 
-let simple_effect name arity returns =
-  simple_effect2 !current_level name arity returns
+let simple_effect name arity returns def =
+  simple_effect2 !current_level name arity returns def
 
-let simple_effect_type name arity returns =
-  simple_effect_type2 !current_level name arity returns
+let simple_effect_type name arity returns def =
+  simple_effect_type2 !current_level name arity returns def
 
 let flatten_effects ty =
   let rec flatten acc ty =
@@ -3407,13 +3408,13 @@ let filter_self_method env lab priv meths ty =
     pair
 
 (* Unify [ty] and ![ Name : ec; .. >]. Return [ec]. *)
-let rec filter_effect env name arity returns ty =
+let rec filter_effect env name arity returns def ty =
   try
     let ty = expand_head_trace env ty in
     match ty.desc with
     | Tvar(_, Seffect) ->
         let level = ty.level in
-        let ec = simple_effect2 level name arity returns in
+        let ec = simple_effect2 level name arity returns def in
         let rest = newvar2 Seffect level in
         let ty' = newty2 level (Teffect(Eordinary ec, rest)) in
         link_type ty ty';
@@ -3422,19 +3423,20 @@ let rec filter_effect env name arity returns ty =
         if ec.ec_label = name then begin
           let arity' = List.length ec.ec_args in
           let returns' = ec.ec_res <> None in
-          if arity <> arity' || returns <> returns' then
+          let def' = ec.ec_default in
+          if arity <> arity' || returns <> returns' || def <> def' then
             raise (Unify [])
           else
             ec
         end else begin
-          filter_effect env name arity returns rest
+          filter_effect env name arity returns def rest
         end
     | Teffect(Estate _, rest) ->
-        filter_effect env name arity returns rest
+        filter_effect env name arity returns def rest
     | _ ->
         raise (Unify [])
   with Unify trace ->
-    let ty2 = simple_effect_type2 ty.level name arity returns in
+    let ty2 = simple_effect_type2 ty.level name arity returns def in
     raise (Unify ((ty, ty2)::trace))
 
                         (***********************************)

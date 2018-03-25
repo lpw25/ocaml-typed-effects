@@ -162,6 +162,7 @@ and effect_constructor =
     peff_polys: (string * sort) list;
     peff_args: core_type list;
     peff_res: core_type option;
+    peff_default: bool;
     peff_attributes: attributes; }
 
 (* Patterns *)
@@ -224,7 +225,7 @@ and pattern_desc =
          *)
   | Ppat_exception of pattern
         (* exception P *)
-  | Ppat_effect of label * pattern list * pattern option
+  | Ppat_effect of label * pattern list * pattern option * bool
         (* effect E P, P *)
   | Ppat_extension of extension
         (* [%id] *)
@@ -316,7 +317,7 @@ and expression_desc =
         (* (E :> T)        (None, T)
            (E : T0 :> T)   (Some T0, T)
          *)
-  | Pexp_perform of label * expression list * bool
+  | Pexp_perform of label * expression list * bool * expression option
         (* perform E     true
            throw E       false *)
   | Pexp_private of expression

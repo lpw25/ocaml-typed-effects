@@ -198,6 +198,7 @@ and untype_effect_constructor eff =
     peff_polys = eff.eff_polys;
     peff_args = List.map untype_core_type eff.eff_args;
     peff_res = Misc.may_map untype_core_type eff.eff_res;
+    peff_default = eff.eff_default;
     peff_attributes = eff.eff_attributes;
   }
 
@@ -246,7 +247,7 @@ and untype_pattern pat =
     | Tpat_or (p1, p2, _) -> Ppat_or (untype_pattern p1, untype_pattern p2)
     | Tpat_lazy p -> Ppat_lazy (untype_pattern p)
     | Tpat_exception p -> Ppat_exception (untype_pattern p)
-    | Tpat_effect(lid, args, cont) ->
+    | Tpat_effect(lid, args, cont, def) ->
         let args = List.map untype_pattern args in
         let cont =
           match cont with
@@ -254,7 +255,7 @@ and untype_pattern pat =
           | Some None -> Some (Pat.any ())
           | Some (Some(_, s)) -> Some (Pat.var s)
         in
-          Ppat_effect(lid, args, cont)
+          Ppat_effect(lid, args, cont, def)
   in
   Pat.mk ~loc:pat.pat_loc ~attrs:pat.pat_attributes desc
     (* todo: fix attributes on extras *)
@@ -355,8 +356,9 @@ and untype_expression exp =
         Pexp_for (name,
           untype_expression exp1, untype_expression exp2,
           dir, untype_expression exp3)
-    | Texp_perform (lbl, args, b) ->
-        Pexp_perform (lbl, List.map untype_expression args, b)
+    | Texp_perform (lbl, args, b, def) ->
+        Pexp_perform (lbl, List.map untype_expression args, b,
+                      option untype_expression def)
     | Texp_send (exp, meth, _) ->
         Pexp_send (untype_expression exp, match meth with
             Tmeth_name name -> name

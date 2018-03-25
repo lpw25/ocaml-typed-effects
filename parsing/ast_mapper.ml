@@ -139,11 +139,13 @@ module T = struct
             Pefd_constructor (sub.effect_constructor sub eff); }
 
   let map_effect_constructor sub
-      {peff_label; peff_polys; peff_args; peff_res; peff_attributes} =
+      {peff_label; peff_polys; peff_args; peff_res;
+       peff_default; peff_attributes} =
     { peff_label;
       peff_polys;
       peff_args = List.map (sub.typ sub) peff_args;
       peff_res = map_opt (sub.typ sub) peff_res;
+      peff_default;
       peff_attributes = sub.attributes sub peff_attributes }
 
   let map_type_declaration sub
@@ -387,8 +389,9 @@ module E = struct
           (sub.typ sub t2)
     | Pexp_constraint (e, t) ->
         constraint_ ~loc ~attrs (sub.expr sub e) (sub.typ sub t)
-    | Pexp_perform (s, arg, b) ->
+    | Pexp_perform (s, arg, b, def) ->
         perform_ ~loc ~attrs s (List.map (sub.expr sub) arg) b
+                 (map_opt (sub.expr sub) def)
     | Pexp_private e ->
         private_ ~loc ~attrs (sub.expr sub e)
     | Pexp_send (e, s) -> send ~loc ~attrs (sub.expr sub e) s
@@ -441,9 +444,9 @@ module P = struct
     | Ppat_lazy p -> lazy_ ~loc ~attrs (sub.pat sub p)
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
     | Ppat_exception p -> exception_ ~loc ~attrs (sub.pat sub p)
-    | Ppat_effect(s, p1, p2) ->
+    | Ppat_effect(s, p1, p2, b) ->
         effect_ ~loc ~attrs s
-          (List.map (sub.pat sub) p1) (map_opt (sub.pat sub) p2)
+          (List.map (sub.pat sub) p1) (map_opt (sub.pat sub) p2) b
     | Ppat_extension x -> extension ~loc ~attrs (sub.extension sub x)
 end
 

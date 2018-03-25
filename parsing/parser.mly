@@ -54,15 +54,16 @@ let mkeinherit ?(attrs=[]) lid args =
     pefd_desc =
       Pefd_inherit(lid, args); }
 
-let mkeconstructor ?(attrs=[]) label polys args res =
+let mkeconstructor ?(attrs=[]) label polys args res def =
   let loc = symbol_rloc () in
   { pefd_loc = loc;
     pefd_desc =
       Pefd_constructor
         { peff_label = label;
           peff_polys = polys;
-          peff_args  = args;
-          peff_res   = res;
+          peff_args = args;
+          peff_res = res;
+          peff_default = def;
           peff_attributes = attrs; }; }
 
 let reloc_pat x = { x with ppat_loc = symbol_rloc () };;
@@ -1351,9 +1352,13 @@ expr:
     seq_expr DONE
       { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
   | PERFORM ext_attributes ident LPAREN effect_arg_list RPAREN
-      { mkexp_attrs (Pexp_perform($3, $5, true)) $2 }
+      { mkexp_attrs (Pexp_perform($3, $5, true, None)) $2 }
+  | PERFORM ext_attributes QUESTION ident LPAREN effect_arg_list RPAREN AS expr
+      { mkexp_attrs (Pexp_perform($4, $6, true, Some $9)) $2 }
   | THROW ext_attributes ident LPAREN effect_arg_list RPAREN
-      { mkexp_attrs (Pexp_perform($3, $5, false)) $2 }
+      { mkexp_attrs (Pexp_perform($3, $5, false, None)) $2 }
+  | THROW ext_attributes QUESTION ident LPAREN effect_arg_list RPAREN AS expr
+      { mkexp_attrs (Pexp_perform($4, $6, false, Some $9)) $2 }
   | PRIVATE ext_attributes DO seq_expr DONE
       { mkexp_attrs (Pexp_private($4)) $2 }
   | expr COLONCOLON expr
@@ -1766,9 +1771,13 @@ computation_pattern:
   | EXCEPTION pattern %prec prec_constr_appl
       { mkpat(Ppat_exception $2) }
   | EFFECT UIDENT LPAREN effect_param_list RPAREN
-      { mkpat(Ppat_effect($2, $4, None)) }
+      { mkpat(Ppat_effect($2, $4, None, false)) }
   | EFFECT UIDENT LPAREN effect_param_list RPAREN COMMA pattern
-      { mkpat(Ppat_effect($2, $4, Some $7)) }
+      { mkpat(Ppat_effect($2, $4, Some $7, false)) }
+  | EFFECT QUESTION UIDENT LPAREN effect_param_list RPAREN
+      { mkpat(Ppat_effect($3, $5, None, true)) }
+  | EFFECT QUESTION UIDENT LPAREN effect_param_list RPAREN COMMA pattern
+      { mkpat(Ppat_effect($3, $5, Some $8, true)) }
 ;
 pattern:
     simple_pattern
@@ -2291,15 +2300,28 @@ effect_field:
 
 effect_constructor:
   | UIDENT attributes
-      { mkeconstructor $1 [] [] None ~attrs:$2 }
+      { mkeconstructor $1 [] [] None false ~attrs:$2 }
   | UIDENT OF core_type_list attributes
-      { mkeconstructor $1 [] $3 None ~attrs:$4 }
+      { mkeconstructor $1 [] $3 None false ~attrs:$4 }
   | UIDENT COLON core_type_list MINUSGREATER simple_core_type attributes
-      { mkeconstructor $1 [] $3 (Some $5) ~attrs:$6 }
+      { mkeconstructor $1 [] $3 (Some $5) false ~attrs:$6 }
   | UIDENT COLON typevar_list DOT core_type_list MINUSGREATER simple_core_type attributes
-      { mkeconstructor $1 $3 $5 (Some $7) ~attrs:$8 }
+      { mkeconstructor $1 $3 $5 (Some $7) false ~attrs:$8 }
   | UIDENT COLON simple_core_type attributes
-      { mkeconstructor $1 [] [] (Some $3) ~attrs:$4 }
+      { mkeconstructor $1 [] [] (Some $3) false ~attrs:$4 }
+  | QUESTION UIDENT attributes
+      { mkeconstructor $2 [] [] None true ~attrs:$3 }
+  | QUESTION UIDENT OF core_type_list attributes
+      { mkeconstructor $2 [] $4 None true ~attrs:$5 }
+  | QUESTION UIDENT COLON core_type_list MINUSGREATER
+    simple_core_type attributes
+      { mkeconstructor $2 [] $4 (Some $6) true ~attrs:$7 }
+  | QUESTION UIDENT COLON typevar_list DOT core_type_list MINUSGREATER
+    simple_core_type attributes
+      { mkeconstructor $2 $4 $6 (Some $8) true ~attrs:$9 }
+  | QUESTION UIDENT COLON simple_core_type attributes
+      { mkeconstructor $2 [] [] (Some $4) true ~attrs:$5 }
+
 ;
 
 effect_row:

@@ -89,8 +89,8 @@ val filter_row_fields:
 val flatten_effects:
         type_expr -> effect_constructor list * type_expr
 
-val simple_effect : string -> int -> bool -> effect_constructor_ordinary
-val simple_effect_type: string -> int -> bool -> type_expr
+val simple_effect : string -> int -> bool -> bool -> effect_constructor_ordinary
+val simple_effect_type: string -> int -> bool -> bool -> type_expr
 
 val effect_state : type_expr -> type_expr -> type_expr
 val effect_io : type_expr -> type_expr
@@ -221,7 +221,8 @@ val filter_method: Env.t -> string -> private_flag -> type_expr -> type_expr
 val check_filter_method: Env.t -> string -> private_flag -> type_expr -> unit
         (* A special case of unification (with {m : 'a; 'b}), returning unit. *)
 val filter_effect:
-  Env.t -> string -> int -> bool -> type_expr -> effect_constructor_ordinary
+  Env.t -> string -> int -> bool -> bool -> type_expr
+  -> effect_constructor_ordinary
 
 val occur_in: Env.t -> type_expr -> type_expr -> bool
 val deep_occur: type_expr -> type_expr -> bool

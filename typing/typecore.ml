@@ -146,7 +146,6 @@ let iter_expression f e =
     | Pexp_let (_, pel, e) ->  expr e; List.iter binding pel
     | Pexp_match (e, pel)
     | Pexp_try (e, pel) -> expr e; List.iter case pel
-    | Pexp_perform (_, el, _)
     | Pexp_array el
     | Pexp_tuple el -> List.iter expr el
     | Pexp_construct (_, eo)
@@ -167,6 +166,7 @@ let iter_expression f e =
     | Pexp_while (e1, e2)
     | Pexp_sequence (e1, e2)
     | Pexp_setfield (e1, _, e2) -> expr e1; expr e2
+    | Pexp_perform (_, el, _, eo) -> List.iter expr el; may expr eo
     | Pexp_ifthenelse (e1, e2, eo) -> expr e1; expr e2; may expr eo
     | Pexp_for (_, e1, e2, _, e3) -> expr e1; expr e2; expr e3
     | Pexp_override sel -> List.iter (fun (_, e) -> expr e) sel
@@ -1334,7 +1334,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
         pat_outer_eff = outer_eff;
         pat_attributes = sp.ppat_attributes;
         pat_env = !env }
-  | Ppat_effect(label, sargs, scont) ->
+  | Ppat_effect(label, sargs, scont, sdef) ->
      (* Check whether effect/exception cases are allowed at this level *)
      if not allow_exn then
        raise (Error (loc, !env, Effect_pattern_below_toplevel));
@@ -1342,7 +1342,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
      let returns = scont <> None in
      let ec =
        try
-         filter_effect !env label arity returns inner_eff
+         filter_effect !env label arity returns sdef inner_eff
        with
        | Unify trace ->
            raise(Error(loc, !env, Pattern_inner_effect_clash(trace)))
@@ -1372,7 +1372,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~env
        | None, Some _ | Some _, None -> assert false
      in
      rp {
-         pat_desc = Tpat_effect(label, targs, cont);
+         pat_desc = Tpat_effect(label, targs, cont, sdef);
          pat_loc = loc; pat_extra=[];
          pat_type = expected_ty;
          pat_inner_eff = inner_eff;
@@ -1888,7 +1888,7 @@ let iter_ppat f p =
   | Ppat_type _ | Ppat_unpack _ -> ()
   | Ppat_array pats -> List.iter f pats
   | Ppat_or (p1,p2) -> f p1; f p2
-  | Ppat_effect(_, p1, p2) -> List.iter f p1; may f p2
+  | Ppat_effect(_, p1, p2, _) -> List.iter f p1; may f p2
   | Ppat_variant (_, arg) | Ppat_construct (_, arg) -> may f arg
   | Ppat_tuple lst ->  List.iter f lst
   | Ppat_exception p | Ppat_alias (p,_)
@@ -2236,8 +2236,8 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       in
       let inner_eff =
         List.fold_right
-          (fun (label, arity, returns) ty ->
-            let ec = filter_effect env label arity returns eff in
+          (fun (label, arity, returns, default) ty ->
+            let ec = filter_effect env label arity returns default eff in
             newty (Teffect(Eordinary ec, ty)))
           handled expected_eff
       in
@@ -2260,8 +2260,8 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       let outer_eff = newvar Seffect in
       let inner_eff =
         List.fold_right
-          (fun (lbl, arity, ret) ty ->
-            let ec = simple_effect lbl arity ret in
+          (fun (lbl, arity, ret, def) ty ->
+            let ec = simple_effect lbl arity ret def in
             newty (Teffect(Eordinary ec, ty)))
           handled outer_eff
       in
@@ -2794,9 +2794,9 @@ and type_expect_ ?in_function env expected_eff sexp ty_expected =
       with Unify _ ->
         raise(Error(e.pexp_loc, env, Undefined_method (obj.exp_type, met)))
       end
-  | Pexp_perform(lid, sarg, returns) ->
+  | Pexp_perform(lid, sarg, returns, default) ->
       type_perform env loc expected_eff lid sarg
-        returns sexp.pexp_attributes ty_expected
+        returns default sexp.pexp_attributes ty_expected
   | Pexp_private(sbody) ->
       let name = get_new_private_region_name () in
       let ty = newvar Sregion in
@@ -3878,11 +3878,12 @@ and type_construct env loc lid sarg ty_expected expected_eff attrs =
   { texp with
     exp_desc = Texp_construct(lid, constr, args) }
 
-and type_perform env loc expected_eff label sargs returns attrs ty_expected =
+and type_perform env loc expected_eff label sargs returns default attrs ty_expected =
   let arity = List.length sargs in
+  let has_default = default = None in
   let ec =
     try
-      filter_effect env label arity returns expected_eff
+      filter_effect env label arity returns has_default expected_eff
     with
     | Unify trace ->
         raise(Error(loc, env, Expr_effect_clash(trace)))
@@ -3900,7 +3901,7 @@ and type_perform env loc expected_eff label sargs returns attrs ty_expected =
       sargs args
   in
   re {
-    exp_desc = Texp_perform(label, targs, returns);
+    exp_desc = Texp_perform(label, targs, returns, None);
     exp_loc = loc;
     exp_extra = [];
     exp_type = instance env ty_expected;
