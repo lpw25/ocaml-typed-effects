@@ -2556,6 +2556,7 @@ and mcomp_effects type_pairs env ty1 ty2 =
          enter_effect_constructor
            env univar_pairs ec1 ec2
            (fun ec1 ec2 ->
+             if ec1.ec_default <> ec2.ec_default then raise (Unify []);
              mcomp_list type_pairs env ec1.ec_args ec2.ec_args;
              mcomp_type_option type_pairs env ec1.ec_res ec2.ec_res)
      | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
@@ -3075,6 +3076,7 @@ and unify_kind k1 k2 =
   | _                             -> assert false
 
 and unify_effect_constructors_ordinary env ec1 ec2 =
+  if ec1.ec_default <> ec2.ec_default then raise (Unify []);
   unify_list env ec1.ec_args ec2.ec_args;
   match ec1.ec_res, ec2.ec_res with
   | None, None -> ()
@@ -3436,8 +3438,9 @@ let rec filter_effect env name arity returns def ty =
     | _ ->
         raise (Unify [])
   with Unify trace ->
-    let ty2 = simple_effect_type2 ty.level name arity returns def in
-    raise (Unify ((ty, ty2)::trace))
+    let ty1 = simple_effect_type2 ty.level name arity returns def in
+    let trace = (ty1, ty)::trace in
+    raise (Unify (expand_trace env trace))
 
                         (***********************************)
                         (*  Matching between type schemes  *)
@@ -3654,6 +3657,7 @@ and moregen_effects inst_nongen type_pairs env ty1 ty2 =
          enter_effect_constructor
            env univar_pairs ec1 ec2
            (fun ec1 ec2 ->
+             if ec1.ec_default <> ec2.ec_default then raise (Unify []);
              moregen_list inst_nongen type_pairs env ec1.ec_args ec2.ec_args;
              moregen_option inst_nongen type_pairs env ec1.ec_res ec2.ec_res)
      | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
@@ -3940,6 +3944,7 @@ and eqtype_effects rename type_pairs subst env ty1 ty2 =
          enter_effect_constructor
            env univar_pairs ec1 ec2
            (fun ec1 ec2 ->
+             if ec1.ec_default <> ec2.ec_default then raise (Unify []);
              eqtype_list rename type_pairs subst env ec1.ec_args ec2.ec_args;
              eqtype_option rename type_pairs subst env ec1.ec_res ec2.ec_res)
      | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
@@ -5001,6 +5006,8 @@ and subtype_effects env trace ty1 ty2 cstrs =
             enter_effect_constructor
               env univar_pairs ec1 ec2
               (fun ec1 ec2 ->
+                if ec1.ec_default <> ec2.ec_default then
+                  subtype_error env trace;
                 let cstrs =
                   subtype_list env trace ec1.ec_args ec2.ec_args cstrs
                 in
@@ -5195,8 +5202,9 @@ let rec check_default_handlers env loc str level ty =
   | Teffect(ec, ty) ->
       let () =
         match ec with
-        | Eordinary { ec_label } ->
-            raise (No_default_handler(env, ec_label, loc, str))
+        | Eordinary { ec_label; ec_default } ->
+            if not ec_default then
+              raise (No_default_handler(env, ec_label, loc, str))
         | Estate { ec_region } ->
             check_global env loc str level ec_region
       in
