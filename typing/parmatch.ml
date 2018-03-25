@@ -1936,7 +1936,7 @@ let do_check_partial ?pred eff exhaust loc casel pss = match pss with
         | None -> Location.prerr_warning loc Warnings.All_clauses_guarded
         | Some eff ->
             Location.prerr_warning loc
-              (Warnings.All_effect_clauses_guarded ("<parmatch.ml:1925>")) (* TODO: FIXME *)
+              (Warnings.All_effect_clauses_guarded eff)
     end;
     Partial
 | ps::_  ->
@@ -1985,7 +1985,7 @@ let do_check_partial ?pred eff exhaust loc casel pss = match pss with
                 Location.prerr_warning loc (Warnings.Partial_match errmsg)
             | Some eff ->
                 Location.prerr_warning loc
-                  (Warnings.Partial_effect_match("<parmatch.ml:1979>", errmsg)) (* TODO fixme *)
+                  (Warnings.Partial_effect_match(eff, errmsg))
             end;
             Partial
         end

@@ -1048,7 +1048,7 @@ and transl_effect_type env policy seft =
     eft_tilde = seft.peft_tilde;
     eft_type = ty;
     eft_row = teft_row;
-    eft_loc = Location.none (* TODO: FIXME *) }
+    eft_loc = seft.peft_loc; }
 
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =

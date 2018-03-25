@@ -370,17 +370,23 @@ let diff_effects _env effs1 effs2  =
     | p :: rest ->
        if List.exists (equal_effect_constr p) effs then begin
            let (q, effs) = pop_one p effs in
-           remove_common effs diff ((p, q) :: pairs) rest
+           remove_common effs diff ((q, p) :: pairs) rest
          end else begin
            remove_common effs (p :: diff) pairs rest
          end
   in
   remove_common effs1 [] [] effs2
 
+let build_effect level eff rest =
+  newty2 level (Teffect(eff, rest))
+
 let build_effects level effs rest =
   List.fold_right
-    (fun p ty -> newty2 level (Teffect(p, ty)))
+    (fun eff rest -> build_effect level eff rest)
     effs rest
+
+let build_closed_effect level eff =
+  build_effect level eff (newty2 level Tenil)
 
                   (**********************************************)
                   (*  Miscellaneous operations on object types  *)
@@ -701,6 +707,7 @@ let rec close_pure_evars sch visited evars pure ty =
     | Tvar(_, Seffect) ->
         if not sch || ty.level <> generic_level then begin
           if pure && List.memq ty evars then begin
+            (* TODO: Remove this hack (or at least give a warning) *)
             link_type ty (newty2 ty.level Tenil)
           end
         end
@@ -725,8 +732,8 @@ let close_type env ty =
     close_pure_evars false (ref []) (List.map fst evars) false ty;
   List.iter
     (fun (v, _) ->
-      (* TODO unify free vars in the region with global *)
       if is_evar v then begin
+          (* TODO: Remove this hack (or at least give a warning) *)
           let eff = Predef.type_io v.level in
           link_type v eff
       end)
@@ -2536,10 +2543,22 @@ and mcomp_effects type_pairs env ty1 ty2 =
   if not (concrete_effect ty1 && concrete_effect ty2) then assert false;
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
-  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO fixme *)
+  let (miss1, miss2, pairs) = diff_effects env effs1 effs2 in
   mcomp type_pairs env rest1 rest2;
   if miss1 <> []  && (effect_row ty2).desc = Tenil
-  || miss2 <> []  && (effect_row ty1).desc = Tenil then raise (Unify [])
+  || miss2 <> []  && (effect_row ty1).desc = Tenil then raise (Unify []);
+  List.iter
+    (function
+     | Estate ec1, Estate ec2 ->
+         mcomp type_pairs env ec1.ec_region ec2.ec_region
+     | Eordinary ec1, Eordinary ec2 ->
+         enter_effect_constructor
+           env univar_pairs ec1 ec2
+           (fun ec1 ec2 ->
+             mcomp_list type_pairs env ec1.ec_args ec2.ec_args;
+             mcomp_type_option type_pairs env ec1.ec_res ec2.ec_res)
+     | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
+    pairs
 
 and mcomp_type_decl type_pairs env p1 p2 tl1 tl2 =
   try
@@ -3513,7 +3532,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
                 (moregen inst_nongen type_pairs env)
           | (Tunivar _, Tunivar _) ->
               unify_univar t1' t2' !univar_pairs
-          | (Teffect _, Teffect _) ->           (* Actually unused *)
+          | (Teffect _, Teffect _) ->
               moregen_effects inst_nongen type_pairs env t1' t2'
           | (Tenil, Tenil) ->
               ()
@@ -3527,6 +3546,12 @@ and moregen_list inst_nongen type_pairs env tl1 tl2 =
   if List.length tl1 <> List.length tl2 then
     raise (Unify []);
   List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
+
+and moregen_option inst_nongen type_pairs env to1 to2 =
+  match to1, to2 with
+  | None, None -> ()
+  | Some t1, Some t2 -> moregen inst_nongen type_pairs env t1 t2
+  | None, Some _ | Some _, None -> raise (Unify [])
 
 and moregen_fields inst_nongen type_pairs env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1
@@ -3615,10 +3640,22 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
 and moregen_effects inst_nongen type_pairs env ty1 ty2 =
   let (effs1, rest1) = flatten_effects ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2,_) = diff_effects env effs1 effs2 in (* TODO FIXME *)
+  let (miss1, miss2, pairs) = diff_effects env effs1 effs2 in
   if miss1 <> [] then raise (Unify []);
   moregen inst_nongen type_pairs env rest1
-    (build_effects (repr ty2).level miss2 rest2)
+    (build_effects (repr ty2).level miss2 rest2);
+  List.iter
+    (function
+     | Estate ec1, Estate ec2 ->
+         moregen inst_nongen type_pairs env ec1.ec_region ec2.ec_region
+     | Eordinary ec1, Eordinary ec2 ->
+         enter_effect_constructor
+           env univar_pairs ec1 ec2
+           (fun ec1 ec2 ->
+             moregen_list inst_nongen type_pairs env ec1.ec_args ec2.ec_args;
+             moregen_option inst_nongen type_pairs env ec1.ec_res ec2.ec_res)
+     | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
+    pairs
 
 (* Must empty univar_pairs first *)
 let moregen inst_nongen type_pairs env patt subj =
@@ -3814,6 +3851,12 @@ and eqtype_list rename type_pairs subst env tl1 tl2 =
     raise (Unify []);
   List.iter2 (eqtype rename type_pairs subst env) tl1 tl2
 
+and eqtype_option rename type_pairs subst env to1 to2 =
+  match to1, to2 with
+  | None, None -> ()
+  | Some t1, Some t2 -> eqtype rename type_pairs subst env t1 t2
+  | None, Some _ | Some _, None -> raise (Unify [])
+
 and eqtype_fields rename type_pairs subst env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1 in
   let (fields2, rest2) = flatten_fields ty2 in
@@ -3884,9 +3927,21 @@ and eqtype_row rename type_pairs subst env row1 row2 =
 and eqtype_effects rename type_pairs subst env ty1 ty2 =
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO FIXME *)
+  let (miss1, miss2, pairs) = diff_effects env effs1 effs2 in
   eqtype rename type_pairs subst env rest1 rest2;
-  if (miss1 <> []) || (miss2 <> []) then raise (Unify [])
+  if (miss1 <> []) || (miss2 <> []) then raise (Unify []);
+  List.iter
+    (function
+     | Estate ec1, Estate ec2 ->
+         eqtype rename type_pairs subst env ec1.ec_region ec2.ec_region
+     | Eordinary ec1, Eordinary ec2 ->
+         enter_effect_constructor
+           env univar_pairs ec1 ec2
+           (fun ec1 ec2 ->
+             eqtype_list rename type_pairs subst env ec1.ec_args ec2.ec_args;
+             eqtype_option rename type_pairs subst env ec1.ec_res ec2.ec_res)
+     | Estate _, Eordinary _ | Eordinary _, Estate _ -> raise (Unify []))
+    pairs
 
 (* Two modes: with or without renaming of variables *)
 let equal env rename tyl1 tyl2 =
@@ -4843,6 +4898,12 @@ and subtype_list env trace tl1 tl2 cstrs =
     (fun cstrs t1 t2 -> subtype_rec env ((t1, t2)::trace) t1 t2 cstrs)
     cstrs tl1 tl2
 
+and subtype_option env trace to1 to2 cstrs =
+  match to1, to2 with
+  | None, None -> cstrs
+  | Some t1, Some t2 -> subtype_rec env ((t1, t2)::trace) t1 t2 cstrs
+  | None, Some _ | Some _, None -> subtype_error env trace
+
 and subtype_fields env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
   let (fields1, rest1) = flatten_fields ty1 in
@@ -4913,26 +4974,43 @@ and subtype_effects env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
   let (effs1, rest1) = flatten_expanded_effects env ty1 in
   let (effs2, rest2) = flatten_expanded_effects env ty2 in
-  let (miss1, miss2, _) = diff_effects env effs1 effs2 in (* TODO FIXME *)
+  let (miss1, miss2, pairs) = diff_effects env effs1 effs2 in
   let cstrs =
-    match rest1.desc, rest2.desc with
-    | Tenil, _ -> cstrs
-    | Tconstr _, Tconstr _ ->
-        (* TODO Is this really ok? *)
-        (trace, rest1, rest2, !univar_pairs) :: cstrs
-    | _, _ ->
-      if miss2 = [] then
-        subtype_rec env ((rest1, rest2)::trace) rest1 rest2 cstrs
-      else
-        (trace, rest1, build_effects (repr ty2).level miss2 rest2,
-         !univar_pairs) :: cstrs
+    if is_Tenil rest1 then cstrs else
+    if miss2 = [] then
+      subtype_rec env ((rest1, rest2)::trace) rest1 rest2 cstrs
+    else
+      (trace, rest1, build_effects (repr ty2).level miss2 rest2,
+       !univar_pairs) :: cstrs
   in
   let cstrs =
     if miss1 = [] then cstrs else
     (trace, build_effects (repr ty1).level miss1 (newvar Seffect), rest2,
      !univar_pairs) :: cstrs
   in
-    cstrs
+  List.fold_left
+    (fun cstrs -> function
+      | Estate ec1, Estate ec2 ->
+          let t1 = ec1.ec_region in
+          let t2 = ec2.ec_region in
+          subtype_rec env ((t1, t2)::trace) t1 t2 cstrs
+      | Eordinary ec1, Eordinary ec2 -> begin
+          try
+            enter_effect_constructor
+              env univar_pairs ec1 ec2
+              (fun ec1 ec2 ->
+                let cstrs =
+                  subtype_list env trace ec1.ec_args ec2.ec_args cstrs
+                in
+                subtype_option env trace ec1.ec_res ec2.ec_res cstrs)
+          with Unify _ ->
+            let t1 = build_closed_effect ty1.level (Eordinary ec1) in
+            let t2 = build_closed_effect ty2.level (Eordinary ec2) in
+            (trace, t1, t2, !univar_pairs)::cstrs
+        end
+      | Estate _, Eordinary _ | Eordinary _, Estate _ ->
+          subtype_error env trace)
+    cstrs pairs
 
 let subtype env ty1 ty2 =
   TypePairs.clear subtypes;
