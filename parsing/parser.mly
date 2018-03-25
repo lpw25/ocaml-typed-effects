@@ -1354,8 +1354,8 @@ expr:
       { mkexp_attrs (Pexp_perform($3, $5, true)) $2 }
   | THROW ext_attributes ident LPAREN effect_arg_list RPAREN
       { mkexp_attrs (Pexp_perform($3, $5, false)) $2 }
-  | PRIVATE DO ext_attributes expr DONE
-      { mkexp_attrs (Pexp_private($4)) $3 }
+  | PRIVATE ext_attributes DO seq_expr DONE
+      { mkexp_attrs (Pexp_private($4)) $2 }
   | expr COLONCOLON expr
       { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
