@@ -128,6 +128,14 @@ let snd3 (_,x,_) = x
 let case lhs rhs =
   {c_lhs = lhs; c_guard = None; c_rhs = rhs}
 
+let check_expectation expected_eff =
+  match Ctype.check_expectation expected_eff with
+  | () -> ()
+  | exception Ctype.No_default_handler(env, lbl, loc, str) ->
+      raise (Error(loc, env, Toplevel_no_default_handler(lbl, str)))
+  | exception Ctype.Unknown_effects(env, ty, loc, str) ->
+      raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
+
 (* Upper approximation of free identifiers on the parse tree *)
 
 let iter_expression f e =
@@ -1973,6 +1981,13 @@ let make_exception_default caselist =
                   Ppat_exception pat }})
     caselist
 
+let default_handler_result_counter = ref 0
+
+let get_new_default_handler_result_name () =
+  let index = !default_handler_result_counter in
+  incr default_handler_result_counter;
+  Printf.sprintf "result#%d" index
+
 (* Typing of expressions *)
 
 let unify_exp env exp expected_ty =
@@ -3788,9 +3803,10 @@ and type_construct env loc lid sarg ty_expected expected_eff attrs =
   { texp with
     exp_desc = Texp_construct(lid, constr, args) }
 
-and type_perform env loc expected_eff label sargs returns default attrs ty_expected =
+and type_perform env loc expected_eff label sargs
+                   returns default attrs ty_expected =
   let arity = List.length sargs in
-  let has_default = default = None in
+  let has_default = default <> None in
   let ec =
     try
       filter_effect env label arity returns has_default expected_eff
@@ -3810,8 +3826,61 @@ and type_perform env loc expected_eff label sargs returns default attrs ty_expec
       (fun sarg arg-> type_expect env expected_eff sarg arg)
       sargs args
   in
+  let default =
+    Misc.may_map
+      (fun sdef ->
+        begin_def ();
+        let expectation = new_toplevel_expectation () in
+        let env, ret =
+          match res with
+          | Some res -> env, res
+          | None ->
+              let name = get_new_default_handler_result_name () in
+              let ty = newvar Stype in
+              let level = get_current_level () in
+              let decl = {
+                type_params = [];
+                type_arity = 0;
+                type_sort = Stype;
+                type_kind = Type_abstract;
+                type_private = Public;
+                type_manifest = None;
+                type_variance = [];
+                type_newtype_level = Some (level, level);
+                type_loc = loc;
+                type_attributes = [];
+              }
+              in
+              Ident.set_current_time ty.level;
+              let (id, env) = Env.enter_type name decl env in
+              Ctype.init_def(Ident.current_time());
+              let ret =
+                newty (Tconstr (Path.Pident id, [], Stype, ref Mnil))
+              in
+              env, ret
+        in
+        let args =
+          match args with
+          | [] -> [instance_def Predef.type_unit]
+          | args -> args
+        in
+        let expected_ty =
+          List.fold_right
+            (fun arg acc ->
+              let expected_eff =
+                expectation_effect "default handler" env loc expectation
+              in
+              newty (Tarrow ("", arg, expected_eff, acc, Cok)))
+            args ret
+        in
+        let def = type_expect env expected_eff sdef expected_ty in
+        end_def ();
+        check_expectation expectation;
+        def)
+      default
+  in
   re {
-    exp_desc = Texp_perform(label, targs, returns, None);
+    exp_desc = Texp_perform(label, targs, returns, default);
     exp_loc = loc;
     exp_extra = [];
     exp_type = instance env ty_expected;
@@ -4256,14 +4325,6 @@ let type_expression env expected_eff sexp =
       let (path, desc) = Env.lookup_value lid.txt env in
       {exp with exp_type = desc.val_type}
   | _ -> exp
-
-let check_expectation expected_eff =
-  match Ctype.check_expectation expected_eff with
-  | () -> ()
-  | exception Ctype.No_default_handler(env, lbl, loc, str) ->
-      raise (Error(loc, env, Toplevel_no_default_handler(lbl, str)))
-  | exception Ctype.Unknown_effects(env, ty, loc, str) ->
-      raise (Error(loc, env, Toplevel_unknown_effects(ty, str)))
 
 (* Error report *)
 
