@@ -376,9 +376,6 @@ let rec rename_bound_idents s idents = function
   | Sig_type(id, d, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_type id (Pident id') s) (id' :: idents) sg
-  (* | Sig_effect(id, e) :: sg ->
-   *     let id' = Ident.rename id in
-   *     rename_bound_idents (add_effect id (Pident id') s) (id' :: idents) sg *)
   | Sig_module(id, mty, _) :: sg ->
       let id' = Ident.rename id in
       rename_bound_idents (add_module id (Pident id') s) (id' :: idents) sg
@@ -424,8 +421,6 @@ and signature_component s comp newid =
       Sig_value(newid, value_description s d)
   | Sig_type(id, d, rs) ->
       Sig_type(newid, type_declaration s d, rs)
-  (* | Sig_effect(id, e) ->
-   *     Sig_effect(newid, effect_declaration s e) *)
   | Sig_typext(id, ext, es) ->
       Sig_typext(newid, extension_constructor s ext, es)
   | Sig_module(id, d, rs) ->

@@ -1193,11 +1193,6 @@ let rec prefix_idents root pos sub = function
       let (pl, final_sub) =
         prefix_idents root pos (Subst.add_type id p sub) rem in
       (p::pl, final_sub)
-  (* | Sig_effect(id, eff) :: rem ->
-   *     let p = Pdot(root, Ident.name id, pos) in
-   *     let (pl, final_sub) =
-   *       prefix_idents root (pos+1) (Subst.add_effect id p sub) rem in
-   *     (p::pl, final_sub) *)
   | Sig_typext(id, ext, _) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) = prefix_idents root (pos+1) sub rem in
@@ -1230,8 +1225,6 @@ let subst_signature sub sg =
           Sig_value (id, Subst.value_description sub decl)
       | Sig_type(id, decl, x) ->
           Sig_type(id, Subst.type_declaration sub decl, x)
-      (* | Sig_effect(id, eff) ->
-       *     Sig_effect(id, Subst.effect_declaration sub eff) *)
       | Sig_typext(id, ext, es) ->
           Sig_typext (id, Subst.extension_constructor sub ext, es)
       | Sig_module(id, mty, x) ->
@@ -1321,22 +1314,6 @@ and components_of_module_maker (env, sub, path, mty) =
                   add_to_tbl descr.lbl_name (descr, nopos) c.comp_labels)
               labels;
             env := store_type_infos None id (Pident id) decl !env !env
-        (* | Sig_effect(id, eff) ->
-         *     let eff' = Subst.effect_declaration sub eff in
-         *     let constructors =
-         *       List.map snd (constructors_of_effect path eff')
-         *     in
-         *     c.comp_effects <-
-         *       Tbl.add (Ident.name id)
-         *         ((eff', constructors), !pos)
-         *           c.comp_effects;
-         *     List.iter
-         *       (fun descr ->
-         *         c.comp_effect_constrs <-
-         *           Tbl.add descr.ecstr_name (descr, nopos)
-         *                   c.comp_effect_constrs)
-         *       constructors;
-         *     incr pos *)
         | Sig_typext(id, ext, _) ->
             let ext' = Subst.extension_constructor sub ext in
             let descr = Datarepr.extension_descr path ext' in
@@ -1650,7 +1627,6 @@ let add_item comp env =
   match comp with
     Sig_value(id, decl)     -> add_value id decl env
   | Sig_type(id, decl, _)   -> add_type ~check:false id decl env
-  (* | Sig_effect(id, eff)   -> add_effect id eff env *)
   | Sig_typext(id, ext, _)  -> add_extension ~check:false id ext env
   | Sig_module(id, md, _)  -> add_module_declaration id md env
   | Sig_modtype(id, decl)   -> add_modtype id decl env
@@ -1679,8 +1655,6 @@ let open_signature slot root sg env0 =
             store_value slot (Ident.hide id) p decl env env0
         | Sig_type(id, decl, _) ->
             store_type ~check:false slot (Ident.hide id) p decl env env0
-        (* | Sig_effect(id, eff) ->
-         *     store_effect slot (Ident.hide id) p eff env env0 *)
         | Sig_typext(id, ext, _) ->
             store_extension ~check:false slot (Ident.hide id) p ext env env0
         | Sig_module(id, mty, _) ->

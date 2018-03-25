@@ -53,8 +53,6 @@ module Signature_search =
           Hashtbl.add table (X (Name.from_ident ident)) signat
       | Types.Sig_type (ident, _, _) ->
           Hashtbl.add table (T (Name.from_ident ident)) signat
-      (* | Types.Sig_effect (ident, _) ->
-       *     Hashtbl.add table (E (Name.from_ident ident)) signat *)
       | Types.Sig_class (ident, _, _) ->
           Hashtbl.add table (C (Name.from_ident ident)) signat
       | Types.Sig_class_type (ident, _, _) ->
@@ -327,7 +325,6 @@ module Analyser =
         | Parsetree.Psig_extension _
         | Parsetree.Psig_value _
         | Parsetree.Psig_typext _
-        (* | Parsetree.Psig_effect _ *)
         | Parsetree.Psig_exception _
         | Parsetree.Psig_open _
         | Parsetree.Psig_include _
@@ -725,8 +722,6 @@ module Analyser =
             e.ex_info <- merge_infos e.ex_info info_after_opt ;
             let new_env = Odoc_env.add_extension env e.ex_name in
             (maybe_more, new_env, [ Element_exception e ])
-
-        (* | Parsetree.Psig_effect ext -> failwith "Not implemented" (\* FIXME *\) *)
 
         | Parsetree.Psig_type name_type_decl_list ->
             let extended_env =

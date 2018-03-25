@@ -1422,8 +1422,6 @@ and tree_of_signature_rec env' type_group_sort = function
             [Osig_type(decl, rs)]
         | Sig_typext(id, ext, es) ->
             [tree_of_extension_constructor id ext es]
-        (* | Sig_effect(id, eff) ->
-         *     [tree_of_effect_declaration id eff] *)
         | Sig_module(id, md, rs) ->
             [Osig_module (Ident.name id, tree_of_modtype md.md_type,
                           tree_of_rec rs)]

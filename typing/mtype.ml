@@ -65,13 +65,6 @@ and strengthen_sig env sg p pos =
       Sig_type(id, newdecl, rs) :: strengthen_sig env rem p pos
   | (Sig_typext(id, ext, es) as sigelt) :: rem ->
       sigelt :: strengthen_sig env rem p (pos+1)
-  (* | Sig_effect(id, eff) :: rem ->
-   *     let neweff =
-   *       match eff.eff_manifest with
-   *       | Some _ -> eff
-   *       | None -> { eff with eff_manifest = Some(Pdot(p, Ident.name id, pos)) }
-   *     in
-   *     Sig_effect(id, neweff) :: strengthen_sig env rem p (pos+1) *)
   | Sig_module(id, md, rs) :: rem ->
       let str = strengthen_decl env md (Pdot(p, Ident.name id, pos)) in
       Sig_module(id, str, rs)
@@ -141,9 +134,6 @@ let nondep_supertype env mid mty =
       | Sig_typext(id, ext, es) ->
           Sig_typext(id, Ctype.nondep_extension_constructor env mid ext, es)
           :: rem'
-      (* | Sig_effect(id, e) ->
-       *     Sig_effect(id, Ctype.nondep_effect_decl env mid (va = Co) e)
-       *     :: rem' *)
       | Sig_module(id, md, rs) ->
           Sig_module(id, {md with md_type=nondep_mty env va md.md_type}, rs)
           :: rem'
@@ -223,7 +213,7 @@ and type_paths_sig env p pos sg =
       type_paths_sig (Env.add_module_declaration id md env) p (pos+1) rem
   | Sig_modtype(id, decl) :: rem ->
       type_paths_sig (Env.add_modtype id decl env) p pos rem
-  | (Sig_typext _ | Sig_class _ (* | Sig_effect _ *)) :: rem ->
+  | (Sig_typext _ | Sig_class _) :: rem ->
       type_paths_sig env p (pos+1) rem
   | (Sig_class_type _) :: rem ->
       type_paths_sig env p pos rem
@@ -248,7 +238,7 @@ and no_code_needed_sig env sg =
       no_code_needed_sig (Env.add_module_declaration id md env) rem
   | (Sig_type _ | Sig_modtype _ | Sig_class_type _) :: rem ->
       no_code_needed_sig env rem
-  | (Sig_typext _ | Sig_class _ (* | Sig_effect _ *)) :: rem ->
+  | (Sig_typext _ | Sig_class _) :: rem ->
       false
 
 
@@ -273,14 +263,12 @@ and contains_type_sig env = List.iter (contains_type_item env)
 and contains_type_item env = function
     Sig_type (_,({type_manifest = None} |
                  {type_kind = Type_abstract; type_private = Private}),_)
-  (* | Sig_effect(_,{eff_manifest = None}) *)
   | Sig_modtype _ ->
       raise Exit
   | Sig_module (_, {md_type = mty}, _) ->
       contains_type env mty
   | Sig_value _
   | Sig_type _
-  (* | Sig_effect _ *)
   | Sig_typext _
   | Sig_class _
   | Sig_class_type _ ->

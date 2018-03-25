@@ -287,7 +287,6 @@ and signature_item_desc =
   | Tsig_type of type_declaration list
   | Tsig_typext of type_extension
   | Tsig_exception of extension_constructor
-  (* | Tsig_effect of effect_declaration *)
   | Tsig_module of module_declaration
   | Tsig_recmodule of module_declaration list
   | Tsig_modtype of module_type_declaration
