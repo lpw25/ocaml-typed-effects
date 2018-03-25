@@ -274,10 +274,11 @@ and pattern i ppf x =
   | Tpat_exception p ->
       line i ppf "Ppat_exception\n";
       pattern i ppf p;
-  | Tpat_effect (lbl, po, pk) ->
+  | Tpat_effect (lbl, po, pk, pd) ->
       line i ppf "Ppat_effect %s\n" lbl;
       list i pattern ppf po;
-      option i continuation ppf pk
+      option i continuation ppf pk;
+      bool i ppf pd
 
 and continuation i ppf x =
   option i (fun i ppf x -> line i ppf "%s" ((fst x).Ident.name)) ppf x
@@ -378,9 +379,10 @@ and expression i ppf x =
       expression i ppf e1;
       expression i ppf e2;
       expression i ppf e3;
-  | Texp_perform (lbl, eo, b) ->
+  | Texp_perform (lbl, el, b, eo) ->
       line i ppf "Pexp_perform %s %s\n" lbl (string_of_bool b);
-      list i expression ppf eo;
+      list i expression ppf el;
+      option i expression ppf eo
   | Texp_send (e, Tmeth_name s, eo) ->
       line i ppf "Pexp_send \"%s\"\n" s;
       expression i ppf e;

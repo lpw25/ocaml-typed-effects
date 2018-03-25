@@ -57,7 +57,8 @@ val check_partial_gadt:
     ((string, constructor_description) Hashtbl.t ->
      (string, label_description) Hashtbl.t ->
      Parsetree.pattern -> pattern option) ->
-    Env.t -> Location.t -> case list -> partial * (label * int * bool) list
+    Env.t -> Location.t -> case list ->
+    partial * (label * int * bool * bool) list
 val check_unused: Env.t -> case list -> unit
 
 (* Irrefutability tests *)

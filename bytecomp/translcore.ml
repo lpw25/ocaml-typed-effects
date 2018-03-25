@@ -634,7 +634,7 @@ let split_cases cases =
     | [] -> List.rev vals, List.rev exns, List.rev effs, List.rev conts
     | { c_lhs = { pat_desc = Tpat_exception _ } } as case :: rest ->
         loop vals (case :: exns) effs conts rest
-    | { c_lhs = { pat_desc = Tpat_effect(_, _, None) } } as case :: rest ->
+    | { c_lhs = { pat_desc = Tpat_effect(_, _, None, _) } } as case :: rest ->
         loop vals exns (case :: effs) conts rest
     | { c_lhs = { pat_desc = Tpat_effect _ } } as case :: rest ->
         loop vals exns effs (case :: conts) rest
@@ -857,7 +857,7 @@ and transl_exp0 e =
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp low, transl_exp high, dir,
            event_before body (transl_exp body))
-  | Texp_perform(lbl, args, returns) ->
+  | Texp_perform(lbl, args, returns, _) ->
       let tag = Lconst(Const_pointer (Btype.hash_variant lbl)) in
       let constr =
         match args with

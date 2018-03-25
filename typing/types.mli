@@ -49,7 +49,8 @@ and effect_constructor_ordinary =
   { ec_label: label;
     ec_polys: type_expr list;
     ec_args: type_expr list;
-    ec_res: type_expr option; }
+    ec_res: type_expr option;
+    ec_default: bool; }
 
 and row_desc =
     { row_fields: (label * row_field) list;

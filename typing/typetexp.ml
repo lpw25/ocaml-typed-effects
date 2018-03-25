@@ -924,6 +924,7 @@ and transl_effect_row_with_tail env policy row tail =
         eff_polys = eff.peff_polys;
         eff_args = targs;
         eff_res  = tres;
+        eff_default = eff.peff_default;
         eff_attributes = eff.peff_attributes; }
     in
     let ec =
@@ -931,7 +932,8 @@ and transl_effect_row_with_tail env policy row tail =
         { ec_label = lbl;
           ec_polys = polys;
           ec_args = args;
-          ec_res  = res; }
+          ec_res  = res;
+          ec_default = eff.peff_default; }
     in
     teff, ec
   in

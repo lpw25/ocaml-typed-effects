@@ -106,7 +106,7 @@ let rec compat p q =
       compats ps qs
   | Tpat_exception p1, Tpat_exception p2 ->
       compat p1 p2
-  | Tpat_effect(_, ps1, _), Tpat_effect(_, ps2, _) ->
+  | Tpat_effect(_, ps1, _, _), Tpat_effect(_, ps2, _, _) ->
       compats ps1 ps2
   | _,_  ->
       assert false
@@ -204,12 +204,15 @@ let rec pretty_val ppf v =
       fprintf ppf "@[(%a|@,%a)@]" pretty_or v pretty_or w
   | Tpat_exception v ->
       fprintf ppf "@[<2>exception@ %a@]" pretty_arg v
-  | Tpat_effect (lbl, [], k) ->
-      fprintf ppf "@[<2>effect@ %s%a@]" lbl pretty_cont k
-  | Tpat_effect (lbl, [v], k) ->
-      fprintf ppf "@[<2>effect@ @[<2>%s@ %a@]%a@]" lbl pretty_arg v pretty_cont k
-  | Tpat_effect(lbl, vs, k) ->
-        fprintf ppf "@[<2>effect@ @[<2>%s@ @[(%a)@]@]%a@]" lbl (pretty_vals ",") vs pretty_cont k
+  | Tpat_effect (lbl, [], k, def) ->
+      fprintf ppf "@[<2>effect@ %s%s%a@]"
+        (if def then "?" else "") lbl pretty_cont k
+  | Tpat_effect (lbl, [v], k, def) ->
+      fprintf ppf "@[<2>effect@ @[<2>%s%s@ %a@]%a@]"
+        (if def then "?" else "") lbl pretty_arg v pretty_cont k
+  | Tpat_effect(lbl, vs, k, def) ->
+        fprintf ppf "@[<2>effect@ @[<2>%s%s@ @[(%a)@]@]%a@]"
+          (if def then "?" else "") lbl (pretty_vals ",") vs pretty_cont k
 
 and pretty_car ppf v = match v.pat_desc with
 | Tpat_construct (_,cstr, [_ ; _])
@@ -348,7 +351,7 @@ let rec simple_match_args p1 p2 = match p2.pat_desc with
 | Tpat_array(args) -> args
 | Tpat_lazy arg -> [arg]
 | Tpat_exception arg -> [arg]
-| Tpat_effect(_, args, _) -> args
+| Tpat_effect(_, args, _, _) -> args
 | (Tpat_any | Tpat_var(_)) ->
     begin match p1.pat_desc with
       Tpat_construct(_, _,args) -> omega_list args
@@ -358,7 +361,7 @@ let rec simple_match_args p1 p2 = match p2.pat_desc with
     | Tpat_array(args) ->  omega_list args
     | Tpat_lazy _ -> [omega]
     | Tpat_exception _ -> [omega]
-    | Tpat_effect(_, args, _) -> omega_list args
+    | Tpat_effect(_, args, _, _) -> omega_list args
     | _ -> []
     end
 | _ -> []
@@ -397,9 +400,9 @@ let rec normalize_pat q = match q.pat_desc with
   | Tpat_exception _ ->
       make_pat (Tpat_exception omega)
         q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
-  | Tpat_effect(lbl, args, cont) ->
+  | Tpat_effect(lbl, args, cont, def) ->
       make_pat
-        (Tpat_effect(lbl, omega_list args, cont))
+        (Tpat_effect(lbl, omega_list args, cont, def))
         q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env
   | Tpat_or _ -> fatal_error "Parmatch.normalize_pat"
 
@@ -510,10 +513,10 @@ let do_set_args erase_mutable q r = match q with
           q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
     | _ -> fatal_error "Parmatch.do_set_args (exception)"
     end
-| {pat_desc = Tpat_effect(lbl, omegas, k)} ->
+| {pat_desc = Tpat_effect(lbl, omegas, k, def)} ->
     let args,rest = read_args omegas r in
     make_pat
-      (Tpat_effect (lbl, args, k))
+      (Tpat_effect (lbl, args, k, def))
       q.pat_type q.pat_inner_eff q.pat_outer_eff q.pat_env :: rest
 | {pat_desc=Tpat_constant _|Tpat_any} ->
     q::r (* case any is used in matching.ml *)
@@ -718,7 +721,7 @@ let full_match ignore_generalized closing env =  match env with
 | ({pat_desc = Tpat_array(_)},_) :: _ -> false
 | ({pat_desc = Tpat_lazy(_)},_) :: _ -> true
 | ({pat_desc = Tpat_exception(_)},_) :: _ -> true
-| ({pat_desc = Tpat_effect(_,_,_)},_) :: _ -> true
+| ({pat_desc = Tpat_effect(_,_,_,_)},_) :: _ -> true
 | _ -> fatal_error "Parmatch.full_match"
 
 let full_match_gadt env = match env with
@@ -1030,7 +1033,7 @@ let rec has_instance p = match p.pat_desc with
   | Tpat_alias (p,_,_) | Tpat_variant (_,Some p,_) -> has_instance p
   | Tpat_or (p1,p2,_) -> has_instance p1 || has_instance p2
   | Tpat_construct (_,_,ps) | Tpat_tuple ps
-  | Tpat_array ps | Tpat_effect (_,ps,_) ->
+  | Tpat_array ps | Tpat_effect (_,ps,_,_) ->
       has_instances ps
   | Tpat_record (lps,_) -> has_instances (List.map (fun (_,_,x) -> x) lps)
   | Tpat_lazy p
@@ -1585,7 +1588,7 @@ let rec le_pat p q =
   | Tpat_array(ps), Tpat_array(qs) ->
       List.length ps = List.length qs && le_pats ps qs
   | Tpat_exception p, Tpat_exception q -> le_pat p q
-  | Tpat_effect(_,ps,_), Tpat_effect(_,qs,_) ->
+  | Tpat_effect(_,ps,_,_), Tpat_effect(_,qs,_,_) ->
       le_pats ps qs
 (* In all other cases, enumeration is performed *)
   | _,_  -> not (satisfiable [[p]] [q])
@@ -1650,9 +1653,9 @@ let rec lub p q = match p.pat_desc,q.pat_desc with
     let r = lub p q in
     make_pat (Tpat_exception r)
       p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
-| Tpat_effect (lbl, ps1, k), Tpat_effect (_, ps2, _) ->
+| Tpat_effect (lbl, ps1, k, def), Tpat_effect (_, ps2, _, _) ->
         let rs = lubs ps1 ps2 in
-        make_pat (Tpat_effect (lbl, rs, k))
+        make_pat (Tpat_effect (lbl, rs, k, def))
           p.pat_type p.pat_inner_eff p.pat_outer_eff p.pat_env
 | _,_  ->
     raise Empty
@@ -1891,7 +1894,7 @@ module Conv = struct
       | Tpat_exception p ->
           let results = loop p in
           List.map (fun p -> mkpat (Ppat_exception p)) results
-      | Tpat_effect (lbl, lst, cont) ->
+      | Tpat_effect (lbl, lst, cont, def) ->
           let cont =
             match cont with
             | None -> None
@@ -1900,17 +1903,11 @@ module Conv = struct
           let results = select (List.map loop lst) in
           begin match lst with
             [] ->
-              [mkpat (Ppat_effect(lbl, [], cont))]
+              [mkpat (Ppat_effect(lbl, [], cont, def))]
           | _ ->
               List.map
                 (fun lst ->
-                  (* let arg =
-                   *   match lst with
-                   *     [] -> assert false
-                   *   | [x] -> Some x
-                   *   | _ -> Some (mkpat (Ppat_tuple lst))
-                   * in *)
-                  mkpat (Ppat_effect(lbl, lst, cont)))
+                  mkpat (Ppat_effect(lbl, lst, cont, def)))
                 results
           end
     in
@@ -2030,7 +2027,7 @@ let rec collect_paths_from_pat r p = match p.pat_desc with
 | Tpat_any|Tpat_var _|Tpat_constant _| Tpat_variant (_,None,_) -> r
 | Tpat_tuple ps | Tpat_array ps
 | Tpat_construct (_, {cstr_tag=Cstr_extension _}, ps)
-| Tpat_effect(_, ps, _) ->
+| Tpat_effect(_, ps, _, _) ->
     List.fold_left collect_paths_from_pat r ps
 | Tpat_record (lps,_) ->
     List.fold_left
@@ -2087,12 +2084,12 @@ let do_check_fragile_gadt = do_check_fragile_param exhaust_gadt
 (* Split computation cases *)
 (***************************)
 
-let add_effect_case (label : Asttypes.label) arity ret case effect_alist =
+let add_effect_case (label : Asttypes.label) arity ret def case effect_alist =
   let rec loop label case = function
-    | [] -> [(label, arity, ret, [case])]
-    | (label', arity, ret, cases) as item :: rest ->
+    | [] -> [(label, arity, ret, def, [case])]
+    | (label', arity, ret, def, cases) as item :: rest ->
        if label = label' then
-         (label, arity, ret, case :: cases) :: rest
+         (label, arity, ret, def, case :: cases) :: rest
        else
          item :: loop label case rest
   in
@@ -2100,7 +2097,8 @@ let add_effect_case (label : Asttypes.label) arity ret case effect_alist =
 
 let rev_effect_cases effect_alist =
   List.map
-    (fun (label, arity, ret, cases) -> (label, arity, ret, List.rev cases))
+    (fun (label, arity, ret, def, cases) ->
+      (label, arity, ret, def, List.rev cases))
     effect_alist
 
 let split_cases (_env : Env.t) cases =
@@ -2109,14 +2107,14 @@ let split_cases (_env : Env.t) cases =
     | {c_lhs = {pat_desc=Tpat_exception _}} as case :: rest ->
         let exn_acc = case :: exn_acc in
         loop val_acc exn_acc eff_acc rest
-    | {c_lhs = {pat_desc=Tpat_effect(lbl, args, cont)}} as case :: rest ->
+    | {c_lhs = {pat_desc=Tpat_effect(lbl, args, cont, def)}} as case :: rest ->
        let arity = List.length args in
        let ret =
          match cont with
          | None -> false
          | Some _ -> true
        in
-       let eff_acc = add_effect_case lbl arity ret case eff_acc in
+       let eff_acc = add_effect_case lbl arity ret def case eff_acc in
        loop val_acc exn_acc eff_acc rest
     | case :: rest ->
         let val_acc = case :: val_acc in
@@ -2160,7 +2158,7 @@ let check_unused env casel =
     in
     let do_effect_alist = function
       | [] -> ()
-      | (_, _, _, cases) :: rest ->
+      | (_, _, _, _, cases) :: rest ->
          do_rec [] cases
     in
     let vals, exns, effs = split_cases env casel in
@@ -2184,7 +2182,7 @@ let rec inactive pat = match pat with
 | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_variant (_, None, _) ->
     true
 | Tpat_tuple ps | Tpat_construct (_, _, ps)
-| Tpat_array ps | Tpat_effect (_, ps, _) ->
+| Tpat_array ps | Tpat_effect (_, ps, _, _) ->
     List.for_all (fun p -> inactive p.pat_desc) ps
 | Tpat_alias (p,_,_) | Tpat_variant (_, Some p, _) | Tpat_exception p ->
     inactive p.pat_desc
@@ -2253,10 +2251,10 @@ let check_partial env loc casel =
   let partial = check_partial_cases None loc vals in
   let handled =
     List.fold_left
-      (fun acc (eff, arity, ret, cases) ->
+      (fun acc (eff, arity, ret, def, cases) ->
         match check_partial_cases (Some eff) loc cases with
         | Partial -> acc
-        | Total -> (eff, arity, ret) :: acc)
+        | Total -> (eff, arity, ret, def) :: acc)
       [] effs
   in
   partial, handled
@@ -2266,10 +2264,10 @@ let check_partial_gadt pred env loc casel =
   let partial = check_partial_gadt_cases pred None loc vals in
   let handled =
     List.fold_left
-      (fun acc (eff, arity, ret, cases) ->
+      (fun acc (eff, arity, ret, def, cases) ->
         match check_partial_cases (Some eff) loc cases with
         | Partial -> acc
-        | Total -> (eff, arity, ret) :: acc)
+        | Total -> (eff, arity, ret, def) :: acc)
       [] effs
   in
   partial, handled

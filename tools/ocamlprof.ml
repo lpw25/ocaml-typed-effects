@@ -266,9 +266,12 @@ and rw_exp iflag sexp =
   | Pexp_constraint(sarg, _) | Pexp_coerce(sarg, _, _) ->
     rewrite_exp iflag sarg
 
-  | Pexp_perform(_, [], _) -> ()
-  | Pexp_perform(_, sarg, _) ->
+  | Pexp_perform(_, [], _, None) -> ()
+  | Pexp_perform(_, sarg, _, None) ->
     List.iter (rewrite_exp iflag) sarg
+  | Pexp_perform(_, sarg, _, Some def) ->
+    List.iter (rewrite_exp iflag) sarg;
+    rewrite_exp iflag def
 
   | Pexp_send (sobj, _) ->
     rewrite_exp iflag sobj

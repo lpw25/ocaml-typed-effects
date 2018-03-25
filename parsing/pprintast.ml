@@ -295,16 +295,22 @@ class printer  ()= object(self:'self)
         self#effect_constructor f eff
 
   method effect_constructor f x =
+    let effect_default f x =
+      if x then pp f "?"
+      else ()
+    in
     match x.peff_res with
     | None ->
-        pp f "%s%a@;%a" x.peff_label
+        pp f "%a%s%a@;%a"
+          effect_default x.peff_default x.peff_label
           (fun f -> function
              | [] -> ()
              | l -> pp f "@;of@;%a" (self#list self#core_type1 ~sep:"*@;") l
           ) x.peff_args
           self#attributes x.peff_attributes
     | Some r ->
-        pp f "%s:@;%a%a@;%a" x.peff_label
+        pp f "%a%s:@;%a%a@;%a"
+          effect_default x.peff_default x.peff_label
           (fun f l ->
             pp f "%a"
               (fun f l -> match l with
@@ -493,8 +499,9 @@ class printer  ()= object(self:'self)
         pp f "@[<2>(lazy@;%a)@]" self#pattern1 p
     | Ppat_exception p ->
         pp f "@[<2>exception@;%a@]" self#pattern1 p
-    | Ppat_effect(s, p1, p2) ->
-        pp f "@[<2>effect@;%s@;(%a)@;%a@]" s
+    | Ppat_effect(s, p1, p2, def) ->
+        pp f "@[<2>effect@;%s%s@;(%a)@;%a@]"
+           (if def then "?" else "") s
            (self#list self#pattern1) p1
            (self#option ~first:", " self#pattern1) p2
     | Ppat_extension e -> self#extension f e
@@ -784,12 +791,18 @@ class printer  ()= object(self:'self)
         let fmt:(_,_,_)format =
           "@[<hv0>@[<hv2>@[<2>for %a =@;%a@;%a%a@;do@]@;%a@]@;done@]" in
         pp f fmt self#pattern s self#expression e1 self#direction_flag df self#expression e2  self#expression e3
-    | Pexp_perform (l, el, true) ->
+    | Pexp_perform (l, el, true, None) ->
         pp f "@[<2>perform %s(%a)@]"
            l (self#list self#simple_expr ~sep:",@;") el
-    | Pexp_perform (l, el, false) ->
+    | Pexp_perform (l, el, true, Some e) ->
+        pp f "@[<2>perform ?%s(%a)@ as %a@]"
+           l (self#list self#simple_expr ~sep:",@;") el self#simple_expr e
+    | Pexp_perform (l, el, false, None) ->
         pp f "@[<2>throw %s(%a)@]"
            l (self#list self#simple_expr ~sep:",@;") el
+    | Pexp_perform (l, el, false, Some e) ->
+        pp f "@[<2>throw ?%s(%a)@ as %a@]"
+           l (self#list self#simple_expr ~sep:",@;") el self#simple_expr e
     | _ ->  self#paren true self#expression f x
 
   method attributes f l =

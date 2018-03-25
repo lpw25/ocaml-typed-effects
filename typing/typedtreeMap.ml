@@ -247,8 +247,8 @@ module MakeMap(Map : MapArgument) = struct
           Tpat_or (map_pattern p1, map_pattern p2, rowo)
         | Tpat_lazy p -> Tpat_lazy (map_pattern p)
         | Tpat_exception p -> Tpat_exception (map_pattern p)
-        | Tpat_effect (lbl, args, cont) ->
-          Tpat_effect (lbl, List.map map_pattern args, cont)
+        | Tpat_effect (lbl, args, cont, def) ->
+          Tpat_effect (lbl, List.map map_pattern args, cont, def)
         | Tpat_constant _
         | Tpat_any
         | Tpat_var _ -> pat.pat_desc
@@ -352,8 +352,10 @@ module MakeMap(Map : MapArgument) = struct
             dir,
             map_expression exp3
           )
-        | Texp_perform (lbl, args, b) ->
-          Texp_perform (lbl, List.map map_expression args, b)
+        | Texp_perform (lbl, args, b, def) ->
+          Texp_perform (
+              lbl, List.map map_expression args, b, may_map map_expression def
+            )
         | Texp_send (exp, meth, expo) ->
           Texp_send (map_expression exp, meth, may_map map_expression expo)
         | Texp_new (path, lid, cl_decl) -> exp.exp_desc

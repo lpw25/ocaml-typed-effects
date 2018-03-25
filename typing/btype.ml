@@ -447,11 +447,11 @@ let rec copy_type_desc ?(keep_names=false) f = function
   | Teffect (p, ty)    ->
      let ec =
        match p with
-       | Eordinary { ec_polys; ec_label; ec_args; ec_res } ->
+       | Eordinary { ec_polys; ec_label; ec_args; ec_res; ec_default } ->
            let ec_polys = List.map (fun x -> norm_univar (f x)) ec_polys in
            let ec_args = List.map f ec_args in
            let ec_res = Misc.may_map f ec_res in
-           Eordinary { ec_label; ec_polys; ec_args; ec_res }
+           Eordinary { ec_label; ec_polys; ec_args; ec_res; ec_default }
      in
      Teffect (ec, f ty)
   | Tenil               -> Tenil

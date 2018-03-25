@@ -228,9 +228,9 @@ let ctx_matcher p =
       (fun q rem -> match q.pat_desc with
       | Tpat_exception arg -> p, (arg::rem)
       | _          -> p, (omega::rem))
-  | Tpat_effect (lbl, omegas, _) ->
+  | Tpat_effect (lbl, omegas, _, _) ->
       (fun q rem -> match q.pat_desc with
-      | Tpat_effect (lbl', args, _) when lbl = lbl' ->
+      | Tpat_effect (lbl', args, _, _) when lbl = lbl' ->
           p, args @ rem
       | Tpat_any -> p, omegas @ rem
       | _ -> raise NoMatch)
@@ -648,7 +648,7 @@ let simplify_cases cont args cls = match args with
               | _ ->
                   simplify ((pat_simple::patl,action) :: rem)
               end
-          | Tpat_effect(_, _, Some (Some(id,_))) -> begin
+          | Tpat_effect(_, _, Some (Some(id,_)), _) -> begin
               match cont with
               | Some lam ->
                   (pat :: patl, bind StrictOpt id lam action) :: simplify rem
@@ -725,7 +725,7 @@ let rec extract_vars r p = match p.pat_desc with
 | Tpat_variant (_,Some p, _) -> extract_vars r p
 | Tpat_lazy p -> extract_vars r p
 | Tpat_exception p -> extract_vars r p
-| Tpat_effect (_, pats, _) ->
+| Tpat_effect (_, pats, _, _) ->
     List.fold_left extract_vars r pats
 | Tpat_or (p,_,_) -> extract_vars r p
 | Tpat_constant _|Tpat_any|Tpat_variant (_,None,_) -> r
@@ -1640,7 +1640,7 @@ let rec matcher_effect_const lab p rem = match p.pat_desc with
       with
       | NoMatch -> matcher_effect_const lab p2 rem
     end
-| Tpat_effect (lab1, _, _) when lab1=lab -> rem
+| Tpat_effect (lab1, _, _, _) when lab1=lab -> rem
 | Tpat_any -> rem
 | _   -> raise NoMatch
 
@@ -1655,7 +1655,7 @@ let make_effect_matching_constant p lab def ctx = function
 
 let matcher_effect_nonconst lab arity p rem = match p.pat_desc with
 | Tpat_or (_,_,_) -> raise OrPat
-| Tpat_effect (lab1, args, _) when lab1=lab -> args @ rem
+| Tpat_effect (lab1, args, _, _) when lab1=lab -> args @ rem
 | Tpat_any -> Parmatch.omegas arity @ rem
 | _   -> raise NoMatch
 
@@ -1672,13 +1672,13 @@ let make_effect_matching_nonconst p lab arity def ctx = function
        pat = normalize_pat p}
 
 let get_key_effect p = match p.pat_desc with
-| Tpat_effect(lab, _ :: _ , _) ->  Cstr_block (Btype.hash_variant lab)
-| Tpat_effect(lab, [], _) -> Cstr_constant (Btype.hash_variant lab)
+| Tpat_effect(lab, _ :: _ , _, _) ->  Cstr_block (Btype.hash_variant lab)
+| Tpat_effect(lab, [], _, _) -> Cstr_constant (Btype.hash_variant lab)
 |  _ -> assert false
 
 let divide_effect ctx {cases = cl; args = al; default=def} =
   let rec divide = function
-    | ({pat_desc = Tpat_effect(lab, pats, _)} as p :: patl, action) :: rem ->
+    | ({pat_desc = Tpat_effect(lab, pats, _, _)} as p :: patl, action) :: rem ->
         let effects = divide rem in
         let tag = Btype.hash_variant lab in begin
           match pats with
@@ -2999,7 +2999,7 @@ and do_compile_matching cont repr partial ctx arg pmh = match pmh with
       compile_no_test cont
         (divide_exception (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_effect (_, _, _) ->
+  | Tpat_effect (_, _, _, _) ->
       compile_test
         (compile_match cont repr partial) partial
         divide_effect (combine_effect arg partial)
@@ -3055,7 +3055,7 @@ let find_in_pat pred =
     | Tpat_lazy p | Tpat_exception p ->
         find_rec p
     | Tpat_tuple ps |Tpat_construct (_,_,ps)
-    | Tpat_array ps | Tpat_effect(_,ps,_) ->
+    | Tpat_array ps | Tpat_effect(_,ps,_,_) ->
         List.exists find_rec ps
     | Tpat_record (lpats,_) ->
         List.exists

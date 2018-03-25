@@ -773,12 +773,12 @@ let rec tree_of_typexp sch ty =
   else pr_typ ()
 
 and tree_of_effect_constructor sch = function
-  | Eordinary { ec_label; ec_polys; ec_args; ec_res } -> begin
+  | Eordinary { ec_label; ec_polys; ec_args; ec_res; ec_default } -> begin
       match ec_polys with
       | [] ->
           let res = Misc.may_map (tree_of_typexp sch) ec_res in
           let args = tree_of_typlist sch ec_args in
-          Otyp_econstr(ec_label, [], args, res)
+          Otyp_econstr(ec_label, [], args, res, ec_default)
       | polys ->
           let tyl = List.map repr polys in
           let old_delayed = !delayed in
@@ -788,7 +788,7 @@ and tree_of_effect_constructor sch = function
           let args = tree_of_typlist sch ec_args in
           remove_names tyl;
           delayed := old_delayed;
-          Otyp_econstr(ec_label, tl, args, res)
+          Otyp_econstr(ec_label, tl, args, res, ec_default)
     end
 
 and tree_of_row_field sch (l, f) =
