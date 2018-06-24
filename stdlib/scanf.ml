@@ -1006,9 +1006,9 @@ let stopper_of_formatting_lit fmting =
    taking readers as arguments and aggregate them into an heterogeneous list *)
 (* When all readers are taken, finally pass the list of the readers to the
    continuation k. *)
-let rec take_format_readers : type a c d e f effect p.
-    ((d, e, p) heter_list -[.. as p]-> e) ->
-    (a, Scanning.in_channel, c, d, e, f, p) fmt -[.. as p]->
+let rec take_format_readers : type a c d e f. effect p.
+    ((d, e, p) heter_list -[p]-> e) ->
+    (a, Scanning.in_channel, c, d, e, f, p) fmt -[p]->
     d =
 fun k fmt -> match fmt with
   | Reader fmt_rest ->
@@ -1048,10 +1048,10 @@ fun k fmt -> match fmt with
   | End_of_format                    -> k Nil
 
 (* Take readers associated to an fmtty coming from a Format_subst "%(...%)". *)
-and take_fmtty_format_readers : type x y a c d e f effect p.
-    ((d, e, p) heter_list -[.. as p]-> e) ->
+and take_fmtty_format_readers : type x y a c d e f. effect p.
+    ((d, e, p) heter_list -[p]-> e) ->
       (a, Scanning.in_channel, c, d, x, y, p) fmtty ->
-      (y, Scanning.in_channel, c, x, e, f, p) fmt -[.. as p]-> d =
+      (y, Scanning.in_channel, c, x, e, f, p) fmt -[p]-> d =
 fun k fmtty fmt -> match fmtty with
   | Reader_ty fmt_rest ->
     fun reader ->
@@ -1079,10 +1079,10 @@ fun k fmtty fmt -> match fmtty with
     take_fmtty_format_readers k (concat_fmtty ty rest) fmt
 
 (* Take readers associated to an ignored parameter. *)
-and take_ignored_format_readers : type x y a c d e f effect p.
-    ((d, e, p) heter_list -[.. as p]-> e) ->
+and take_ignored_format_readers : type x y a c d e f. effect p.
+    ((d, e, p) heter_list -[p]-> e) ->
       (a, Scanning.in_channel, c, d, x, y, p) ignored ->
-      (y, Scanning.in_channel, c, x, e, f, p) fmt -[.. as p]-> d =
+      (y, Scanning.in_channel, c, x, e, f, p) fmt -[p]-> d =
 fun k ign fmt -> match ign with
   | Ignored_reader ->
     fun reader ->
@@ -1112,9 +1112,9 @@ fun k ign fmt -> match ign with
    take_format_readers, and aggegate scanned values into an
    heterogeneous list. *)
 (* Return the heterogeneous list of scanned values. *)
-let rec make_scanf : type a c d e f effect p.
+let rec make_scanf : type a c d e f. effect p.
     Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p) fmt ->
-      (d, _, p) heter_list -[.. as p]-> (a, f, p) heter_list =
+      (d, _, p) heter_list -[p]-> (a, f, p) heter_list =
 fun ib fmt readers -> match fmt with
   | Char rest ->
     let _ = scan_char 0 ib in
@@ -1267,12 +1267,12 @@ fun ib fmt readers -> match fmt with
 (* Case analysis on padding and precision. *)
 (* Reject formats containing "%*" or "%.*". *)
 (* Pass padding and precision to the generic scanner `scan'. *)
-and pad_prec_scanf : type a c d e f x y z t effect p.
+and pad_prec_scanf : type a c d e f x y z t. effect p.
     Scanning.in_channel -> (a, Scanning.in_channel, c, d, e, f, p) fmt ->
       (d, _, p) heter_list -> (x, y, p) padding ->
-      (y, z -[.. as p]-> a, p) precision ->
+      (y, z -[p]-> a, p) precision ->
       (int -> int -> Scanning.in_channel -> t) ->
-      (Scanning.in_channel -> z) -[.. as p]->
+      (Scanning.in_channel -> z) -[p]->
       (x, f, p) heter_list =
 fun ib fmt readers pad prec scan token -> match pad, prec with
   | No_padding, No_precision ->
@@ -1305,7 +1305,7 @@ fun ib fmt readers pad prec scan token -> match pad, prec with
 
 type 'a kscanf_result = Args of 'a | Exc of exn
 let kscanf ib ef (Format (fmt, str)) =
-  let rec apply : type a b effect p. a -> (a, b, p) heter_list -[.. as p]-> b =
+  let rec apply : type a b. effect p. a -> (a, b, p) heter_list -[p]-> b =
     fun f args -> match args with
     | Cons (x, r) -> apply (f x) r
     | Nil -> f

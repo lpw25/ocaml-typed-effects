@@ -1575,8 +1575,6 @@ poly_type_list_effect:
 poly_type_list:
   | TYPE poly_type_list_type DOT                    { $2 }
   | EFFECT poly_type_list_effect DOT                { $2 }
-  | TYPE poly_type_list_type poly_type_list         { $2 @ $3 }
-  | EFFECT poly_type_list_effect poly_type_list     { $2 @ $3 }
   | TYPE poly_type_list_type DOT poly_type_list     { $2 @ $4 }
   | EFFECT poly_type_list_effect DOT poly_type_list { $2 @ $4 }
 ;
@@ -2313,8 +2311,6 @@ nonsingle_effect_row:
   | effect_fields BARDOTDOT
       { let row = mktyp Ptyp_any in
         mkeffect $1 (Some row) }
-  | effect_fields BAR DOTDOT AS simple_core_type2
-      { mkeffect $1 (Some $5) }
 ;
 
 effect_row:
@@ -2341,8 +2337,6 @@ effect_row:
         mkeffect [] (Some row) }
   | nonsingle_effect_row
       { $1 }
-  | DOTDOT AS simple_core_type2
-      { mkeffect [] (Some $3) }
 ;
 
 simple_core_type:

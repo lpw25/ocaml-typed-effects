@@ -522,7 +522,7 @@ and ('a, 'b, 'c, 'd, 'e, 'f, !~) format6e =
 
 let rec erase_rel :
   type a b c d e f
-       g h i j k l effect p q.
+       g h i j k l . effect p q.
   (a, b, c, d, e, f, p,
    g, h, i, j, k, l, q) fmtty_rel ->
   (a, b, c, d, e, f, p) fmtty
@@ -577,7 +577,7 @@ let rec concat_fmtty : type a b c d e f g h .
 let rec concat_fmtty :
   type a1 b1 c1 d1 e1 f1
        a2 b2 c2 d2 e2 f2
-       g1 j1 g2 j2 effect p1 p2.
+       g1 j1 g2 j2 . effect p1 p2.
     (g1, b1, c1, j1, d1, a1, p1,
      g2, b2, c2, j2, d2, a2, p2) fmtty_rel ->
     (a1, b1, c1, d1, e1, f1, p1,
@@ -623,7 +623,7 @@ fun fmtty1 fmtty2 -> match fmtty1 with
 (* Concatenate two formats. *)
 let rec concat_fmt :
   type a b c d e f
-       g h effect p.
+       g h. effect p.
     (a, b, c, d, e, f, p) fmt ->
     (f, b, c, e, g, h, p) fmt ->
     (a, b, c, d, g, h, p) fmt =
