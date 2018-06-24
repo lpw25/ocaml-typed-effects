@@ -250,55 +250,10 @@ and print_simple_out_type ppf =
         )
         n tyl;
       fprintf ppf ")@]"
-  | Otyp_effects(cstrs, row_opt) ->
+  | Otyp_effects row ->
       pp_print_string ppf "![";
-      print_list
-        print_out_type (fun ppf -> pp_print_string ppf " | ")
-        ppf cstrs;
-      begin match cstrs, row_opt with
-      | [], _ -> ()
-      | _, None -> ()
-      | _ :: _, Some _ ->
-          pp_print_string ppf " | ";
-      end;
-      begin match row_opt with
-      | None -> ()
-      | Some row ->
-          print_out_type ppf row
-      end;
+      print_row ppf row;
       pp_print_string ppf "]"
-  | Otyp_econstr (label, polys, args, res_opt, def) ->
-     let print_args ppf args =
-       print_typlist print_simple_out_type " * " ppf args
-     in
-     let print_default ppf def =
-       if def then fprintf ppf "?"
-       else ()
-     in
-     match polys, res_opt, args with
-     | _, None, [] ->
-        fprintf ppf "%a%s" print_default def label
-     | _, None, args ->
-        fprintf ppf
-          "%a%s of %a"
-          print_default def label print_args args
-     | [], Some res, [] ->
-        fprintf ppf
-          "%a%s : %a"
-          print_default def label print_out_type res
-     | [], Some res, args ->
-        fprintf ppf
-          "%a%s : %a -> %a"
-          print_default def label print_args args print_out_type res
-     | polys, Some res, [] ->
-        fprintf ppf
-          "%a%s : %a.@ %a"
-          print_default def label pr_vars polys print_out_type res
-     | polys, Some res, args ->
-        fprintf ppf
-          "%a%s : %a.@ %a -> %a"
-          print_default def label pr_vars polys
-          print_args args print_out_type res
 
 and print_fields rest ppf =
   function
@@ -344,34 +299,76 @@ and print_typargs ppf =
       pp_print_char ppf ')';
       pp_close_box ppf ();
       pp_print_space ppf ()
+
+and print_effect_constructor ppf econstr =
+  let print_args ppf args =
+    print_typlist print_simple_out_type " * " ppf args
+  in
+  let print_default ppf default =
+    if default then fprintf ppf "?"
+    else ()
+  in
+  let
+    { oeconstr_label = label; oeconstr_polys = polys;
+      oeconstr_args = args; oeconstr_res = res_opt;
+      oeconstr_default = default; } = econstr
+  in
+  match polys, res_opt, args with
+  | _, None, [] ->
+     fprintf ppf "%a%s" print_default default label
+  | _, None, args ->
+     fprintf ppf
+       "%a%s of %a"
+       print_default default label print_args args
+  | [], Some res, [] ->
+     fprintf ppf
+       "%a%s : %a"
+       print_default default label print_out_type res
+  | [], Some res, args ->
+     fprintf ppf
+       "%a%s : %a -> %a"
+       print_default default label print_args args print_out_type res
+  | polys, Some res, [] ->
+     fprintf ppf
+       "%a%s : %a.@ %a"
+       print_default default label pr_vars polys print_out_type res
+  | polys, Some res, args ->
+     fprintf ppf
+       "%a%s : %a.@ %a -> %a"
+       print_default default label pr_vars polys
+       print_args args print_out_type res
+
+and print_row ppf row =
+  let rec loop first ppf row =
+    match row with
+    | Oeff_constr(econstr, row) ->
+        if not first then pp_print_string ppf " | ";
+        print_effect_constructor ppf econstr;
+        loop false ppf row
+    | Oeff_alias(row, var) ->
+        if not first then pp_print_string ppf " | ";
+        fprintf ppf "@[(%a)@] as %a" (loop true) row pr_gvar var
+    | Oeff_row row ->
+        if not first then pp_print_string ppf " | ";
+        print_out_type ppf row
+    | Oeff_nil -> ()
+  in
+  loop true ppf row
+
 and print_arrow ppf =
   function
   | Oarr_io -> pp_print_string ppf "->"
   | Oarr_io_tilde -> pp_print_string ppf "~>"
-  | Oarr_io_row(cstrs, row_opt) ->
+  | Oarr_io_row row ->
       pp_print_string ppf "-[";
-      print_arrow_constructors ppf cstrs row_opt;
+      print_row ppf row;
       pp_print_string ppf "]->"
   | Oarr_io_tilde_row cstrs ->
       pp_print_string ppf "~[";
       print_list
-        print_out_type (fun ppf -> pp_print_string ppf " | ")
+        print_effect_constructor (fun ppf -> pp_print_string ppf " | ")
         ppf cstrs;
       pp_print_string ppf "]~>"
-
-and print_arrow_constructors ppf cstrs row_opt =
-  print_list
-    print_out_type (fun ppf -> pp_print_string ppf " | ")
-    ppf cstrs;
-  begin match cstrs, row_opt with
-  | [], _ -> ()
-  | _, None -> ()
-  | _ :: _, Some _ -> pp_print_string ppf " | ";
-  end;
-  begin match row_opt with
-  | None -> ()
-  | Some row -> print_out_type ppf row
-  end
 
 let out_type = ref print_out_type
 

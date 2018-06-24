@@ -64,32 +64,34 @@ type out_type =
       bool * out_variant * bool * (string list) option
   | Otyp_poly of (string * out_sort) list * out_type
   | Otyp_module of string * string list * out_type list
-  | Otyp_effects of out_type list * out_type option
-  | Otyp_econstr of
-      string * (string * out_sort) list * out_type list
-      * out_type option * bool
+  | Otyp_effects of out_effect_row
 
 and out_variant =
   | Ovar_fields of (string * bool * out_type list) list
   | Ovar_name of out_ident * out_type list
 
+and out_effect_constructor =
+  { oeconstr_label : string;
+    oeconstr_polys : (string * out_sort) list;
+    oeconstr_args : out_type list;
+    oeconstr_res : out_type option;
+    oeconstr_default : bool; }
+
+and out_effect_row =
+  | Oeff_constr of out_effect_constructor * out_effect_row
+  | Oeff_alias of out_effect_row * (string * out_sort)
+  | Oeff_row of out_type
+  | Oeff_nil
+
 and out_arrow =
   | Oarr_io
   | Oarr_io_tilde
-  | Oarr_io_row of out_type list * out_type option
-  | Oarr_io_tilde_row of out_type list
+  | Oarr_io_row of out_effect_row
+  | Oarr_io_tilde_row of out_effect_constructor list
 
 and out_label_mutability =
   | Olmut_immutable
   | Olmut_mutable
-
-(* type out_effect =
- *   { oeff_manifest: out_ident option;
- *     oeff_kind: out_effect_kind; }
- * 
- * and out_effect_kind =
- *   | Oeff_abstract
- *   | Oeff_variant of (string * out_type list * out_type option) list *)
 
 type out_class_type =
   | Octy_constr of out_ident * out_type list

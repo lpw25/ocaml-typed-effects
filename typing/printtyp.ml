@@ -533,7 +533,7 @@ let add_alias ty =
 
 let aliasable ty =
   match ty.desc with
-    Tvar _ | Tunivar _ | Tpoly _ -> false
+    Tvar _ | Tunivar _ | Tpoly _ | Tenil -> false
   | Tconstr (p, _, _, _) ->
       not (is_nth (snd (best_type_path p)))
   | _ -> true
@@ -666,7 +666,7 @@ let rec tree_of_typexp sch ty =
               | _ -> Otyp_stuff "<hidden>"
             else tree_of_typexp sch ty1
           in
-          let t2 = tree_of_typeffect sch ty2 in
+          let t2 = tree_of_arrow sch ty2 in
           let t3 = tree_of_typexp sch ty3 in
           Otyp_arrow (lab, t1, t2, t3)
         in
@@ -752,19 +752,14 @@ let rec tree_of_typexp sch ty =
         let n =
           List.map (fun li -> String.concat "." (Longident.flatten li)) n in
         Otyp_module (Path.name p, n, tree_of_typlist sch tyl)
-    | Teffect (_, _) ->
-        let (effects, row) = Ctype.flatten_effects ty in
-        let row = repr row in
-        let effects =
-          List.map (tree_of_effect_constructor sch) effects
-        in
-         let row =
-          match row.desc with
-          | Tenil -> None
-          | _ -> Some (tree_of_typexp sch row)
-        in
-        Otyp_effects(effects, row)
-    | Tenil -> Otyp_effects([], None)
+    | Teffect (econstr, ty') ->
+        let row' = tree_of_row sch ty' in
+        let econstr = tree_of_effect_constructor sch econstr in
+        let row = Oeff_constr(econstr, row') in
+        Otyp_effects row
+    | Tenil ->
+        let row = Oeff_nil in
+        Otyp_effects row
   in
   if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
   if is_aliased px && aliasable ty then begin
@@ -778,7 +773,11 @@ and tree_of_effect_constructor sch = function
       | [] ->
           let res = Misc.may_map (tree_of_typexp sch) ec_res in
           let args = tree_of_typlist sch ec_args in
-          Otyp_econstr(ec_label, [], args, res, ec_default)
+          { oeconstr_label = ec_label;
+            oeconstr_polys = [];
+            oeconstr_args = args;
+            oeconstr_res = res;
+            oeconstr_default = ec_default; }
       | polys ->
           let tyl = List.map repr polys in
           let old_delayed = !delayed in
@@ -788,7 +787,11 @@ and tree_of_effect_constructor sch = function
           let args = tree_of_typlist sch ec_args in
           remove_names tyl;
           delayed := old_delayed;
-          Otyp_econstr(ec_label, tl, args, res, ec_default)
+          { oeconstr_label = ec_label;
+            oeconstr_polys = tl;
+            oeconstr_args = args;
+            oeconstr_res = res;
+            oeconstr_default = ec_default; }
     end
 
 and tree_of_row_field sch (l, f) =
@@ -849,40 +852,54 @@ and tree_of_typfields sch rest = function
       let (fields, rest) = tree_of_typfields sch rest l in
       (field :: fields, rest)
 
-and tree_of_typeffect sch ty =
+and tree_of_row sch ty =
   let ty = repr ty in
-  let px = proxy ty in
-  let effects, row =
-    if List.mem_assq px !names && not (List.memq px !delayed) then begin
-      let mark = is_non_gen sch ty in
-      let row = Otyp_var (mark, tree_of_name (name_of_type px)) in
-      [], Some row
-    end else if is_aliased px && aliasable ty then begin
-      let row = tree_of_typexp sch ty in
-      [], Some row
-    end else begin
-      let (effects, row) = Ctype.flatten_effects px in
-      let row = repr row in
-      let row =
-        match row.desc with
-        | Tenil -> None
-        | _ -> Some (tree_of_typexp sch row)
-      in
-      effects, row
-    end
+  if List.mem_assq ty !names && not (List.memq ty !delayed) then begin
+    let mark = is_non_gen sch ty in
+    let row = Otyp_var (mark, tree_of_name (name_of_type ty)) in
+    Oeff_row row
+  end else begin
+    match ty.desc with
+    | Teffect(econstr, ty') ->
+        let pr_eff () =
+          let row' = tree_of_row sch ty' in
+          let econstr = tree_of_effect_constructor sch econstr in
+          Oeff_constr(econstr, row')
+        in
+        if is_aliased ty then begin
+          check_name_of_type ty;
+          Oeff_alias (pr_eff (), tree_of_name (name_of_type ty))
+        end else begin
+          pr_eff ()
+        end
+    | Tenil ->
+        Oeff_nil
+    | _ ->
+        let row = tree_of_typexp sch ty in
+        Oeff_row row
+  end
+
+and tree_of_arrow sch ty =
+  let row = tree_of_row sch ty in
+  let rec loop econstrs aliased = function
+    | Oeff_constr(econstr, next) ->
+        loop (econstr :: econstrs) aliased next
+    | Oeff_alias(next, _) ->
+        loop econstrs true next
+    | Oeff_row (Otyp_var(false, ("~", Osrt_effect))) when not aliased -> begin
+        match econstrs with
+        | [] -> Oarr_io_tilde
+        | _ -> Oarr_io_tilde_row (List.rev econstrs)
+      end
+    | Oeff_row ty ->
+        Oarr_io_row row
+    | Oeff_nil -> begin
+        match econstrs with
+        | [] -> Oarr_io
+        | _ -> Oarr_io_row row
+      end
   in
-  let tilde, row =
-    match row with
-    | Some (Otyp_var(false, ("~", Osrt_effect))) -> true, None
-    | _ -> false, row
-  in
-  let effects = List.map (tree_of_effect_constructor sch) effects in
-  match effects, tilde, row with
-  | [], false, None -> Oarr_io
-  | [], false, Some _ -> Oarr_io_row([], row)
-  | [], true, _ -> Oarr_io_tilde
-  | _, false, _ -> Oarr_io_row(effects, row)
-  | _, true, _ -> Oarr_io_tilde_row effects
+  loop [] false row
 
 let typexp sch prio ppf ty =
   !Oprint.out_type ppf (tree_of_typexp sch ty)
