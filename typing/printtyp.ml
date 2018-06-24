@@ -850,12 +850,26 @@ and tree_of_typfields sch rest = function
       (field :: fields, rest)
 
 and tree_of_typeffect sch ty =
-  let (effects, row) = Ctype.flatten_effects ty in
-  let row = repr row in
-  let row =
-    match row.desc with
-    | Tenil -> None
-    | _ -> Some (tree_of_typexp sch row)
+  let ty = repr ty in
+  let px = proxy ty in
+  let effects, row =
+    if List.mem_assq px !names && not (List.memq px !delayed) then begin
+      let mark = is_non_gen sch ty in
+      let row = Otyp_var (mark, tree_of_name (name_of_type px)) in
+      [], Some row
+    end else if is_aliased px && aliasable ty then begin
+      let row = tree_of_typexp sch ty in
+      [], Some row
+    end else begin
+      let (effects, row) = Ctype.flatten_effects px in
+      let row = repr row in
+      let row =
+        match row.desc with
+        | Tenil -> None
+        | _ -> Some (tree_of_typexp sch row)
+      in
+      effects, row
+    end
   in
   let tilde, row =
     match row with
