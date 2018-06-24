@@ -1573,10 +1573,12 @@ poly_type_list_effect:
       { ($1, Effect) :: $2 }
 ;
 poly_type_list:
-  | TYPE poly_type_list_type                        { $2 }
-  | EFFECT poly_type_list_effect                    { $2 }
+  | TYPE poly_type_list_type DOT                    { $2 }
+  | EFFECT poly_type_list_effect DOT                { $2 }
   | TYPE poly_type_list_type poly_type_list         { $2 @ $3 }
   | EFFECT poly_type_list_effect poly_type_list     { $2 @ $3 }
+  | TYPE poly_type_list_type DOT poly_type_list     { $2 @ $4 }
+  | EFFECT poly_type_list_effect DOT poly_type_list { $2 @ $4 }
 ;
 let_binding_body:
     val_ident fun_binding
@@ -1585,8 +1587,8 @@ let_binding_body:
       { (ghpat(Ppat_constraint(mkpatvar $1 1,
                                ghtyp(Ptyp_poly(List.rev $3,$5)))),
          $7) }
-  | val_ident COLON poly_type_list DOT core_type EQUAL seq_expr
-      { let exp, poly = wrap_type_annotation $3 $5 $7 in
+  | val_ident COLON poly_type_list core_type EQUAL seq_expr
+      { let exp, poly = wrap_type_annotation $3 $4 $6 in
         (ghpat(Ppat_constraint(mkpatvar $1 1, poly)), exp) }
   | pattern EQUAL seq_expr
       { ($1, $3) }
@@ -2246,26 +2248,6 @@ arrow:
       { mkarrow true (Some (mkeffect $2 None)) }
 ;
 
-effect_fields:
-  | /* empty */
-      { [] }
-  | effect_field
-      { [$1] }
-  | effect_fields BAR effect_field
-      { $3 :: $1 }
-;
-
-effect_field:
-  | effect_constructor
-      { $1 }
-  | type_longident
-      { mkeinherit (mkrhs $1 1) [] }
-  | simple_core_type2 type_longident
-      { mkeinherit (mkrhs $2 2) [$1] }
-  | LPAREN core_type_comma_list RPAREN type_longident
-      { mkeinherit (mkrhs $4 4) (List.rev $2) }
-;
-
 effect_constructor:
   | UIDENT attributes
       { mkeconstructor $1 [] [] None false ~attrs:$2 }
@@ -2288,39 +2270,79 @@ effect_constructor:
 
 ;
 
-effect_row:
-  | effect_fields
-      { mkeffect $1 None }
-  | effect_fields BAR DOTDOT AS core_type
-      { mkeffect $1 (Some $5) }
-  | effect_fields BARDOTDOT AS core_type
-      { mkeffect $1 (Some $4) }
-  | DOTDOT AS core_type
-      { mkeffect [] (Some $3) }
+effect_fields:
+  | /* empty */
+      { [] }
+  | effect_field
+      { [$1] }
+  | effect_fields BAR effect_field
+      { $3 :: $1 }
+;
+
+effect_field:
+  | effect_constructor
+      { $1 }
+  | type_longident
+      { mkeinherit (mkrhs $1 1) [] }
+  | simple_core_type2 type_longident
+      { mkeinherit (mkrhs $2 2) [$1] }
+  | LPAREN core_type_comma_list RPAREN type_longident
+      { mkeinherit (mkrhs $4 4) (List.rev $2) }
+;
+
+nonsingle_effect_row:
+  | effect_fields BAR effect_constructor
+      { mkeffect ($3 :: $1) None }
+  | effect_fields BAR simple_core_type
+      { mkeffect $1 (Some $3) }
+  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANG ident
+      { let eff = mktyp(Ptyp_effect $4) in
+        let alias = mktyp(Ptyp_alias(eff, $8, Effect)) in
+        mkeffect $1 (Some (alias)) }
+  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANG TILDE
+      { let eff = mktyp(Ptyp_effect $4) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect $1 (Some (alias)) }
+  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANGTILDE
+      { let eff = mktyp(Ptyp_effect $4) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect $1 (Some (alias)) }
   | effect_fields BAR DOTDOT
       { let row = mktyp Ptyp_any in
-          mkeffect $1 (Some row) }
+        mkeffect $1 (Some row) }
+  | effect_fields BARDOTDOT
+      { let row = mktyp Ptyp_any in
+        mkeffect $1 (Some row) }
+  | effect_fields BAR DOTDOT AS simple_core_type2
+      { mkeffect $1 (Some $5) }
+;
+
+effect_row:
+  | /* empty */
+      { mkeffect [] None }
+  | effect_constructor
+      { mkeffect [$1] None }
+  | simple_core_type
+      { mkeffect [] (Some $1) }
+  | LPAREN nonsingle_effect_row RPAREN AS BANG ident
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, $6, Effect)) in
+        mkeffect [] (Some (alias)) }
+  | LPAREN nonsingle_effect_row RPAREN AS BANG TILDE
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect [] (Some (alias)) }
+  | LPAREN nonsingle_effect_row RPAREN AS BANGTILDE
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect [] (Some (alias)) }
   | DOTDOT
       { let row = mktyp Ptyp_any in
-          mkeffect [] (Some row) }
-  | effect_fields BAR BANG ident
-      { let row = mktyp(Ptyp_var($4, Effect)) in
-          mkeffect $1 (Some row) }
-  | BANG ident
-      { let row = mktyp(Ptyp_var($2, Effect)) in
         mkeffect [] (Some row) }
-  | effect_fields BAR BANG TILDE
-      { let row = mktyp(Ptyp_var("~", Effect)) in
-          mkeffect $1 (Some row) }
-  | BANG TILDE
-      { let row = mktyp(Ptyp_var("~", Effect)) in
-          mkeffect [] (Some row) }
-  | effect_fields BAR BANGTILDE
-      { let row = mktyp(Ptyp_var("~", Effect)) in
-          mkeffect $1 (Some row) }
-  | BANGTILDE
-      { let row = mktyp(Ptyp_var("~", Effect)) in
-          mkeffect [] (Some row) }
+  | nonsingle_effect_row
+      { $1 }
+  | DOTDOT AS simple_core_type2
+      { mkeffect [] (Some $3) }
 ;
 
 simple_core_type:
