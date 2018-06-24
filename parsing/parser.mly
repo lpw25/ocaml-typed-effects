@@ -2288,20 +2288,37 @@ effect_field:
       { mkeinherit (mkrhs $4 4) (List.rev $2) }
 ;
 
-nonsingle_effect_row:
+aliasable_effect_row:
+  | effect_constructor
+      { mkeffect [$1] None }
+  | LPAREN aliasable_effect_row RPAREN AS BANG ident
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, $6, Effect)) in
+        mkeffect [] (Some (alias)) }
+  | LPAREN aliasable_effect_row RPAREN AS BANG TILDE
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect [] (Some (alias)) }
+  | LPAREN aliasable_effect_row RPAREN AS BANGTILDE
+      { let eff = mktyp(Ptyp_effect $2) in
+        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
+        mkeffect [] (Some (alias)) }
+  | DOTDOT
+      { let row = mktyp Ptyp_any in
+        mkeffect [] (Some row) }
   | effect_fields BAR effect_constructor
       { mkeffect ($3 :: $1) None }
   | effect_fields BAR simple_core_type
       { mkeffect $1 (Some $3) }
-  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANG ident
+  | effect_fields BAR LPAREN aliasable_effect_row RPAREN AS BANG ident
       { let eff = mktyp(Ptyp_effect $4) in
         let alias = mktyp(Ptyp_alias(eff, $8, Effect)) in
         mkeffect $1 (Some (alias)) }
-  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANG TILDE
+  | effect_fields BAR LPAREN aliasable_effect_row RPAREN AS BANG TILDE
       { let eff = mktyp(Ptyp_effect $4) in
         let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
         mkeffect $1 (Some (alias)) }
-  | effect_fields BAR LPAREN nonsingle_effect_row RPAREN AS BANGTILDE
+  | effect_fields BAR LPAREN aliasable_effect_row RPAREN AS BANGTILDE
       { let eff = mktyp(Ptyp_effect $4) in
         let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
         mkeffect $1 (Some (alias)) }
@@ -2316,26 +2333,9 @@ nonsingle_effect_row:
 effect_row:
   | /* empty */
       { mkeffect [] None }
-  | effect_constructor
-      { mkeffect [$1] None }
   | simple_core_type
       { mkeffect [] (Some $1) }
-  | LPAREN nonsingle_effect_row RPAREN AS BANG ident
-      { let eff = mktyp(Ptyp_effect $2) in
-        let alias = mktyp(Ptyp_alias(eff, $6, Effect)) in
-        mkeffect [] (Some (alias)) }
-  | LPAREN nonsingle_effect_row RPAREN AS BANG TILDE
-      { let eff = mktyp(Ptyp_effect $2) in
-        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
-        mkeffect [] (Some (alias)) }
-  | LPAREN nonsingle_effect_row RPAREN AS BANGTILDE
-      { let eff = mktyp(Ptyp_effect $2) in
-        let alias = mktyp(Ptyp_alias(eff, "~", Effect)) in
-        mkeffect [] (Some (alias)) }
-  | DOTDOT
-      { let row = mktyp Ptyp_any in
-        mkeffect [] (Some row) }
-  | nonsingle_effect_row
+  | aliasable_effect_row
       { $1 }
 ;
 
