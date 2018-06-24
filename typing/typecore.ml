@@ -4524,11 +4524,11 @@ let report_error env ppf = function
         longident lid
   | Toplevel_no_default_handler(lbl, str) ->
       fprintf ppf
-        "@[This %s performs effect %s.@]"
+        "@[This %s performs unhandled effect %s.@]"
         str lbl
   | Toplevel_unknown_effects(ty, str) ->
       fprintf ppf
-        "@[This %s performs effects %a.@]"
+        "@[This %s performs unhandled effects %a.@]"
         str Printtyp.type_sch ty
 
 let report_error env ppf err =
